@@ -1,3 +1,23 @@
+# ダウンロードした DEB パッケージ（手動で取得した Chrome など）
+*.deb
+
+# OSごとの一時ファイル
+.DS_Store
+Thumbs.db
+
+# log, tmp, cache ディレクトリ
+log/
+tmp/
+cache/
+
+# npm link で作られるグローバルモジュールのシンボリックリンク
+*.local
+
+# IDE・エディタ関連
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 config.js
 stub.js
 # Logs
@@ -129,4 +149,7 @@ dist
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
-.pnp.*
+.pnp.*%   
+
+chromedriver-linux64/
+chromedriver-linux64.zip 
