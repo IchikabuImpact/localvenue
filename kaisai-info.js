@@ -6,12 +6,18 @@ const webdriver = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
 const options = new chrome.Options();
-options.addArguments('--headless', '--disable-cache');
-
+options.addArguments(
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--window-size=1366,1000',   // ← スマホ版に落ちない幅にする
+      '--lang=ja-JP'
+    );
 const driver = new webdriver.Builder()
   .forBrowser('chrome')
   .setChromeOptions(options)
   .build();
+  
   driver.manage().deleteAllCookies();
 // ページを開く前にキャッシュをクリアする
 driver.executeScript(() => {
