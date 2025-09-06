@@ -1,9 +1,9 @@
 /**
- * kaisai-info.js
+ * Kaisai-info.js
  * Usage:
- *   node kaisai-info.js           // 今月
- *   node kaisai-info.js 2025 09   // 年 月
- *   node kaisai-info.js 202509    // 6桁(YYYYMM)
+ *   node Kaisai-info.js           // 今月
+ *   node Kaisai-info.js 2025 09   // 年 月
+ *   node Kaisai-info.js 202509    // 6桁(YYYYMM)
  */
 
 const {Builder, By, until} = require('selenium-webdriver');
@@ -33,20 +33,20 @@ options.addArguments(
 const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
 // -------- venue → テーブル行番号 --------
-const venuPositionIndex = {
+const venuePositionIndex = {
   "門別": 4, "札幌": 5, "盛岡": 6, "水沢": 7, "浦和": 8, "船橋": 9,
   "大井": 10, "川崎": 11, "金沢": 12, "笠松": 13, "名古屋": 14, "中京": 15,
   "園田": 16, "姫路": 17, "高知": 18, "佐賀": 19
 };
-const VENUES = Object.keys(venuPositionIndex);
+const VENUES = Object.keys(venuePositionIndex);
 
 // -------- babaコードのフォールバック --------
-const venuecodes = {
+const venueCodes = {
   10: "盛岡", 11: "水沢", 18: "浦和", 19: "船橋", 20: "大井", 21: "川崎",
   22: "金沢", 23: "笠松", 24: "名古屋", 25: "中京", 27: "園田", 28: "姫路",
   31: "高知", 32: "佐賀", 36: "門別", 43: "岩手"
 };
-const fallbackMap = new Map(Object.entries(venuecodes).map(([k,v]) => [v, Number(k)]));
+const fallbackMap = new Map(Object.entries(venueCodes).map(([k,v]) => [v, Number(k)]));
 
 // -------- 共通ユーティリティ --------
 const toDate = s => `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
@@ -76,10 +76,10 @@ async function openMonthlyPage() {
  * @param {string} venue
  * @returns {Object} 例: {'20250902':'門別', ...}
  */
-async function readVenuOnce(venue) {
+async function readVenueOnce(venue) {
   const results = {};
   try {
-    const row = venuPositionIndex[venue];
+    const row = venuePositionIndex[venue];
     if (!row) return results;
 
     // ★ その月の実日数を計算（例: 2025/09 → 30）
@@ -98,7 +98,7 @@ async function readVenuOnce(venue) {
       }
     }
   } catch (e) {
-    console.error('[readVenuOnce]', venue, e.message);
+    console.error('[readVenueOnce]', venue, e.message);
   }
   return results;
 }
@@ -120,7 +120,7 @@ async function saveResultToMysql(results) {
       host: 'localhost',
       user: config.mysql.user,
       password: config.mysql.password,
-      database: 'localkeiba',
+      database: config.mysql.database,
     });
 
     await connection.beginTransaction();
@@ -137,9 +137,7 @@ async function saveResultToMysql(results) {
 
       const d = toDate(k); // DATE型に適合させる
       await connection.execute(
-        `INSERT INTO calendar (race_date, venucode, venue)
-         VALUES (?,?,?)
-         ON DUPLICATE KEY UPDATE venue=VALUES(venue)`,
+        `INSERT INTO calendar (race_date, code, venue) VALUES (?,?,?) ON DUPLICATE KEY UPDATE venue=VALUES(venue)`,
         [d, code, venue]
       );
     }
@@ -160,7 +158,7 @@ async function saveResultToMysql(results) {
     console.log(`[INFO] 取得対象: ${year}-${month}`);
     await openMonthlyPage();
 
-    const resultsList = await Promise.all(VENUES.map(v => readVenuOnce(v)));
+    const resultsList = await Promise.all(VENUES.map(v => readVenueOnce(v)));
     resultsList.forEach(r => console.log(r)); // ログ確認
 
     // 旧構造を踏襲：会場ごとに保存（空はスキップされる）

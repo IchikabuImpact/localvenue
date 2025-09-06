@@ -1,14 +1,21 @@
 # 地方競馬(サラ系）の予想プログラムです。
 # src
+``
 git clone https://github.com/kenchanbaken/localvenue.git
+``
+
 # node.js v18.16.0
+``
 npm install
+``
+
 # config.jsを手動で作成します。
 ```
 module.exports = {
   mysql: {
     user: 'youruser',
-    password: 'yourepass'
+    password: 'yourepass',
+    database: 'localkeiba'
   }
 }
 ```
@@ -19,17 +26,30 @@ CREATE USER 'localkeiba'@'localhost' IDENTIFIED BY '強いパスワード';
 GRANT ALL PRIVILEGES ON localkeiba.* TO 'localkeiba'@'localhost';
 ```
 # tableを作成します。
+```
 localkeiba.sql
+
+
 # 1.今月の開催情報をDBに登録します。
-node kaisai-info.js
+``
+node Kaisai-info.js yyyy mm
+``
+
 # 2.開催情報をAPIとして起動します。
+``
 node api-todays-venue.js &
+``
 # 3.本日開催されるレース情報をDBに登録します。
+``
 save-race-count-by-date.js yyyymmdd
+``
 
 # step実行するには
-.vscode/launch.jsonを作成します
-`````````
+``
+vscode/launch.jsonを作成します
+```
+
+```````
 {
   "version": "0.2.0",
   "configurations": [
@@ -43,11 +63,11 @@ save-race-count-by-date.js yyyymmdd
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "kaisai-info.js (引数あり)",
+      "name": "Kaisai-info.js (引数あり)",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/kaisai-info.js",
-      "args": ["2025", "09"],         // ← process.argv[2], [3] に入ります
+      "program": "${workspaceFolder}/Kaisai-info.js",
+      "args": ["2025", "09"],         // ← yyyy  mm   process.argv[2], [3] に入ります
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopOnEntry": true,
@@ -72,5 +92,4 @@ save-race-count-by-date.js yyyymmdd
     }
   ]
 }
-```
-
+``
