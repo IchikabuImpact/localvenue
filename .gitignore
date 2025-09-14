@@ -153,3 +153,12 @@ dist
 
 chromedriver-linux64/
 chromedriver-linux64.zip 
+node_modules/
+config.js
+.env
+npm-debug.log*
+*.log
+.DS_Store
+.idea/
+.vscode/
+pm2.log
