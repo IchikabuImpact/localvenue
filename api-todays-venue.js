@@ -14,10 +14,10 @@ const config = require('./config.js');
 
 // MySQL接続
 const connection = mysql.createConnection({
-  host: 'localhost',
+  host: config.mysql.host,
   user: config.mysql.user,
   password: config.mysql.password,
-  database: 'localkeiba'
+  database: config.mysql.database
 });
 
 // MySQL接続確認

@@ -134,7 +134,7 @@ async function saveAllToMysql(merged) {
     }
 
     conn = await mysql.createConnection({
-      host: 'localhost',
+      host: config.mysql.host,
       user: config.mysql.user,
       password: config.mysql.password,
       database: config.mysql.database,
