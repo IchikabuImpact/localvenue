@@ -1,12 +1,11 @@
 /**
- * Kaisai-info.js
+ * Kaisai-info.js N月の開催情報をMysqlのDBに保存します。
  * Usage:
  *   node Kaisai-info.js           // 今月
  *   node Kaisai-info.js 2025 09   // 年 月
- *   node Kaisai-info.js 202509    // 6桁(YYYYMM)
  */
 
-const {Builder, By, until} = require('selenium-webdriver');
+const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
 
@@ -14,14 +13,14 @@ const mysql = require('mysql2/promise');
 function parseYearMonth(argv) {
   const a = argv[2], b = argv[3];
   const now = new Date();
-  if (a && /^\d{6}$/.test(a)) return { year: a.slice(0,4), month: a.slice(4,6) };
-  const year  = a && /^\d{4}$/.test(a) ? a : String(now.getFullYear());
-  const month = b && /^\d{1,2}$/.test(b) ? String(b).padStart(2,'0') : String(now.getMonth()+1).padStart(2,'0');
+  if (a && /^\d{6}$/.test(a)) return { year: a.slice(0, 4), month: a.slice(4, 6) };
+  const year = a && /^\d{4}$/.test(a) ? a : String(now.getFullYear());
+  const month = b && /^\d{1,2}$/.test(b) ? String(b).padStart(2, '0') : String(now.getMonth() + 1).padStart(2, '0');
   return { year, month };
 }
 const { year, month } = parseYearMonth(process.argv);
 
-// -------- Selenium --------
+
 const options = new chrome.Options();
 options.addArguments(
   '--headless=new',
@@ -32,10 +31,10 @@ options.addArguments(
 );
 const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
-// -------- venue → テーブル行番号 --------
+
 const venuePositionIndex = {
-  "門別": 4, "札幌": 5, "盛岡": 6, "水沢": 7, "浦和": 8, "船橋": 9,
-  "大井": 10, "川崎": 11, "金沢": 12, "笠松": 13, "名古屋": 14, "中京": 15,
+  "門別": 4,  "盛岡": 6, "水沢": 7, "浦和": 8, "船橋": 9,
+  "大井": 10, "川崎": 11, "金沢": 12, "笠松": 13, "名古屋": 14, 
   "園田": 16, "姫路": 17, "高知": 18, "佐賀": 19
 };
 const VENUES = Object.keys(venuePositionIndex);
@@ -43,13 +42,12 @@ const VENUES = Object.keys(venuePositionIndex);
 // -------- babaコードのフォールバック --------
 const venueCodes = {
   10: "盛岡", 11: "水沢", 18: "浦和", 19: "船橋", 20: "大井", 21: "川崎",
-  22: "金沢", 23: "笠松", 24: "名古屋", 25: "中京", 27: "園田", 28: "姫路",
-  31: "高知", 32: "佐賀", 36: "門別", 43: "岩手"
+  22: "金沢", 23: "笠松", 24: "名古屋",  27: "園田", 28: "姫路",
+  31: "高知", 32: "佐賀", 36: "門別"
 };
-const fallbackMap = new Map(Object.entries(venueCodes).map(([k,v]) => [v, Number(k)]));
 
-// -------- 共通ユーティリティ --------
-const toDate = s => `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+const fallbackMap = new Map(Object.entries(venueCodes).map(([k, v]) => [v, Number(k)]));
+const toDate = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 
 async function openMonthlyPage() {
   const url = `https://www.keiba.go.jp/KeibaWeb/MonthlyConveneInfo/MonthlyConveneInfoTop?k_year=${year}&k_month=${month}`;
@@ -58,13 +56,13 @@ async function openMonthlyPage() {
   // 同意/OKが出る場合のケア（出なければスルー）
   for (const xp of [
     "//button[contains(.,'同意')]", "//button[contains(.,'同意する')]",
-    "//button[contains(.,'OK')]",   "//a[contains(.,'同意')]"
+    "//button[contains(.,'OK')]", "//a[contains(.,'同意')]"
   ]) {
     const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch(_){} break; }
+    if (els.length) { try { await els[0].click(); } catch (_) { } break; }
   }
 
-  // テーブルが出るまで待機
+
   const tbody = By.css('#mainContainer article table tbody');
   await driver.wait(until.elementLocated(tbody), 15000);
   const el = await driver.findElement(tbody);
@@ -72,12 +70,13 @@ async function openMonthlyPage() {
 }
 
 /**
- * 1会場分を読む
- * @param {string} venue
+ * readVenueOnce 1会場分を読む
+ * @param {string} venue  name of venue 
  * @returns {Object} 例: {'20250902':'門別', ...}
  */
 async function readVenueOnce(venue) {
   const results = {};
+  console.log('readVenueOnce'+venue);
   try {
     const row = venuePositionIndex[venue];
     if (!row) return results;
@@ -93,7 +92,7 @@ async function readVenueOnce(venue) {
       if (!text) continue;
 
       if (text.includes('●') || text.includes('Ｄ') || text.includes('☆')) {
-        const key = `${year}${String(month).padStart(2,'0')}${String(day).padStart(2,'0')}`;
+        const key = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
         results[key] = venue;
       }
     }
@@ -103,71 +102,78 @@ async function readVenueOnce(venue) {
   return results;
 }
 
-/**
- * 保存（results は 1会場ぶんの連想配列）
- */
-async function saveResultToMysql(results) {
-  const config = require('./config.js'); // { mysql: { user, password } }
-  let connection;
+
+function mergeResults(list) {
+  const merged = new Map(); // key: yyyymmdd, value: Set(venues)
+  for (const r of list) {
+    for (const [d, v] of Object.entries(r)) {
+      if (!merged.has(d)) merged.set(d, new Set());
+      merged.get(d).add(v);
+    }
+  }
+  return merged;
+}
+
+
+async function saveAllToMysql(merged) {
+  const config = require('./config.js');
+  let conn;
   try {
-    const keys = Object.keys(results || {});
-    if (keys.length === 0) {
-      console.log('[INFO] 空resultsのため保存スキップ');
+    const rows = [];
+    for (const [key, venues] of merged) {
+      const d = toDate(key);
+      for (const v of venues) {
+        const venucode = fallbackMap.get(v) || 0;
+        if (!venucode) continue;
+        rows.push([d, venucode, v]);
+      }
+    }
+    if (rows.length === 0) {
+      console.log('[INFO] まとめ保存対象なし');
       return;
     }
 
-    connection = await mysql.createConnection({
+    conn = await mysql.createConnection({
       host: 'localhost',
       user: config.mysql.user,
       password: config.mysql.password,
       database: config.mysql.database,
     });
+    await conn.beginTransaction();
 
-    await connection.beginTransaction();
-
-    for (const k of keys) {
-      const venue = results[k];
-      // venue名→コード解決（baba未整備時のフォールバック）
-      const codeStr = [...fallbackMap.entries()].find(([,name]) => name === venue)?.[0];
-      const code = fallbackMap.get(venue) || 0;
-      if (!code) {
-        console.warn(`[WARN] コード未解決: ${venue} (${k}) → スキップ`);
-        continue;
-      }
-
-      const d = toDate(k); // DATE型に適合させる
-      await connection.execute(
-        `INSERT INTO calendar (race_date, code, venue) VALUES (?,?,?) ON DUPLICATE KEY UPDATE venue=VALUES(venue)`,
-        [d, code, venue]
+    const chunkSize = 300;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => '(?,?,?)').join(',');
+      await conn.execute(
+        `INSERT INTO calendar (race_date, venucode, venue)
+         VALUES ${placeholders}
+         ON DUPLICATE KEY UPDATE venue=VALUES(venue)`,
+        chunk.flat()
       );
     }
 
-    await connection.commit();
-    console.log('[OK] Results saved to MySQL!');
-  } catch (error) {
-    if (connection) { try { await connection.rollback(); } catch(_){} } // ← ここが超重要
-    console.error('[ERROR] saveResultToMysql:', error.message);
+    await conn.commit();
+    console.log(`[OK] Bulk saved ${rows.length} rows to MySQL!`);
+  } catch (e) {
+    if (conn) { try { await conn.rollback(); } catch { } }
+    console.error('[ERROR] saveAllToMysql:', e.message);
   } finally {
-    if (connection) { try { await connection.end(); } catch(_){} }
+    if (conn) { try { await conn.end(); } catch { } }
   }
 }
 
-// ===== メイン =====
+// main
 (async () => {
   try {
     console.log(`[INFO] 取得対象: ${year}-${month}`);
     await openMonthlyPage();
-
     const resultsList = await Promise.all(VENUES.map(v => readVenueOnce(v)));
-    resultsList.forEach(r => console.log(r)); // ログ確認
-
-    // 旧構造を踏襲：会場ごとに保存（空はスキップされる）
-    for (const r of resultsList) {
-      await saveResultToMysql(r);
-    }
+    resultsList.forEach(r => { if (Object.keys(r).length) console.log(r); });
+    await saveAllToMysql(mergeResults(resultsList));
   } catch (e) {
     console.error('[FATAL]', e);
   } finally {
-    try { await driver.quit(); } catch(_) {}
+    try { await driver.quit(); } catch (_) { }
   }
 })();
