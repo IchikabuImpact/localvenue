@@ -48,48 +48,67 @@ REPLACE INTO `baba` (`baba_code`, `baba_name`) VALUES
 (50, '兵庫'),
 (61, '九州'),
 (80, '全国');
+mysql>  SHOW CREATE TABLE baba   \G;
+*************************** 1. row ***************************
+       Table: baba
+Create Table: CREATE TABLE `baba` (
+  `baba_code` tinyint NOT NULL DEFAULT '0',
+  `baba_name` text COLLATE utf8mb3_unicode_ci,
+  PRIMARY KEY (`baba_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
 
-CREATE TABLE `calendar` (
+Create Table: CREATE TABLE `calendar` (
   `race_date` date NOT NULL,
-  `venucode` int(11) NOT NULL,
-  `venue` varchar(255) DEFAULT NULL
+  `venucode` int NOT NULL,
+  `venue` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  PRIMARY KEY (`race_date`,`venucode`),
+  UNIQUE KEY `race_date` (`race_date`,`venucode`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+Create Table: CREATE TABLE `race_cnt` (
+  `id` varchar(10) COLLATE utf8mb4_general_ci NOT NULL,
+  `cnt` int NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE `race_cnt` (
-  `id` varchar(10) NOT NULL,
-  `cnt` int(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+Create Table: CREATE TABLE `race_results` (
+  `race_result_id` bigint NOT NULL AUTO_INCREMENT,
+  `race_id` bigint NOT NULL,
+  `frame_number` int NOT NULL,
+  `horse_number` int NOT NULL,
+  `horse_name` varchar(64) COLLATE utf8mb4_bin NOT NULL,
+  `official_finish_position` int NOT NULL,
+  `dead_heat_group` int DEFAULT NULL,
+  `dead_heat_order_in_group` int DEFAULT NULL,
+  `finish_time_str` varchar(16) COLLATE utf8mb4_bin DEFAULT NULL,
+  `margin` varchar(16) COLLATE utf8mb4_bin DEFAULT NULL,
+  `odds_win` decimal(8,1) DEFAULT NULL,
+  `popularity` int DEFAULT NULL,
+  PRIMARY KEY (`race_result_id`),
+  UNIQUE KEY `uk_race_horse` (`race_id`,`horse_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+Create Table: CREATE TABLE `racing_form` (
+  `race_id` char(12) COLLATE utf8mb4_general_ci NOT NULL,
+  `frame_number` int NOT NULL DEFAULT '0',
+  `horse_number` int NOT NULL DEFAULT '0',
+  `horse_name` text COLLATE utf8mb4_general_ci,
+  `sex_age` text COLLATE utf8mb4_general_ci,
+  `hair` text COLLATE utf8mb4_general_ci,
+  `birthyear` tinyint DEFAULT '0',
+  `birthymonth` tinyint DEFAULT '0',
+  `sire` text COLLATE utf8mb4_general_ci,
+  `dam` text COLLATE utf8mb4_general_ci,
+  `broodmare_sire` text COLLATE utf8mb4_general_ci,
+  `jockey` text COLLATE utf8mb4_general_ci,
+  `affiliation` text COLLATE utf8mb4_general_ci,
+  `burden_weight` varchar(16) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `trainer` text COLLATE utf8mb4_general_ci,
+  `owner` text COLLATE utf8mb4_general_ci,
+  `breeder` text COLLATE utf8mb4_general_ci,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`race_id`,`horse_number`),
+  KEY `idx_racing_form_race_frame` (`race_id`,`frame_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-ALTER TABLE `baba`
-  ADD PRIMARY KEY (`baba_code`);
-ALTER TABLE `calendar`
-  ADD PRIMARY KEY (`race_date`,`venucode`),
-  ADD UNIQUE KEY `race_date` (`race_date`,`venucode`);
-
-ALTER TABLE `race_cnt`
-  ADD PRIMARY KEY (`id`);
-COMMIT;
-
-
--- racing_form
-CREATE TABLE `racing_form` (
-  `id` varchar(12) NOT NULL,
-  `frame_number` int not null DEFAULT 0,
-  `horse_number` int not null DEFAULT 0,
-  `horse_name` text null,
-  `sex_age`  text null,
-  `hair` text null ,
-  `birthyear` tinyint(4) NULL DEFAULT 0,
-  `birthymonth` tinyint(2) NULL DEFAULT 0,
-  `sire` text null,
-  `dam` text null,
-  `broodmare_sire` text null,
-  `jockey` text null,
-  `affiliation` text null,
-  `burden_weight` DECIMAL(3,1) NULL ,
-  `trainer` text NULL,
-  `owner` text NULL,
-  `breeder` text NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
