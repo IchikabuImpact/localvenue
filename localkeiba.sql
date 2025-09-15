@@ -48,14 +48,25 @@ REPLACE INTO `baba` (`baba_code`, `baba_name`) VALUES
 (50, '兵庫'),
 (61, '九州'),
 (80, '全国');
-mysql>  SHOW CREATE TABLE baba   \G;
-*************************** 1. row ***************************
-       Table: baba
-Create Table: CREATE TABLE `baba` (
-  `baba_code` tinyint NOT NULL DEFAULT '0',
-  `baba_name` text COLLATE utf8mb3_unicode_ci,
-  PRIMARY KEY (`baba_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+
+INSERT INTO venue_master (baba_code, rakuten_baba_code, venue) VALUES
+(3 , '03041503', '帯広ば'),
+(36, '36011504', '門別'),
+(10, '10061006', '盛岡'),
+(11, '11060605', '水沢'),
+(18, '18131203', '浦和'),
+(19, '19140801', '船橋'),
+(20, '20151205', '大井'),
+(21, '21350805', '川崎'),
+(23, '23201204', '笠松'),
+(27, '27261706', '園田'),
+(28, '28260102', '姫路'),
+(22, '22181501', '金沢'),
+(24, '24332203', '名古屋'),
+(31, '31291106', '高知'),
+(32, '32302205', '佐賀');
+
 
 Create Table: CREATE TABLE `calendar` (
   `race_date` date NOT NULL,
@@ -110,5 +121,13 @@ Create Table: CREATE TABLE `racing_form` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`horse_number`),
   KEY `idx_racing_form_race_frame` (`race_id`,`frame_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE venue_master (
+  baba_code          INT NOT NULL,                     -- 自前の競馬場コード
+  rakuten_baba_code  VARCHAR(16) NOT NULL,             -- 楽天競馬用コード
+  venue              VARCHAR(32) NOT NULL,             -- 会場名
+  PRIMARY KEY (baba_code),
+  UNIQUE KEY uk_rakuten_baba_code (rakuten_baba_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
