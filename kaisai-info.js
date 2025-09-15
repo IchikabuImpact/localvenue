@@ -20,34 +20,35 @@ function parseYearMonth(argv) {
 }
 const { year, month } = parseYearMonth(process.argv);
 
-
 const options = new chrome.Options();
 options.addArguments(
   '--headless=new',
   '--disable-gpu',
   '--no-sandbox',
-  '--window-size=1366,1000',
+  '--window-size=1366,1200',
   '--lang=ja-JP'
 );
 const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
+// -------- 会場一覧（表示名に合わせる）--------
+const VENUES = [
+  "門別","盛岡","水沢","浦和","船橋",
+  "大井","川崎","金沢","笠松","名古屋",
+  "園田","姫路","高知","佐賀"
+];
 
-const venuePositionIndex = {
-  "門別": 4,  "盛岡": 6, "水沢": 7, "浦和": 8, "船橋": 9,
-  "大井": 10, "川崎": 11, "金沢": 12, "笠松": 13, "名古屋": 14, 
-  "園田": 16, "姫路": 17, "高知": 18, "佐賀": 19
-};
-const VENUES = Object.keys(venuePositionIndex);
-
-// -------- babaコードのフォールバック --------
+// -------- babaコードのフォールバック（hrefに無い場合の保険）--------
 const venueCodes = {
   10: "盛岡", 11: "水沢", 18: "浦和", 19: "船橋", 20: "大井", 21: "川崎",
   22: "金沢", 23: "笠松", 24: "名古屋",  27: "園田", 28: "姫路",
   31: "高知", 32: "佐賀", 36: "門別"
 };
-
 const fallbackMap = new Map(Object.entries(venueCodes).map(([k, v]) => [v, Number(k)]));
+
+// util
 const toDate = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+const pad2 = n => String(n).padStart(2, '0');
+const daysInMonth = (y, m) => new Date(Number(y), Number(m), 0).getDate();
 
 async function openMonthlyPage() {
   const url = `https://www.keiba.go.jp/KeibaWeb/MonthlyConveneInfo/MonthlyConveneInfoTop?k_year=${year}&k_month=${month}`;
@@ -62,39 +63,120 @@ async function openMonthlyPage() {
     if (els.length) { try { await els[0].click(); } catch (_) { } break; }
   }
 
-
   const tbody = By.css('#mainContainer article table tbody');
   await driver.wait(until.elementLocated(tbody), 15000);
   const el = await driver.findElement(tbody);
   await driver.wait(until.elementIsVisible(el), 5000);
 }
 
+// -------- href のパラメータ抽出（k_raceDate, k_babaCode）--------
+function extractParamsFromHref(href) {
+  if (!href) return {};
+  try {
+    const url = new URL(href, 'https://www.keiba.go.jp');
+    const raceDate = url.searchParams.get('k_raceDate');  // 例: 2025/09/15
+    const babaCode = url.searchParams.get('k_babaCode');  // 例: 31
+    return { raceDate, babaCode: babaCode ? Number(babaCode) : undefined };
+  } catch {
+    return {};
+  }
+}
+
+// -------- colspan 展開：行の td を 1..days にマッピング（先頭の会場名セルは除外）--------
+async function mapCellsByDay(rowEl, y, m) {
+  let tds = await rowEl.findElements(By.css('td'));
+  if (tds.length === 0) return [];
+  // 先頭の td は会場名（例: <td>門別</td>）なのでスキップ
+  tds = tds.slice(1);
+
+  const dmax = daysInMonth(y, m);
+  const byDay = new Array(dmax + 1).fill(null); // 1基点
+  let cur = 1;
+  for (const td of tds) {
+    const cs = parseInt(await td.getAttribute('colspan') || '1', 10);
+    for (let k = 0; k < cs && cur <= dmax; k++) {
+      if (!byDay[cur]) byDay[cur] = td;
+      cur++;
+    }
+    if (cur > dmax) break;
+  }
+  return byDay;
+}
+
+// -------- 記号→開催/非開催 判定（img@alt 優先、テキストはフォールバック）--------
+async function judgeCell(cellEl) {
+  // return { holding: boolean, deltaOnly: boolean, anchorHref?: string }
+  const imgs = await cellEl.findElements(By.css('img'));
+  let sawHolding = false; // ●/☆/Ｄ
+  let sawDelta   = false; // △
+  if (imgs.length) {
+    for (const img of imgs) {
+      const alt = (await img.getAttribute('alt')) || '';
+      if (/[●☆Ｄ]/.test(alt)) sawHolding = true;
+      if (/△/.test(alt))       sawDelta   = true;
+    }
+  } else {
+    const text = (await cellEl.getText()).trim();
+    if (/[●☆Ｄ]/.test(text)) sawHolding = true;
+    if (/△/.test(text))       sawDelta   = true;
+  }
+
+  // a の href を拾って公式日付/コードを優先利用
+  const anchors = await cellEl.findElements(By.css('a'));
+  let anchorHref = '';
+  if (anchors.length) {
+    let picked = null;
+    for (const a of anchors) {
+      const cls = (await a.getAttribute('class')) || '';
+      if (/\b(day|night)\b/.test(cls)) { picked = a; break; }
+      picked = picked || a;
+    }
+    anchorHref = picked ? (await picked.getAttribute('href')) : '';
+  }
+
+  return { holding: sawHolding, deltaOnly: sawDelta && !sawHolding, anchorHref };
+}
+
 /**
- * readVenueOnce 1会場分を読む
- * @param {string} venue  name of venue 
- * @returns {Object} 例: {'20250902':'門別', ...}
+ * 1会場行を読む（会場名<td>で行を特定、colspan対応、href優先）
  */
 async function readVenueOnce(venue) {
-  const results = {};
-  console.log('readVenueOnce'+venue);
+  const results = {}; // {'yyyymmdd':'会場名', ...}
+  console.log('readVenueOnce ' + venue);
   try {
-    const row = venuePositionIndex[venue];
-    if (!row) return results;
+    const dmax = daysInMonth(year, month);
 
-    // ★ その月の実日数を計算（例: 2025/09 → 30）
-    const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+    // ✅ 会場行は<th>ではなく<td>：先頭セルが会場名
+    const rowXpath = `//*[@id="mainContainer"]//article[contains(@class,'monthlySchedule')]//table//tbody//tr[td[1][normalize-space()='${venue}']]`;
+    const rows = await driver.findElements(By.xpath(rowXpath));
+    if (!rows.length) {
+      console.warn(`[WARN] venue row not found: ${venue}`);
+      return results;
+    }
+    const row = rows[0];
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const xp = `//*[@id="mainContainer"]/article/div/div[2]/table/tbody/tr[${row}]/td[${day}]`;
-      const cells = await driver.findElements(By.xpath(xp));
-      if (!cells.length) continue;
-      const text = (await cells[0].getText()).trim();
-      if (!text) continue;
+    // day→td
+    const byDay = await mapCellsByDay(row, year, month);
 
-      if (text.includes('●') || text.includes('Ｄ') || text.includes('☆')) {
-        const key = `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
-        results[key] = venue;
+    for (let day = 1; day <= dmax; day++) {
+      const cell = byDay[day];
+      if (!cell) continue;
+
+      const { holding, deltaOnly, anchorHref } = await judgeCell(cell);
+      if (deltaOnly || !holding) continue; // △のみ or マーク無しは不採用
+
+      // 1) href があればそこから公式の date/code を使う（最優先）
+      let key = `${year}${pad2(month)}${pad2(day)}`;
+      // venucode は保存時にフォールバックで付与（results は venue名のみ保持）
+      if (anchorHref) {
+        const { raceDate } = extractParamsFromHref(anchorHref);
+        if (raceDate) {
+          const [yy, mm, dd] = raceDate.split('/').map(s => s.padStart(2, '0'));
+          key = `${yy}${mm}${dd}`;
+        }
       }
+
+      results[key] = venue;
     }
   } catch (e) {
     console.error('[readVenueOnce]', venue, e.message);
@@ -102,9 +184,8 @@ async function readVenueOnce(venue) {
   return results;
 }
 
-
 function mergeResults(list) {
-  const merged = new Map(); // key: yyyymmdd, value: Set(venues)
+  const merged = new Map(); // key: yyyymmdd, value: Set(venueNames)
   for (const r of list) {
     for (const [d, v] of Object.entries(r)) {
       if (!merged.has(d)) merged.set(d, new Set());
@@ -113,7 +194,6 @@ function mergeResults(list) {
   }
   return merged;
 }
-
 
 async function saveAllToMysql(merged) {
   const config = require('./config.js');
@@ -129,7 +209,7 @@ async function saveAllToMysql(merged) {
       }
     }
     if (rows.length === 0) {
-      console.log('[INFO] まとめ保存対象なし');
+      console.log('[INFO] まとめ保存対象なし]');
       return;
     }
 
