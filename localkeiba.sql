@@ -90,6 +90,6 @@ CREATE TABLE `racing_form` (
   `burden_weight` DECIMAL(3,1) NULL ,
   `trainer` text NULL,
   `owner` text NULL,
-  `breaeder` text NULL,
+  `breeder` text NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

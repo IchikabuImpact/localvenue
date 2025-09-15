@@ -23,6 +23,7 @@ npm i
 ```
 
 ### `config.js` を作成
+
 ```js
 // config.js （コミットしない。代わりに config.sample.js を参照）
 module.exports = {
@@ -40,6 +41,7 @@ module.exports = {
 ## 🗄️ MySQL 準備
 
 ### データベースとユーザー
+
 ```sql
 CREATE DATABASE localkeiba CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 CREATE USER 'localkeiba'@'localhost' IDENTIFIED BY '強いパスワード';
@@ -47,6 +49,7 @@ GRANT ALL PRIVILEGES ON localkeiba.* TO 'localkeiba'@'localhost';
 ```
 
 ### テーブル（必要最低限のスキーマ）
+
 ```sql
 CREATE TABLE IF NOT EXISTS calendar (
   race_date DATE NOT NULL,
@@ -56,6 +59,7 @@ CREATE TABLE IF NOT EXISTS calendar (
 );
 CREATE INDEX idx_calendar_race_date ON calendar(race_date);
 ```
+
 > 既に `localkeiba.sql` がある場合は、そちらを `SOURCE localkeiba.sql;` で読み込んで OK。
 
 ---
@@ -63,6 +67,7 @@ CREATE INDEX idx_calendar_race_date ON calendar(race_date);
 ## 🧹 依存関係（package.json）
 
 プロジェクトの `package.json` 例：
+
 ```json
 {
   "name": "localvenue",
@@ -126,17 +131,20 @@ node Kaisai-info.js 202509
 ## 🌐 REST API（/api-venue）
 
 サーバ起動：
+
 ```bash
 node api-todays-venue.js
 # PM2運用なら: pm2 start api-todays-venue.js --name localvenue-api
 ```
 
 ### エンドポイント
+
 - `GET /healthz` … ヘルスチェック
 - `GET /api-venue` … **本日（Asia/Tokyo）の開催**一覧
 - `GET /api-venue/:date` … 指定日の開催（`YYYY-MM-DD`）
 
 例：
+
 ```
 GET http://localhost:3000/api-venue/2025-09-14
 → 200 OK
@@ -158,6 +166,7 @@ GET http://localhost:3000/api-venue/2025-09-14
 ## 🔥 Windows Firewall（PowerShell/管理者）
 
 **LAN のみ許可（推奨）**
+
 ```powershell
 New-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (LocalSubnet)" `
   -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 `
@@ -165,12 +174,14 @@ New-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (LocalSubnet)" `
 ```
 
 **すべて許可（検証のみ）**
+
 ```powershell
 New-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (Any)" `
   -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000
 ```
 
 **確認 / 削除**
+
 ```powershell
 Get-NetFirewallRule -DisplayName "*LocalVenue*"
 Remove-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (Any)"
@@ -181,6 +192,7 @@ Remove-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (Any)"
 ## ♻️ 常駐運用（PM2 + タスクスケジューラで自動復元）
 
 ### PM2（プロセス管理）
+
 ```powershell
 npm i -g pm2
 pm2 start api-todays-venue.js --name localvenue-api
@@ -191,6 +203,7 @@ pm2 save --force
 ```
 
 ### Windows 起動時に自動復元（タスクスケジューラ）
+
 ```powershell
 # 管理者 PowerShell で実行
 $node   = (Get-Command node).Source
@@ -213,6 +226,7 @@ schtasks /run /TN "PM2 Resurrect"
 ## 🧪 デバッグ & 動作確認
 
 **API**
+
 ```powershell
 Invoke-WebRequest http://localhost:3000/healthz | Select -Expand Content
 Invoke-WebRequest http://localhost:3000/api-venue | Select -Expand Content
@@ -220,6 +234,7 @@ Invoke-WebRequest http://localhost:3000/api-venue/2025-09-14 | Select -Expand Co
 ```
 
 **MySQL クイック確認**
+
 ```sql
 -- 2025-09 の件数
 SELECT venue, COUNT(*) cnt
@@ -242,6 +257,7 @@ HAVING c > 1;
 ```
 
 **トラブルシュート**
+
 - `ER_NOT_SUPPORTED_AUTH_MODE` → **mysql2** を使用（本プロジェクトは対応済み）。
 - `PathError: Unexpected ?`（Express のパス） → ルートを `/api-venue` と `/api-venue/:date` の2本に分割、オプション `?` を使わない。
 - 列名 `code` で挿入エラー → テーブルは **`venucode`** 列名。スクリプトは対応済み。
@@ -249,4 +265,5 @@ HAVING c > 1;
 ---
 
 ## 📝 ライセンス
+
 本リポジトリのコードは私的利用を想定しています。再配布や公開運用時は各サイトの利用規約と法令を遵守してください。
