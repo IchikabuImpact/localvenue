@@ -1,6 +1,6 @@
 /**
  * save-race-count-by-date.js
- * 指定日の calendar から会場(venucode)を拾って、レース数(最終R)を全会場ぶんDBに保存
+ * 指定日の calendar から会場(venucode)を拾って、レース数(最終R)を全会場分DBに保存します
  *
  * USAGE:
  *   node save-race-count-by-date.js 20250914

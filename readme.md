@@ -1,21 +1,19 @@
-# LocalVenue — 地方競馬（サラ系）予想用・開催情報スクレイパ＆API
+# LocalVenue — 地方競馬（サラ系）開催情報スクレイパ & API
 
-NAR（月間開催情報）をスクレイピングして MySQL に保存し、\
-指定日（または**本日〈Asia/Tokyo〉**）の開催会場コードを返す REST API（`/api-venue`）を提供します。
+NAR（月間開催情報）をスクレイピングして **MySQL** に保存し、
+指定日（または **本日〈Asia/Tokyo〉**）の開催会場コードや出馬表・レース結果を扱う疎結合スクリプト群と REST API を提供します。
 
 ---
 
 ## ✅ 動作要件
-
 - **Node.js 20+**（開発環境は v22 系）  
-- **MySQL 8+**
-- **Google Chrome**（Selenium が自動でドライバを解決します）
-- Windows PowerShell（FW 設定・スケジューラ用）
+- **MySQL 8+**  
+- **Google Chrome**（Selenium が自動でドライバを解決）  
+- Windows PowerShell / Linux シェル（FW 設定・スケジューラ用）
 
 ---
 
 ## 📦 セットアップ（初回）
-
 ```bash
 git clone https://github.com/kenchanbaken/localvenue.git
 cd localvenue
@@ -23,12 +21,11 @@ npm i
 ```
 
 ### `config.js` を作成
-
 ```js
 // config.js （コミットしない。代わりに config.sample.js を参照）
 module.exports = {
   mysql: {
-    host: 'localhost',      // ← 必須
+    host: 'localhost',
     user: 'youruser',
     password: 'yourpass',
     database: 'localkeiba'
@@ -38,18 +35,51 @@ module.exports = {
 
 ---
 
-## 🗄️ MySQL 準備
-
-### データベースとユーザー
-
-```sql
-CREATE DATABASE localkeiba CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
-CREATE USER 'localkeiba'@'localhost' IDENTIFIED BY '強いパスワード';
-GRANT ALL PRIVILEGES ON localkeiba.* TO 'localkeiba'@'localhost';
+## 🚀 Usage — 全体の作り
+```bash
+node kaisai-info.js 2025 09          # 月間開催カレンダー → calendar へ登録
+node api-todays-venue.js & http://localhost:3000/api-venue/2025-09-21  # 指定日/当日の会場コードを返すAPI。
+node save-race-count-by-date.js 20250921   # 各会場のレース数を収集し race_count テーブルへ保存します。
+node racing-form-to-db.js 202509211131     # 出馬表を DB に保存します (yyyymmdd+race番号+baba)
+node guess.js 202509211131                 # 予想して DB に保存します (yyyymmdd+race番号+baba)
+node save-race-results.js 202509141131     # レース結果を DB に保存します (yyyymmdd+race番号+baba)
+node daily-guess.js 20250921               # デイリーバッチ: 指定日分の開催情報を取得し予想を実行
+node daily-save-race-results.js 20250921   # デイリーバッチ: 指定日分のレース結果を処理
+node generate-web.js 20250921              # 指定日分のWEBページを生成 (予想・予想結果ページ)
 ```
 
-### テーブル（必要最低限のスキーマ）
+---
 
+## 🧩 スクリプト概要
+- **kaisai-info.js**: 月間開催スケジュール → `calendar`
+- **api-todays-venue.js**: 指定日/当日の会場コードを返す REST API
+- **save-race-count-by-date.js**: 会場ごとのレース数を収集 → `race_count`
+- **racing-form-to-db.js**: 出馬表を保存
+- **guess.js**: 予想を保存
+- **save-race-results.js**: レース結果を保存
+- **daily-guess.js**: 日次で全レースの予想を実行
+- **daily-save-race-results.js**: 日次で全レース結果を保存
+- **generate-web.js**: 指定日分の予想・予想結果ページを生成
+
+---
+
+## 🔁 データフロー（ざっくり）
+```mermaid
+graph TD
+  A[kaisai-info.js\n(月間開催スクレイプ)] -->|calendar更新| B[(MySQL)]
+  B --> C[api-todays-venue.js\n(REST API)]
+  D[save-race-count-by-date.js\n(レース数収集)] --> B
+  E[racing-form-to-db.js\n(出馬表保存)] --> B
+  F[guess.js\n(予想保存)] --> B
+  G[save-race-results.js\n(結果保存)] --> B
+  H[daily-guess.js\n(日次予想)] --> B
+  I[daily-save-race-results.js\n(日次結果保存)] --> B
+  J[generate-web.js\n(Webページ生成)] --> B
+```
+
+---
+
+## 🗄️ テーブル例
 ```sql
 CREATE TABLE IF NOT EXISTS calendar (
   race_date DATE NOT NULL,
@@ -58,212 +88,26 @@ CREATE TABLE IF NOT EXISTS calendar (
   PRIMARY KEY (race_date, venucode)
 );
 CREATE INDEX idx_calendar_race_date ON calendar(race_date);
-```
 
-> 既に `localkeiba.sql` がある場合は、そちらを `SOURCE localkeiba.sql;` で読み込んで OK。
-
----
-
-## 🧹 依存関係（package.json）
-
-プロジェクトの `package.json` 例：
-
-```json
-{
-  "name": "localvenue",
-  "version": "0.1.0",
-  "private": true,
-  "type": "commonjs",
-  "description": "LocalVenue: NAR monthly scraper + simple REST API (/api-venue)",
-  "main": "api-todays-venue.js",
-  "engines": { "node": ">=20.0.0" },
-  "scripts": {
-    "start": "node api-todays-venue.js",
-    "api:start": "node api-todays-venue.js",
-    "api:pm2": "pm2 start api-todays-venue.js --name localvenue-api",
-    "api:reload": "pm2 reload localvenue-api",
-    "api:stop": "pm2 stop localvenue-api && pm2 delete localvenue-api",
-    "api:logs": "pm2 logs localvenue-api --lines 50",
-    "pm2:save": "pm2 save",
-    "pm2:resurrect": "pm2 resurrect",
-    "scrape:month": "node Kaisai-info.js"
-  },
-  "dependencies": {
-    "axios": "^1.10.0",
-    "cheerio": "^1.1.0",
-    "express": "^5.1.0",
-    "jsdoc": "^4.0.4",
-    "moment": "^2.30.1",
-    "moment-timezone": "^0.5.45",
-    "mysql2": "^3.14.5",
-    "node-html-parser": "^7.0.1",
-    "nth-check": "^2.1.1",
-    "puppeteer": "^24.12.1",
-    "redis": "^5.6.0",
-    "selenium-webdriver": "^4.34.0"
-  }
-}
+CREATE TABLE IF NOT EXISTS race_count (
+  race_date  DATE NOT NULL,
+  venucode   INT  NOT NULL,
+  race_total INT  NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_date, venucode)
+);
 ```
 
 ---
 
-## 🧭 スクレイパ（NAR 月間開催の取得 → DB 保存）
-
-```bash
-# 今月
-node Kaisai-info.js
-
-# 2025年9月
-node Kaisai-info.js 2025 09
-
-# 6桁 YYYYMM
-node Kaisai-info.js 202509
-```
-
-- 指定月の月間開催ページから **開催シンボル（●/Ｄ/☆）** を検出し、
-  `calendar(race_date, venucode, venue)` に **UPSERT** します。
-- `venucode` の例：盛岡=10 / 水沢=11 / 浦和=18 / 船橋=19 / 大井=20 / 川崎=21 / 金沢=22 / 笠松=23 / 名古屋=24 / 園田=27 / 姫路=28 / 高知=31 / 佐賀=32 / 門別=36
-
-> 中止対応は**別プロセス**での運用を想定。将来的には「中止ワード検知→DELETE→再UPSERT」の疎結合ジョブを追加してください。
-
----
-
-## 🌐 REST API（/api-venue）
-
-サーバ起動：
-
-```bash
-node api-todays-venue.js
-# PM2運用なら: pm2 start api-todays-venue.js --name localvenue-api
-```
-
-### エンドポイント
-
-- `GET /healthz` … ヘルスチェック
-- `GET /api-venue` … **本日（Asia/Tokyo）の開催**一覧
-- `GET /api-venue/:date` … 指定日の開催（`YYYY-MM-DD`）
-
-例：
-
-```
-GET http://localhost:3000/api-venue/2025-09-14
-→ 200 OK
-{
-  "date":"2025-09-14",
-  "count":3,
-  "venues":[
-    {"venucode":22,"venue":"金沢"},
-    {"venucode":31,"venue":"高知"},
-    {"venucode":32,"venue":"佐賀"}
-  ]
-}
-```
-
-> 既定では **0.0.0.0:3000** で待受（LAN から到達可）。ローカル専用にしたい場合は `app.listen(PORT, '127.0.0.1')` に変更。
-
----
-
-## 🔥 Windows Firewall（PowerShell/管理者）
-
-**LAN のみ許可（推奨）**
-
-```powershell
-New-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (LocalSubnet)" `
-  -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 `
-  -RemoteAddress LocalSubnet
-```
-
-**すべて許可（検証のみ）**
-
-```powershell
-New-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (Any)" `
-  -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000
-```
-
-**確認 / 削除**
-
-```powershell
-Get-NetFirewallRule -DisplayName "*LocalVenue*"
-Remove-NetFirewallRule -DisplayName "LocalVenue API 3000 TCP (Any)"
-```
-
----
-
-## ♻️ 常駐運用（PM2 + タスクスケジューラで自動復元）
-
-### PM2（プロセス管理）
-
-```powershell
-npm i -g pm2
-pm2 start api-todays-venue.js --name localvenue-api
-pm2 status
-pm2 logs localvenue-api --lines 50
-pm2 reload localvenue-api
-pm2 save --force
-```
-
-### Windows 起動時に自動復元（タスクスケジューラ）
-
-```powershell
-# 管理者 PowerShell で実行
-$node   = (Get-Command node).Source
-$pm2bin = Join-Path $env:APPDATA "npm\node_modules\pm2\bin\pm2"
-
-pm2 save --force
-Unregister-ScheduledTask -TaskName "PM2 Resurrect" -Confirm:$false -ErrorAction SilentlyContinue
-$action    = New-ScheduledTaskAction -Execute $node -Argument "`"$pm2bin`" resurrect"
-$trigger1  = New-ScheduledTaskTrigger -AtStartup
-$trigger2  = New-ScheduledTaskTrigger -AtLogOn
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest
-Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger @($trigger1,$trigger2) -Principal $principal
-
-# 手動テスト
-schtasks /run /TN "PM2 Resurrect"
-```
-
----
-
-## 🧪 デバッグ & 動作確認
-
-**API**
-
-```powershell
-Invoke-WebRequest http://localhost:3000/healthz | Select -Expand Content
-Invoke-WebRequest http://localhost:3000/api-venue | Select -Expand Content
-Invoke-WebRequest http://localhost:3000/api-venue/2025-09-14 | Select -Expand Content
-```
-
-**MySQL クイック確認**
-
-```sql
--- 2025-09 の件数
-SELECT venue, COUNT(*) cnt
-FROM calendar
-WHERE race_date >= '2025-09-01' AND race_date < '2025-10-01'
-GROUP BY venue ORDER BY cnt DESC;
-
--- 日別の開催一覧
-SELECT race_date,
-       GROUP_CONCAT(CONCAT(venue,'(',venucode,')') ORDER BY venucode) AS venues
-FROM calendar
-WHERE race_date BETWEEN '2025-09-01' AND '2025-09-30'
-GROUP BY race_date ORDER BY race_date;
-
--- PK 重複チェック（0件が正常）
-SELECT race_date, venucode, COUNT(*) c
-FROM calendar
-GROUP BY race_date, venucode
-HAVING c > 1;
-```
-
-**トラブルシュート**
-
-- `ER_NOT_SUPPORTED_AUTH_MODE` → **mysql2** を使用（本プロジェクトは対応済み）。
-- `PathError: Unexpected ?`（Express のパス） → ルートを `/api-venue` と `/api-venue/:date` の2本に分割、オプション `?` を使わない。
-- 列名 `code` で挿入エラー → テーブルは **`venucode`** 列名。スクリプトは対応済み。
+## ⏰ スケジューリング例
+- **月初**: `kaisai-info.js` を 6:00 に実行  
+- **毎日**: `save-race-count-by-date.js %YYYY%%MM%%DD%` → 6:10 実行  
+- **毎日**: `daily-guess.js %YYYY%%MM%%DD%` / `daily-save-race-results.js %YYYY%%MM%%DD%` → 6:20 実行  
+- **毎日**: `generate-web.js %YYYY%%MM%%DD%` → 6:30 実行  
 
 ---
 
 ## 📝 ライセンス
-
 本リポジトリのコードは私的利用を想定しています。再配布や公開運用時は各サイトの利用規約と法令を遵守してください。
