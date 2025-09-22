@@ -1,0 +1,234 @@
+/**
+ * Usage:
+ *   node fetch-sire-ranking.js <distance_m>
+ * 例: node fetch-sire-ranking.js 1300
+ */
+const fs = require('fs');
+const path = require('path');
+const mysql = require('mysql2/promise');
+const config = require('./config.js');
+
+const webdriver = require('selenium-webdriver');
+const { By, until } = webdriver;
+const chrome = require('selenium-webdriver/chrome');
+
+const pool = mysql.createPool({
+  host: config.mysql.host,
+  user: config.mysql.user,
+  password: config.mysql.password,
+  database: config.mysql.database,
+  waitForConnections: true,
+  connectionLimit: 8,
+});
+
+const dumpedFiles = [];
+const KEEP_DUMPS = process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
+
+function safeUnlink(p) {
+  try { fs.unlinkSync(p); } catch {}
+}
+function cleanupDumps() {
+  if (KEEP_DUMPS) {
+    console.log('[keep-dumps] オプション有効のため削除しません');
+    return;
+  }
+  if (!dumpedFiles.length) return;
+  console.log(`[cleanup] dumpファイル削除: ${dumpedFiles.length} 件`);
+  for (const p of dumpedFiles) safeUnlink(p);
+}
+
+
+// ---- URL（距離だけ可変。直近1年のダート平地/総合） ----
+function buildUrl(distance) {
+  const now = new Date();
+  const yTo = now.getFullYear();
+  const yFrom = yTo - 1;
+  const y2 = yTo - 2;
+  const q = new URLSearchParams({
+    sort: 'ranking', order: 'A', items: '100',
+    ranking: '7', y1: yTo, y2: y2, y3: yTo,
+    kind: '1', division: '3', racetype1: '3', racetype2: '2',
+    y_f: yFrom, y_t: yTo, hold: '0',
+    corse1: '', corse2: '', condition: '1',
+    distance_f: distance, distance_t: distance,
+    horse: '', seqno: '', match: 'prefix',
+  });
+  return `https://www.jbis.or.jp/ranking/result/?${q.toString()}#`;
+}
+
+async function dump(driver, distance, step) {
+  const ts = Date.now();
+  const base = path.resolve(`./dump_rank_${distance}_${step}_${ts}`);
+  const htmlPath = `${base}.html`;
+  const pngPath  = `${base}.png`;
+  try { fs.writeFileSync(htmlPath, await driver.getPageSource(), 'utf8'); } catch {}
+  try { fs.writeFileSync(pngPath,  Buffer.from(await driver.takeScreenshot(),'base64')); } catch {}
+  dumpedFiles.push(htmlPath, pngPath);   // ★ 追加：削除対象に登録
+  console.log(`[dump] ${htmlPath}`);
+}
+
+async function acceptConsentIfAny(driver) {
+  for (const xp of [
+    "//button[contains(.,'同意') or contains(.,'OK')]",
+    "//a[contains(.,'同意')]",
+    "//button[contains(.,'許可')]",
+  ]) {
+    const els = await driver.findElements(By.xpath(xp));
+    if (els.length) { try { await els[0].click(); } catch {} break; }
+  }
+}
+
+// ---- 結果ページから上位100件を抽出（テーブル/グリッド両対応） ----
+async function scrapeTop100(driver) {
+  return await driver.executeScript(() => {
+    const getRankFromRow = (row) => {
+      if (!row) return null;
+      // tr > td[0] or 「順位」セルに数値が入っているケースを想定
+      const firstCell = row.querySelector('td,div,span');
+      const txt = (firstCell?.textContent || row.textContent || '').trim();
+      const m = txt.match(/(^|\D)(\d{1,3})(?=\D|$)/);
+      const v = m ? Number(m[2]) : null;
+      return (v && v <= 100) ? v : null;
+    };
+
+    // 父馬ページへのリンクを基点にレコード化
+    const links = Array.from(document.querySelectorAll('a[href*="/horse/"]'));
+    const items = [];
+    for (const a of links) {
+      const name = (a.textContent || '').trim();
+      if (!name) continue;
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/\/horse\/(\d{7,})\//);
+      if (!m) continue;
+      const sireId = m[1];
+
+      // 近い“行”を探す（table行 or グリッド行）
+      const row = a.closest('tr') ||
+                  a.closest('.data-row, .dataRow, .tbl-row, .table-row') ||
+                  a.closest('li') || a.parentElement;
+
+      let rank = getRankFromRow(row);
+      // 行の先頭で拾えなければ、直近の前方要素から拾う
+      if (!rank) {
+        let cur = row;
+        for (let k = 0; k < 3 && cur && !rank; k++) {
+          cur = cur.previousElementSibling;
+          rank = getRankFromRow(cur);
+        }
+      }
+      if (!rank) continue;
+
+      items.push({ rank, sireId, sireName: name });
+    }
+
+    // rank昇順＆重複ID除去＆上位100だけ
+    items.sort((a,b) => a.rank - b.rank);
+    const uniq = [];
+    const seen = new Set();
+    for (const x of items) {
+      if (seen.has(x.sireId)) continue;
+      seen.add(x.sireId);
+      uniq.push(x);
+      if (uniq.length >= 100) break;
+    }
+    return uniq;
+  });
+}
+
+async function saveRows(rows, distance) {
+  if (!rows.length) return 0;
+  const sql = `
+    INSERT INTO sire_ranking (distance_m, sire_id, sire_name, score)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      sire_name = VALUES(sire_name),
+      score     = VALUES(score)
+  `;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const r of rows) {
+      await conn.execute(sql, [distance, r.sireId, r.sireName, 101 - r.rank]);
+    }
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+  return rows.length;
+}
+
+(async function main() {
+  const distance = Number(process.argv[2]);
+  if (!Number.isFinite(distance)) {
+    console.error('Usage: node fetch-sire-ranking.js <distance_m>');
+    process.exit(1);
+  }
+  const url = buildUrl(distance);
+  console.log('[url]', url);
+
+  const options = new chrome.Options()
+    // 安定後は .addArguments('--headless=new') を有効化OK
+    .addArguments(
+      '--disable-gpu','--no-sandbox','--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--lang=ja-JP,ja',
+      `--user-data-dir=${path.resolve('./.chrome-profile')}`,
+      '--profile-directory=Default'
+    )
+    .windowSize({ width: 1400, height: 1600 });
+
+  const driver = await new webdriver.Builder()
+    .forBrowser('chrome')
+    .setChromeOptions(options)
+    .build();
+
+  let success = false; // ★ 成功フラグ
+  try {
+    // 1) TOP → 同意 → dump
+    await driver.get('https://www.jbis.or.jp/ranking/');
+    await acceptConsentIfAny(driver);
+    try {
+      await driver.executeScript(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined});`);
+    } catch {}
+    await dump(driver, distance, 'step1_enter');
+
+    // 2) TOPから<a> clickで結果へ（Referer維持）
+    await driver.executeScript((href) => {
+      const a = document.createElement('a');
+      a.href = href; a.rel = 'noopener'; a.textContent = 'go';
+      document.body.appendChild(a); a.click();
+    }, url);
+    await driver.wait(until.urlContains('/ranking/result/'), 60000);
+    await driver.sleep(1500);
+    await dump(driver, distance, 'step2_result');
+
+    // 3) 父馬リンクが現れるまで待つ（最大120秒）
+    await driver.wait(async () => {
+      const cnt = await driver.executeScript(
+        'return document.querySelectorAll(\'a[href*="/horse/"]\').length;'
+      );
+      return cnt > 0;
+    }, 120000);
+    await dump(driver, distance, 'step3_ready');
+
+    // 4) 1ページ目だけ抽出→保存
+    const rows = await scrapeTop100(driver);
+    console.log(`[info] scraped ${rows.length} rows`);
+    if (!rows.length) throw new Error('no rows parsed');
+
+    const n = await saveRows(rows, distance);
+    console.log(`[OK] distance=${distance} → saved ${n} rows`);
+
+    success = true; // ★ ここまで来たら成功
+  } catch (e) {
+    console.error('[ERROR]', e && e.message ? e.message : e);
+    process.exitCode = 1;
+  } finally {
+    try { await driver.quit(); } catch {}
+    try { await pool.end(); } catch {}
+    if (success) cleanupDumps(); // ★ 成功時のみ dump 削除
+  }
+})();
