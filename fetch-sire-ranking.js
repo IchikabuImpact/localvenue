@@ -1,6 +1,7 @@
 /**
  * Usage:
- *   node fetch-sire-ranking.js <distance_m>
+ *   node fetch-sire-ranking.js <distance_m> [--keep-dumps]
+ *   KEEP_DUMPS=1 node fetch-sire-ranking.js <distance_m>
  * 例: node fetch-sire-ranking.js 1300
  */
 const fs = require('fs');
@@ -17,12 +18,14 @@ const pool = mysql.createPool({
   user: config.mysql.user,
   password: config.mysql.password,
   database: config.mysql.database,
+  port: config.mysql.port,
   waitForConnections: true,
   connectionLimit: 8,
 });
 
 const dumpedFiles = [];
-const KEEP_DUMPS = process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
+const KEEP_DUMPS =
+  process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
 
 function safeUnlink(p) {
   try { fs.unlinkSync(p); } catch {}
@@ -37,6 +40,26 @@ function cleanupDumps() {
   for (const p of dumpedFiles) safeUnlink(p);
 }
 
+// 早期終了でも掃除できるようフックしておく
+let cleanupDone = false;
+async function finalizeAndExit(code = 0) {
+  if (!cleanupDone) {
+    cleanupDone = true;
+    try { await pool.end(); } catch {}
+    cleanupDumps(); // ★ 成功/失敗/中断でも必ず削除
+  }
+  process.exit(code);
+}
+process.on('SIGINT',  () => finalizeAndExit(130));
+process.on('SIGTERM', () => finalizeAndExit(143));
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err?.message || err);
+  finalizeAndExit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandledRejection]', err?.message || err);
+  finalizeAndExit(1);
+});
 
 // ---- URL（距離だけ可変。直近1年のダート平地/総合） ----
 function buildUrl(distance) {
@@ -57,14 +80,19 @@ function buildUrl(distance) {
 }
 
 async function dump(driver, distance, step) {
+  // PNGは作らない。HTMLのみ（最後に基本削除）
   const ts = Date.now();
   const base = path.resolve(`./dump_rank_${distance}_${step}_${ts}`);
   const htmlPath = `${base}.html`;
-  const pngPath  = `${base}.png`;
-  try { fs.writeFileSync(htmlPath, await driver.getPageSource(), 'utf8'); } catch {}
-  try { fs.writeFileSync(pngPath,  Buffer.from(await driver.takeScreenshot(),'base64')); } catch {}
-  dumpedFiles.push(htmlPath, pngPath);   // ★ 追加：削除対象に登録
-  console.log(`[dump] ${htmlPath}`);
+
+  try {
+    const html = await driver.getPageSource();
+    fs.writeFileSync(htmlPath, html, 'utf8');
+    dumpedFiles.push(htmlPath);
+    console.log(`[dump:html] ${htmlPath}`);
+  } catch (e) {
+    console.warn('[dump:html] 作成に失敗:', e?.message || e);
+  }
 }
 
 async function acceptConsentIfAny(driver) {
@@ -83,7 +111,6 @@ async function scrapeTop100(driver) {
   return await driver.executeScript(() => {
     const getRankFromRow = (row) => {
       if (!row) return null;
-      // tr > td[0] or 「順位」セルに数値が入っているケースを想定
       const firstCell = row.querySelector('td,div,span');
       const txt = (firstCell?.textContent || row.textContent || '').trim();
       const m = txt.match(/(^|\D)(\d{1,3})(?=\D|$)/);
@@ -91,7 +118,6 @@ async function scrapeTop100(driver) {
       return (v && v <= 100) ? v : null;
     };
 
-    // 父馬ページへのリンクを基点にレコード化
     const links = Array.from(document.querySelectorAll('a[href*="/horse/"]'));
     const items = [];
     for (const a of links) {
@@ -102,13 +128,11 @@ async function scrapeTop100(driver) {
       if (!m) continue;
       const sireId = m[1];
 
-      // 近い“行”を探す（table行 or グリッド行）
       const row = a.closest('tr') ||
                   a.closest('.data-row, .dataRow, .tbl-row, .table-row') ||
                   a.closest('li') || a.parentElement;
 
       let rank = getRankFromRow(row);
-      // 行の先頭で拾えなければ、直近の前方要素から拾う
       if (!rank) {
         let cur = row;
         for (let k = 0; k < 3 && cur && !rank; k++) {
@@ -121,7 +145,6 @@ async function scrapeTop100(driver) {
       items.push({ rank, sireId, sireName: name });
     }
 
-    // rank昇順＆重複ID除去＆上位100だけ
     items.sort((a,b) => a.rank - b.rank);
     const uniq = [];
     const seen = new Set();
@@ -164,7 +187,7 @@ async function saveRows(rows, distance) {
   const distance = Number(process.argv[2]);
   if (!Number.isFinite(distance)) {
     console.error('Usage: node fetch-sire-ranking.js <distance_m>');
-    process.exit(1);
+    return finalizeAndExit(1);
   }
   const url = buildUrl(distance);
   console.log('[url]', url);
@@ -185,9 +208,7 @@ async function saveRows(rows, distance) {
     .setChromeOptions(options)
     .build();
 
-  let success = false; // ★ 成功フラグ
   try {
-    // 1) TOP → 同意 → dump
     await driver.get('https://www.jbis.or.jp/ranking/');
     await acceptConsentIfAny(driver);
     try {
@@ -195,7 +216,6 @@ async function saveRows(rows, distance) {
     } catch {}
     await dump(driver, distance, 'step1_enter');
 
-    // 2) TOPから<a> clickで結果へ（Referer維持）
     await driver.executeScript((href) => {
       const a = document.createElement('a');
       a.href = href; a.rel = 'noopener'; a.textContent = 'go';
@@ -205,7 +225,6 @@ async function saveRows(rows, distance) {
     await driver.sleep(1500);
     await dump(driver, distance, 'step2_result');
 
-    // 3) 父馬リンクが現れるまで待つ（最大120秒）
     await driver.wait(async () => {
       const cnt = await driver.executeScript(
         'return document.querySelectorAll(\'a[href*="/horse/"]\').length;'
@@ -214,21 +233,18 @@ async function saveRows(rows, distance) {
     }, 120000);
     await dump(driver, distance, 'step3_ready');
 
-    // 4) 1ページ目だけ抽出→保存
     const rows = await scrapeTop100(driver);
     console.log(`[info] scraped ${rows.length} rows`);
     if (!rows.length) throw new Error('no rows parsed');
 
     const n = await saveRows(rows, distance);
     console.log(`[OK] distance=${distance} → saved ${n} rows`);
-
-    success = true; // ★ ここまで来たら成功
   } catch (e) {
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exitCode = 1;
   } finally {
     try { await driver.quit(); } catch {}
-    try { await pool.end(); } catch {}
-    if (success) cleanupDumps(); // ★ 成功時のみ dump 削除
+    // プールは finalizeAndExit() で閉じる（順序の都合）
+    await finalizeAndExit(process.exitCode || 0);
   }
 })();
