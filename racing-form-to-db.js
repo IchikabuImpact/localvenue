@@ -202,6 +202,7 @@ async function acceptConsentIfAny(driver) {
       host: config.mysql.host || 'localhost',
       user: config.mysql.user,
       password: config.mysql.password,
+      port: config.mysql.port,
       database: config.mysql.database || 'localkeiba',
       charset: 'utf8mb4'
     });

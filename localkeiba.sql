@@ -174,3 +174,57 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2025-09-16 18:19:03
+
+
+
+CREATE TABLE sire_ranking (
+  distance_m INT NOT NULL,
+  sire_id    BIGINT NOT NULL,
+  sire_name  VARCHAR(255) NOT NULL,
+  score      INT NOT NULL,
+  PRIMARY KEY (distance_m, sire_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+DROP TABLE IF EXISTS racing_form;
+
+CREATE TABLE racing_form (
+  race_id        CHAR(12)        NOT NULL,                         -- YYYYMMDDRRBB
+  frame_number   TINYINT UNSIGNED NOT NULL,                        -- 枠番(1..8)
+  horse_number   TINYINT UNSIGNED NOT NULL,                        -- 馬番(1..18)
+  horse_name     VARCHAR(255)    NOT NULL,
+  sex_age        VARCHAR(8)      NULL,                             -- 例: 牡5
+  hair           VARCHAR(16)     NULL,                             -- 栗毛 等
+  birthyear      TINYINT UNSIGNED NOT NULL DEFAULT 0,              -- 西暦下2桁
+  birthymonth    TINYINT UNSIGNED NOT NULL DEFAULT 0,              -- 1..12
+  sire           VARCHAR(255)    NULL,
+  dam            VARCHAR(255)    NULL,
+  broodmare_sire VARCHAR(255)    NULL,
+  jockey         VARCHAR(255)    NULL,
+  affiliation    VARCHAR(32)     NULL,                             -- 所属(岩手/大井 等)
+  burden_weight  VARCHAR(8)      NULL,                             -- "▲ 51.0" など記号込みで保持
+  trainer        VARCHAR(255)    NULL,
+  owner          VARCHAR(255)    NULL,
+  breeder        VARCHAR(255)    NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id, horse_number),
+  KEY idx_race_id (race_id),
+  KEY idx_jockey (jockey),
+  KEY idx_trainer (trainer),
+  KEY idx_owner (owner)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+DROP TABLE IF EXISTS racing_form;
+CREATE TABLE IF NOT EXISTS prediction (
+  race_id      CHAR(12)         NOT NULL,                 -- YYYYMMDDRRBB
+  horse_number TINYINT UNSIGNED NOT NULL,                 -- 推奨馬の馬番(1～18想定)
+  score        INT UNSIGNED     NULL,                     -- ①+②+③ の合算
+  memo         JSON             NULL,                     -- 馬番とスコアの配列/内訳(見やすくJSON推奨)
+  created_at   TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id),
+  KEY idx_score (score),
+  KEY idx_horse (horse_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

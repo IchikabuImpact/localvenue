@@ -81,6 +81,7 @@ async function main() {
     host: config.mysql.host || 'localhost',
     user: config.mysql.user,
     password: config.mysql.password,
+    port: config.mysql.port,
     database: config.mysql.database || 'localkeiba',
   });
   const [rows] = await conn.execute(
