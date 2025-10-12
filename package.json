@@ -18,6 +18,8 @@
     "pm2:save": "pm2 save",
     "pm2:resurrect": "pm2 resurrect",
     "scrape:month": "node Kaisai-info.js"
+     "yosou": "node daily-yosou-batch.js",
+     "yosou:date": "node daily-yosou-batch.js"
   },
   "dependencies": {
     "axios": "^1.10.0",

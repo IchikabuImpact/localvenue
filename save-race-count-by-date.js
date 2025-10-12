@@ -3,7 +3,7 @@
  * 指定日の calendar から会場(venucode)を拾って、レース数(最終R)を全会場分DBに保存します
  *
  * USAGE:
- *   node save-race-count-by-date.js 20250914
+ *   node save-race-count-by-date.js 20251013
  *   node save-race-count-by-date.js 2025-09-14
  *   # 引数なしなら Asia/Tokyo の「今日」
  */

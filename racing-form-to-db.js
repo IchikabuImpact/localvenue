@@ -1,7 +1,7 @@
 /*
- * racing-form-to-db.js
+ * racing-form-to-db.js  (babaCode自動解決版)
  * Usage:
- *   node racing-form-to-db.js 202509141131   // YYYYMMDD + RR + BB
+ *   node racing-form-to-db.js 202509141131   // YYYYMMDD + RR + BB（※BBは使わず自動で解決）
  */
 
 const webdriver = require('selenium-webdriver');
@@ -18,15 +18,109 @@ if (!id12 || !/^\d{12}$/.test(id12)) {
 }
 const yyyymmdd = id12.slice(0, 8);
 const raceNo2  = id12.slice(8, 10);
-const baba2    = id12.slice(10, 12);
+// const baba2    = id12.slice(10, 12); // ← 受け取るが使わない（当日に存在する k_babaCode を自動解決）
 const raceNumber = Number(raceNo2);
 const year  = Number(yyyymmdd.slice(0, 4));
 const yy    = year % 100;
-const raceDate = `${yyyymmdd.slice(0,4)}/${yyyymmdd.slice(4,6)}/${yyyymmdd.slice(6,8)}`;
-const encodedRaceDate = encodeURIComponent(raceDate).replace(/%20/g, '%2f');
+const raceDateStr = `${yyyymmdd.slice(0,4)}/${yyyymmdd.slice(4,6)}/${yyyymmdd.slice(6,8)}`;
+//const encodedRaceDate = encodeURIComponent(raceDateStr).replace(/%20/g, '%2f');
 const race_id = id12;
-const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/DebaTable?k_raceDate=${encodedRaceDate}&k_raceNo=${raceNumber}&k_babaCode=${baba2}`;
 
+// ===== babaCode 自動解決ユーティリティ =====
+function encodeDateForQuery(ymd) {
+  return `${ymd.slice(0,4)}%2F${ymd.slice(4,6)}%2F${ymd.slice(6,8)}`;
+}
+async function getCandidateBabaCodesFromDB(ymd) {
+  let conn;
+  try {
+    conn = await mysql.createConnection(config.mysql);
+    // 念のため接続の照合を統一（無害）
+    await conn.query("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci");
+
+    // 1) race_count_by_date から venue_code
+    const [r1] = await conn.execute(
+      "SELECT venue_code AS code FROM race_count_by_date WHERE ymd = ?",
+      [ymd]
+    );
+
+    // 2) race_cnt から id の末尾2桁（数値演算で取得→2桁ゼロ詰め）
+    //   例: id=2025101310 → (id % 100) = 10 → LPADで '10'
+    const [r2] = await conn.execute(
+      "SELECT LPAD((id % 100), 2, '0') AS code FROM race_cnt WHERE LEFT(CAST(id AS CHAR), 8) = ?",
+      [ymd]
+    );
+
+    const codes = [
+      ...r1.map(x => String(x.code).trim()),
+      ...r2.map(x => String(x.code).trim())
+    ].filter(Boolean);
+
+    // 重複除去
+    return [...new Set(codes)];
+  } catch (e) {
+    console.warn('[warn] getCandidateBabaCodesFromDB failed:', e.message);
+    return [];
+  } finally {
+    if (conn) await conn.end();
+  }
+}
+
+async function getCandidateBabaCodesFromWeb(driver, ymd) {
+  const dateStr = `${ymd.slice(0,4)}/${ymd.slice(4,6)}/${ymd.slice(6,8)}`;
+  const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList?k_raceDate=${encodeURIComponent(dateStr)}`;
+  await driver.get(url);
+  await acceptConsentIfAny(driver);
+  const sel = await driver.wait(
+    until.elementLocated(By.css('select[name="k_babaCode"], #k_babaCode')),
+    15000
+  );
+  const opts = await sel.findElements(By.css('option'));
+  const codes = [];
+  for (const opt of opts) {
+    const v = (await opt.getAttribute('value'))?.trim();
+    if (v) codes.push(v);
+  }
+  return [...new Set(codes)];
+}
+async function tryOpenDebaTable(driver, ymd, raceNo, babaCode) {
+  const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/DebaTable?k_raceDate=${encodeDateForQuery(ymd)}&k_raceNo=${raceNo}&k_babaCode=${babaCode}`;
+  await driver.get(url);
+  await acceptConsentIfAny(driver);
+  try {
+    await driver.wait(
+      until.elementLocated(By.css('section.cardTable table, table.cardTable, .cardTable table')),
+      30000
+    );
+    console.log(`[info] DebaTable OK with k_babaCode=${babaCode} → ${url}`);
+    return { ok: true, url };
+  } catch (e) {
+    // “該当なし/準備中/メンテ” ヒント
+    try {
+      const body = await driver.findElement(By.css('body')).getText();
+      if (/該当|準備中|メンテ/i.test(body)) {
+        console.warn(`[info] DebaTable not ready (baba=${babaCode})`);
+        return { ok: false, url, reason: 'not-ready' };
+      }
+    } catch {}
+    console.warn(`[info] DebaTable timeout (baba=${babaCode})`);
+    return { ok: false, url, reason: 'timeout' };
+  }
+}
+async function resolveAndOpenDebaTable(driver, ymd, raceNo) {
+  // 1) DB候補 → 2) Web候補 の順で重複除去して総当たり
+  const dbCodes = await getCandidateBabaCodesFromDB(ymd);
+  const webCodes = await getCandidateBabaCodesFromWeb(driver, ymd).catch(() => []);
+  const candidates = [...new Set([...(dbCodes||[]), ...(webCodes||[])])];
+  if (!candidates.length) throw new Error(`no k_babaCode candidates for ${ymd}`);
+
+  for (const code of candidates) {
+    const r = await tryOpenDebaTable(driver, ymd, raceNo, code);
+    if (r.ok) return { babaCode: code, url: r.url };
+  }
+  throw new Error(`DebaTable not available for ${ymd} R${raceNo}. tried=${JSON.stringify(candidates)}`);
+}
+
+// ===== 既存：同意ダイアログ対応 =====
 async function acceptConsentIfAny(driver) {
   for (const xp of [
     "//button[contains(.,'同意') or contains(.,'OK')]",
@@ -39,25 +133,34 @@ async function acceptConsentIfAny(driver) {
 
 (async function main() {
   const options = new chrome.Options()
-    .addArguments('--headless=new','--disable-gpu','--no-sandbox','--disable-cache');
+    .addArguments(
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--disable-cache',
+      '--disable-dev-shm-usage',
+      '--window-size=1280,2000',
+      '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari'
+    );
   const driver = await new webdriver.Builder().forBrowser('chrome').setChromeOptions(options).build();
   await driver.manage().deleteAllCookies();
 
   let conn;
   try {
-    console.log(url);
-    await driver.get(url);
-    await acceptConsentIfAny(driver);
-    await driver.wait(until.elementLocated(By.css('section.cardTable table')), 15000);
+    // === ここが重要：場コードを自動解決してから DebaTable を開く ===
+    const { babaCode } = await resolveAndOpenDebaTable(driver, yyyymmdd, raceNumber);
+    console.log(`[info] using k_babaCode=${babaCode} for ${raceDateStr} R${raceNumber}`);
 
     // ---- 出馬表パース ----
     const rows = await driver.executeScript((yy) => {
       const norm  = (s) => (s || '').replace(/\s+/g, ' ').trim();
-      const table = document.querySelector('section.cardTable > table');
+      const table =
+        document.querySelector('section.cardTable > table') ||
+        document.querySelector('table.cardTable') ||
+        document.querySelector('.cardTable table');
       if (!table) return [];
       const trs = Array.from(table.querySelectorAll('tbody > tr'));
 
-      // 各馬の先頭（horseNum を持つ行）
       const starts = [];
       trs.forEach((tr, i) => { if (tr.querySelector('td.horseNum')) starts.push(i); });
       if (!starts.length) return [];
@@ -86,7 +189,7 @@ async function acceptConsentIfAny(driver) {
         const e = (k + 1 < starts.length) ? starts[k + 1] : trs.length;
         const block = trs.slice(s, e);
 
-        // 先頭行：枠・馬・馬名・騎手
+        // --- 先頭行：枠/馬/馬名/騎手・所属
         const r0 = block[0];
         const frameEl = r0.querySelector('td.courseNum:not(.waku)');
         let frame_number = frameEl ? Number(frameEl.textContent.trim()) : lastFrame;
@@ -99,7 +202,6 @@ async function acceptConsentIfAny(driver) {
           r0.querySelector('.horseName')?.textContent || ''
         );
 
-        // 騎手・所属
         let jockey = null, affiliation = null;
         const aJ = r0.querySelector('a.jockeyName');
         if (aJ) {
@@ -110,7 +212,7 @@ async function acceptConsentIfAny(driver) {
           affiliation = area ? area.textContent.replace(/[()（）]/g,'').trim() : null;
         }
 
-        // 性齢/毛色/生/斤量 行
+        // --- 性齢/毛色/生/斤量 行
         let sex_age = null, hair = null, birthStr = null, burden_weight = null;
         for (const tr of block) {
           const t0 = asText(tr, 0), t1 = asText(tr, 1);
@@ -131,9 +233,7 @@ async function acceptConsentIfAny(driver) {
           if (Number.isFinite(age)) { birthyear = yy - age; if (birthyear < 0) birthyear += 100; }
         }
 
-        // ---- 血統3行を厳格に抽出 ----
-        // 左セルに colspan があり、左テキストが空/ダッシュ/タイムではない。
-        // 右セルもタイム/馬場語ではない。
+        // --- 血統/調教師/馬主行の抽出
         const geneCands = [];
         for (const tr of block) {
           const leftTd  = tr.querySelector('td[colspan]');
@@ -142,11 +242,26 @@ async function acceptConsentIfAny(driver) {
           const right = norm((tr.querySelector('td[colspan] + td') || tr.querySelectorAll('td')[1])?.innerText || '');
           if (!left || /^[-－]+$/.test(left)) continue;
           if (timeRx.test(left) || timeRx.test(right)) continue;
-          if (babaRx.test(right)) continue; // 良/稍重/重/不良 などが混入する行は除外
+          if (babaRx.test(right)) continue;
           geneCands.push({ tr, left, right });
         }
 
-        // 母父（括弧始まり）
+        // 明示ラベルで 調教師/馬主 を優先して取得（右セルに「調教師:」「馬主:」が来るパターン）
+        let trainer = null, owner = null;
+        for (const tr of block) {
+          const tds = tr.querySelectorAll('td');
+          if (tds.length < 2) continue;
+          const left  = norm(tds[0].innerText);
+          const right = norm(tds[1].innerText);
+          if (!trainer && /^調教師[:：]/.test(right)) {
+            trainer = right.replace(/^調教師[:：]\s*/,'').replace(/\s*[（(].*?[)）]\s*$/,'').trim() || null;
+          }
+          if (!owner && /^馬主[:：]/.test(right)) {
+            owner = right.replace(/^馬主[:：]\s*/,'').replace(/\s*[（(].*?[)）]\s*$/,'').trim() || null;
+          }
+        }
+
+        // 母父（括弧始まり）+ 生産者
         const bmsIdx = geneCands.findIndex(x => /^[（(]/.test(x.left));
         let broodmare_sire = null, breeder = null;
         if (bmsIdx >= 0) {
@@ -155,26 +270,17 @@ async function acceptConsentIfAny(driver) {
           breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/,'').trim() || null;
         }
 
-        // 残り2つ → 父/母。TrainerMarkリンクがある方が父（=右が調教師）
-        let sire = null, dam = null, trainer = null, owner = null;
-        if (geneCands.length >= 2) {
-          const candHasTrainer = geneCands.find(x => x.tr.querySelector('a[href*="TrainerMark"]'));
-          let sireRow, damRow;
-          if (candHasTrainer) {
-            sireRow = candHasTrainer;
-            damRow  = geneCands.find(x => x !== candHasTrainer);
-          } else {
-            // ラベルに頼らず出現順で割当（多くのページで 父→母 の順）
-            sireRow = geneCands[0];
-            damRow  = geneCands[1];
-          }
-          sire    = sireRow.left || null;
-          trainer = sireRow.right.replace(/^調教師[:：]?\s*/,'').replace(/\s*[（(].*?[)）]\s*$/,'').trim() || null;
-          dam     = damRow.left || null;
-          owner   = damRow.right.replace(/^馬主[:：]?\s*/,'').trim() || null;
+        // 残りから 父/母 を割り当て（調教師/馬主 表示行は除外）
+        const pureGeneRows = geneCands.filter(x =>
+          !/^調教師[:：]/.test(x.right) && !/^馬主[:：]/.test(x.right)
+        );
+        let sire = null, dam = null;
+        if (pureGeneRows.length >= 2) {
+          sire = pureGeneRows[0].left || null;
+          dam  = pureGeneRows[1].left || null;
         }
 
-        // バリデーション
+        // --- バリデーション
         if (!Number.isFinite(horse_number) || horse_number < 1) continue;
         if (frame_number < 1 || frame_number > 8) continue;
         if (!horse_name) continue;
@@ -211,15 +317,18 @@ async function acceptConsentIfAny(driver) {
     const cols = [
       'race_id','frame_number','horse_number','horse_name','sex_age','hair',
       'birthyear','birthymonth','sire','dam','broodmare_sire',
-      'jockey','affiliation','burden_weight','trainer','owner','breeder'
+      'jockey_name','affiliation','carried_weight','trainer_name','owner','breeder'
     ];
+
     const placeholders = rows.map(() => '(' + cols.map(() => '?').join(',') + ')').join(',');
     const params = [];
     rows.forEach(r => {
+      const carriedRaw = r.burden_weight ? parseFloat(String(r.burden_weight).replace(/[^\d.]/g, '')) : null;
+      const carried = Number.isFinite(carriedRaw) ? carriedRaw : null;
       params.push(
         race_id, r.frame_number, r.horse_number, r.horse_name, r.sex_age, r.hair,
         r.birthyear, r.birthymonth, r.sire, r.dam, r.broodmare_sire,
-        r.jockey, r.affiliation, r.burden_weight, r.trainer, r.owner, r.breeder
+        r.jockey, r.affiliation, carried, r.trainer, r.owner, r.breeder
       );
     });
 
@@ -236,10 +345,10 @@ async function acceptConsentIfAny(driver) {
         sire=VALUES(sire),
         dam=VALUES(dam),
         broodmare_sire=VALUES(broodmare_sire),
-        jockey=VALUES(jockey),
+        jockey_name=VALUES(jockey_name),
         affiliation=VALUES(affiliation),
-        burden_weight=VALUES(burden_weight),
-        trainer=VALUES(trainer),
+        carried_weight=VALUES(carried_weight),
+        trainer_name=VALUES(trainer_name),
         owner=VALUES(owner),
         breeder=VALUES(breeder),
         updated_at=CURRENT_TIMESTAMP
@@ -253,5 +362,7 @@ async function acceptConsentIfAny(driver) {
     try { if (conn) await conn.rollback(); } catch {}
     console.error('[ERROR]', err && err.message ? err.message : err);
     process.exitCode = 1;
+  } finally {
+    try { await driver.quit(); } catch {}
   }
 })();

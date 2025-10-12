@@ -37,7 +37,7 @@ module.exports = {
 
 ## 🚀 Usage — 全体の作り
 ```bash
-node kaisai-info.js 2025 09          # 月間開催カレンダー → calendar へ登録
+node kaisai-info.js 2025 10         # 月間開催カレンダー → calendar へ登録
 node api-todays-venue.js & http://localhost:3000/api-venue/2025-09-21  # 指定日/当日の会場コードを返すAPI。
 node save-race-count-by-date.js 20250921   # 各会場のレース数を収集し race_count テーブルへ保存します。
 node racing-form-to-db.js 202509211131     # 出馬表を DB に保存します (yyyymmdd+race番号+baba)
