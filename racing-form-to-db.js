@@ -1,7 +1,7 @@
 /*
  * racing-form-to-db.js  (babaCode自動解決版)
  * Usage:
- *   node racing-form-to-db.js 202509141131   // YYYYMMDD + RR + BB（※BBは使わず自動で解決）
+ *   node racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB（※BBは使わず自動で解決）
  */
 
 const webdriver = require('selenium-webdriver');

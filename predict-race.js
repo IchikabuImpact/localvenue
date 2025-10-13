@@ -1,6 +1,7 @@
+#!/usr/bin/env node
 /**
- * Usage: node predict-race.js 202509231211
- *  1) racing_form から出馬表を取得
+ * Usage: node predict-race.js 202510130110
+ *  1) racing_form から出馬表を取得（正しい列名に対応）
  *  2) jockey_ranking(year) を“頭3文字の前方一致”で照合して加点
  *  3) sire_ranking を“前方一致”で照合して加点（年なし・同名は最大スコア）
  *  4) 独自ルールで加点
@@ -8,7 +9,7 @@
  *     - 2歳:+40, 3歳:+30, 4歳:+20
  *  5) 総得点が0なら馬番を加算
  *  6) 最高得点の1頭を推奨
- *  7) prediction に upsert（memo に全頭の内訳JSON）
+ *  7) prediction に上書き保存（memo に全頭の内訳JSON）
  */
 
 const mysql = require('mysql2/promise');
@@ -20,6 +21,7 @@ if (!raceId || !/^\d{12}$/.test(raceId)) {
   process.exit(1);
 }
 const year = Number(raceId.slice(0, 4));
+const MODEL_VERSION = 'yosou-v1';
 
 // 文字列正規化（空白系除去）
 const norm = (s) => (s || '').replace(/\s+/g, ' ').replace(/[ 　\t]/g, '').trim();
@@ -52,22 +54,26 @@ function customScore(horse) {
       charset: 'utf8mb4',
     });
 
-    // 1) 出馬表
+    // 1) 出馬表（列名をテーブルに合わせてASエイリアス）
     const [rfRows] = await conn.execute(
-      `SELECT horse_number, horse_name, jockey, sire, sex_age
-         FROM racing_form
-        WHERE race_id = ?
-        ORDER BY horse_number ASC`,
+      `SELECT
+         horse_number,
+         horse_name,
+         jockey_name AS jockey,
+         sire,
+         sex_age
+       FROM racing_form
+       WHERE race_id = ?
+       ORDER BY horse_number ASC`,
       [raceId]
     );
     if (!rfRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
 
-    // 2) ジョッキーランキング（year あり）→ “頭3文字前方一致”用インデックス
+    // 2) ジョッキーランキング（year あり）→ “頭3文字前方一致”インデックス
     const [jrRows] = await conn.execute(
       `SELECT jockey_name, score FROM jockey_ranking WHERE year = ?`,
       [year]
     );
-    // prefix(先頭3文字) → 最大スコア
     const jrPrefixMax = new Map();
     for (const r of jrRows) {
       const key = headN(norm(r.jockey_name), 3);
@@ -80,7 +86,7 @@ function customScore(horse) {
       return jrPrefixMax.get(key) || 0;
     };
 
-    // 3) サイアーランキング（年なし）→ 同名は MAX(score)、前方一致
+    // 3) サイアーランキング（年なし）→ 同名MAX、前方一致
     const [srRowsRaw] = await conn.execute(
       `SELECT sire_name, MAX(score) AS score
          FROM sire_ranking
@@ -89,7 +95,7 @@ function customScore(horse) {
     const srRows = srRowsRaw
       .map(r => ({ sire_name: norm(r.sire_name), score: r.score >>> 0 }))
       .filter(r => r.sire_name.length > 0)
-      .sort((a, b) => b.sire_name.length - a.sire_name.length); // 長い順で前方一致の誤爆を抑える
+      .sort((a, b) => b.sire_name.length - a.sire_name.length); // 長い順で前方一致の誤爆抑制
     const sireScoreByText = (sireText) => {
       const S = norm(sireText);
       if (!S) return 0;
@@ -100,13 +106,13 @@ function customScore(horse) {
       return 0;
     };
 
-    // 4) スコア計算
+    // 4〜6) スコア計算 & ベスト選定
     const calc = rfRows.map(row => {
-      const jScore = jockeyScoreByName(row.jockey);           // ← ココが“頭3文字”対応
+      const jScore = jockeyScoreByName(row.jockey);
       const sScore = sireScoreByText(row.sire) || 0;
       const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
       let total = (jScore + sScore + cScore) >>> 0;
-      if (total === 0) total += row.horse_number; // 5) 0点救済
+      if (total === 0) total += row.horse_number; // 0点救済
       return {
         horse_number: row.horse_number,
         horse_name: row.horse_name,
@@ -115,25 +121,31 @@ function customScore(horse) {
       };
     });
 
-    // 6) 最高スコア1頭（同点は馬番小さい方）
     calc.sort((a, b) => b.score - a.score || a.horse_number - b.horse_number);
     const best = calc[0];
 
-    // 7) 保存
-    const memo = { race_id: raceId, items: calc };
+    // 7) prediction 上書き保存（memo に全頭の内訳とベストを格納）
+    const memo = {
+      model: MODEL_VERSION,
+      race_id: raceId,
+      items: calc,
+      best, // {horse_number, horse_name, score, breakdown}
+      generatedAt: new Date().toISOString(),
+    };
+
+    await conn.beginTransaction();
+    // race_id で上書きしたいので、現行スキーマでは DELETE→INSERT
+    await conn.execute(`DELETE FROM prediction WHERE race_id = ?`, [raceId]);
     await conn.execute(
-      `INSERT INTO prediction (race_id, horse_number, score, memo)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         horse_number = VALUES(horse_number),
-         score        = VALUES(score),
-         memo         = VALUES(memo),
-         updated_at   = CURRENT_TIMESTAMP`,
-      [raceId, best.horse_number, best.score, JSON.stringify(memo)]
+      `INSERT INTO prediction (race_id, model_version, memo)
+       VALUES (?, ?, CAST(? AS JSON))`,
+      [raceId, MODEL_VERSION, JSON.stringify(memo)]
     );
+    await conn.commit();
 
     console.log(`[OK] race_id=${raceId} 推奨: 馬番${best.horse_number} (score=${best.score}) 内訳=${JSON.stringify(best.breakdown)}`);
   } catch (e) {
+    try { if (conn) await conn.rollback(); } catch {}
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {
