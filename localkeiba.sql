@@ -129,17 +129,18 @@ DROP TABLE IF EXISTS `prediction_eval`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction_eval` (
-  `race_id` bigint NOT NULL,
-  `model_version` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `predicted_number` int NOT NULL,
-  `actual_winner` int NOT NULL,
-  `hit` tinyint(1) NOT NULL,
-  `top3_hit` tinyint(1) NOT NULL,
+  `race_id` char(12) NOT NULL,
+  `model_version` varchar(64) NOT NULL,
+  `predicted_horse_number` tinyint DEFAULT NULL,
+  `win_hit` tinyint(1) NOT NULL DEFAULT '0',
+  `win_payout` int DEFAULT NULL,
+  `place_hit` tinyint(1) NOT NULL DEFAULT '0',
+  `place_payout` int DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`model_version`),
-  KEY `idx_model` (`model_version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_prediction_eval_model` (`model_version`,`race_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -148,6 +149,7 @@ CREATE TABLE `prediction_eval` (
 
 LOCK TABLES `prediction_eval` WRITE;
 /*!40000 ALTER TABLE `prediction_eval` DISABLE KEYS */;
+INSERT INTO `prediction_eval` VALUES ('202510130110','yosou-v1',2,0,NULL,1,160,'2025-10-13 01:14:55','2025-10-13 02:14:14');
 /*!40000 ALTER TABLE `prediction_eval` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -159,17 +161,16 @@ DROP TABLE IF EXISTS `prediction_roi`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction_roi` (
-  `race_id` bigint NOT NULL,
-  `model_version` varchar(32) NOT NULL,
-  `predicted_number` int NOT NULL,
-  `win_payout` int DEFAULT NULL,
-  `place_payout` int DEFAULT NULL,
-  `invest_yen` int NOT NULL,
-  `return_yen` int NOT NULL,
-  `roi_percent` decimal(7,2) NOT NULL,
+  `race_id` char(12) NOT NULL,
+  `model_version` varchar(64) NOT NULL,
+  `strategy` varchar(32) NOT NULL,
+  `stake` int NOT NULL,
+  `returned` int NOT NULL,
+  `roi_pct` decimal(8,4) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`race_id`,`model_version`)
+  PRIMARY KEY (`race_id`,`model_version`,`strategy`),
+  KEY `idx_prediction_roi_model` (`model_version`,`race_id`,`strategy`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -179,7 +180,36 @@ CREATE TABLE `prediction_roi` (
 
 LOCK TABLES `prediction_roi` WRITE;
 /*!40000 ALTER TABLE `prediction_roi` DISABLE KEYS */;
+INSERT INTO `prediction_roi` VALUES ('202510130110','yosou-v1','ev_place',200,530,265.0000,'2025-10-13 02:07:41','2025-10-13 02:07:41'),('202510130110','yosou-v1','place',100,160,160.0000,'2025-10-13 02:14:14','2025-10-13 02:14:14'),('202510130110','yosou-v1','single',100,0,0.0000,'2025-10-13 02:14:14','2025-10-13 02:14:14');
 /*!40000 ALTER TABLE `prediction_roi` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `prediction_roi_daily`
+--
+
+DROP TABLE IF EXISTS `prediction_roi_daily`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `prediction_roi_daily` (
+  `ymd` date NOT NULL,
+  `model_version` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `strategy` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `races` int NOT NULL,
+  `invest_yen` int NOT NULL,
+  `return_yen` int NOT NULL,
+  `roi_percent` decimal(7,2) NOT NULL,
+  PRIMARY KEY (`ymd`,`model_version`,`strategy`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `prediction_roi_daily`
+--
+
+LOCK TABLES `prediction_roi_daily` WRITE;
+/*!40000 ALTER TABLE `prediction_roi_daily` DISABLE KEYS */;
+/*!40000 ALTER TABLE `prediction_roi_daily` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -414,4 +444,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-13  9:47:21
+-- Dump completed on 2025-10-13 11:16:14
