@@ -79,23 +79,82 @@ graph TD
 
 ---
 
-## 🗄️ テーブル例
-```sql
-CREATE TABLE IF NOT EXISTS calendar (
-  race_date DATE NOT NULL,
-  venucode  INT  NOT NULL,
-  venue     VARCHAR(255),
-  PRIMARY KEY (race_date, venucode)
-);
-CREATE INDEX idx_calendar_race_date ON calendar(race_date);
+## 🗄️ テーブル定義（DDL）
 
-CREATE TABLE IF NOT EXISTS race_count (
-  race_date  DATE NOT NULL,
-  venucode   INT  NOT NULL,
-  race_total INT  NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (race_date, venucode)
+正式な定義・インデックスはリポジトリ同梱の localkeiba.sql を最優先してください。
+ここでは運用に必要な5テーブルの要点を抜粋しています（MySQL 8+ 想定）
+```sql
+-- 1) 予想（モデル出力をJSONで保存）
+CREATE TABLE IF NOT EXISTS prediction (
+  prediction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  race_id       BIGINT      NOT NULL,
+  model_version VARCHAR(32) NOT NULL,
+  memo          JSON        NULL,     -- 例: {best:{horse_number,...}, items:[{horse_number,score,...}], ...}
+  created_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_prediction_race (race_id),
+  KEY idx_prediction_model_time (model_version, created_at)
+);
+
+-- 2) 結果（着順など）
+CREATE TABLE IF NOT EXISTS race_results (
+  race_id                      BIGINT       NOT NULL,
+  frame_number                 INT          NULL,
+  horse_number                 INT          NOT NULL,
+  horse_name                   VARCHAR(255) NULL,
+  official_finish_position     INT          NULL,
+  dead_heat_group              INT          NULL,
+  dead_heat_order_in_group     INT          NULL,
+  finish_time                  VARCHAR(16)  NULL,
+  margin                       VARCHAR(32)  NULL,
+  jockey_name                  VARCHAR(255) NULL,
+  odds_final                   DECIMAL(10,2) NULL,
+  prize                        INT          NULL,
+  disqualified                 TINYINT(1)   NOT NULL DEFAULT 0,
+  notes                        VARCHAR(255) NULL,
+  created_at                   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id, horse_number)
+);
+
+-- 3) 払戻（本運用では WIN/PLACE を使用）
+CREATE TABLE IF NOT EXISTS race_payouts (
+  race_id      BIGINT                      NOT NULL,
+  bet_type     ENUM('WIN','PLACE','OTHER') NOT NULL,
+  horse_number INT                         NOT NULL,
+  payout       INT                         NULL,   -- 100円基準の払戻
+  popularity   INT                         NULL,   -- n番人気（任意）
+  created_at   TIMESTAMP                   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP                   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id, bet_type, horse_number),
+  KEY idx_payouts_race (race_id)
+);
+
+-- 4) 単複評価のスナップショット（1レース1行）
+CREATE TABLE IF NOT EXISTS prediction_eval (
+  race_id                 BIGINT      NOT NULL,
+  model_version           VARCHAR(32) NOT NULL,
+  predicted_horse_number  INT         NULL,
+  win_hit                 TINYINT(1)  NOT NULL,  -- 単勝 的中=1/不的中=0
+  win_payout              INT         NULL,      -- 的中時のみ（100円基準）
+  place_hit               TINYINT(1)  NOT NULL,  -- 複勝 的中=1/不的中=0
+  place_payout            INT         NULL,      -- 的中時のみ（100円基準）
+  created_at              TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at              TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id, model_version)
+);
+
+-- 5) ROI（単複の2行を保存する方針：strategy IN ('single','place')）
+--    研究用に 'ev_win' / 'ev_place' 等を同テーブルに並存させてもOK
+CREATE TABLE IF NOT EXISTS prediction_roi (
+  race_id       BIGINT       NOT NULL,
+  model_version VARCHAR(32)  NOT NULL,
+  strategy      VARCHAR(32)  NOT NULL,  -- 'single' | 'place' | 'ev_*'（任意）
+  stake         INT          NOT NULL,  -- 投資額（円）
+  returned      INT          NOT NULL,  -- 回収額（円）
+  roi_pct       DECIMAL(10,4) NOT NULL, -- (returned / stake) * 100
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (race_id, model_version, strategy)
 );
 ```
 
