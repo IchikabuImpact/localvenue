@@ -3,7 +3,7 @@
  * 指定日の calendar から会場(venucode)を拾って、レース数(最終R)を全会場分DBに保存します
  *
  * USAGE:
- *   node save-race-count-by-date.js 20251013
+ *   node save-race-count-by-date.js 20251116
  *   node save-race-count-by-date.js 2025-09-14
  *   # 引数なしなら Asia/Tokyo の「今日」
  */
@@ -108,18 +108,29 @@ async function main() {
   const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
-    await conn.beginTransaction();
+  await conn.beginTransaction();
     let ok = 0, ng = 0;
     for (const code of codes) {
       try {
         const cnt = await scrapeRaceCount(driver, dateParam, code);
         const id = dateISO.replace(/-/g,'') + String(code);
+
+        // ① 旧テーブル：race_cnt（互換用）
         await conn.execute(
           `INSERT INTO race_cnt (id, cnt)
            VALUES (?, ?)
            ON DUPLICATE KEY UPDATE cnt = VALUES(cnt)`,
           [id, cnt]
         );
+
+        // ② 新テーブル：race_count_by_date（正テーブル）
+        await conn.execute(
+          `INSERT INTO race_count_by_date (ymd, venue_code, total_races)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE total_races = VALUES(total_races)`,
+          [dateISO.replace(/-/g,''), String(code), cnt]
+        );
+
         console.log(`[OK] ${code}: ${cnt}`);
         ok++;
       } catch (e) {

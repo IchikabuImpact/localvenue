@@ -11,14 +11,44 @@ const mysql = require('mysql2/promise');
 
 // -------- 引数パース --------
 function parseYearMonth(argv) {
-  const a = argv[2], b = argv[3];
   const now = new Date();
-  if (a && /^\d{6}$/.test(a)) return { year: a.slice(0, 4), month: a.slice(4, 6) };
-  const year = a && /^\d{4}$/.test(a) ? a : String(now.getFullYear());
-  const month = b && /^\d{1,2}$/.test(b) ? String(b).padStart(2, '0') : String(now.getMonth() + 1).padStart(2, '0');
-  return { year, month };
+  const arg1 = argv[2];
+  const arg2 = argv[3];
+
+  // パターン1: YYYYMMDD（例: 20250913）→ YYYY / MM を使用
+  if (arg1 && /^\d{8}$/.test(arg1)) {
+    return {
+      year: arg1.slice(0, 4),
+      month: arg1.slice(4, 6)
+    };
+  }
+
+  // パターン2: YYYYMM（例: 202509）
+  if (arg1 && /^\d{6}$/.test(arg1)) {
+    return {
+      year: arg1.slice(0, 4),
+      month: arg1.slice(4, 6)
+    };
+  }
+
+  // パターン3: YYYY [M or MM]
+  if (arg1 && /^\d{4}$/.test(arg1)) {
+    const year = arg1;
+    const month = arg2 && /^\d{1,2}$/.test(arg2)
+      ? String(arg2).padStart(2, '0')
+      : String(now.getMonth() + 1).padStart(2, '0');
+    return { year, month };
+  }
+
+  // パターン4: 引数なし or よくわからない引数 → 今月
+  return {
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0')
+  };
 }
+
 const { year, month } = parseYearMonth(process.argv);
+
 
 const options = new chrome.Options();
 options.addArguments(

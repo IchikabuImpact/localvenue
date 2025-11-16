@@ -1,39 +1,71 @@
-// list-race-ids.js
-// 使い方: node list-race-ids.js 20251013
-// 目的: save-race-count-by-date.js が入れた「本日の開催(会場ごとのレース数)」をDBから読み、
-//       あなたのRACEID規則に従って 1RACEID/行 で標準出力へ出す。
-//       ★下はダミー実装。実DBのquery・RACEID生成ロジックに置き換えてください。
+#!/usr/bin/env node
 
-const day = process.argv[2];
-if (!/^\d{8}$/.test(day)) {
-  console.error('Usage: node list-race-ids.js YYYYMMDD');
-  process.exit(1);
-}
+/**
+ * list-race-ids.js
+ *
+ * Usage:
+ *   node list-race-ids.js 20251116
+ *
+ * race_count_by_date から対象日の RACE_ID 一覧を生成し、
+ * 1行1レコードで標準出力へ出す。
+ * daily-yosou-batch.js はこの標準出力を配列化して利用する。
+ */
 
-// ▼ここでDB接続して、本日の (venue_code, total_races) を取得する
-//   例: SELECT venue_code, total_races FROM race_count_by_date WHERE ymd = ?;
-async function fetchVenueRaceCounts(ymd) {
-  // TODO: 実装
-  // 例として2会場×各12Rのダミー
-  return [
-    { venue_code: '01', total_races: 12 },
-    { venue_code: '03', total_races: 12 },
-  ];
-}
-
-// ▼あなたのRACEID規則に合わせて生成してください。
-//   ここでは「YYYYMMDD + venue(2桁) + raceNo(2桁)」 → 202510130131 形式の例
-function makeRaceId(ymd, venue, rno) {
-  const rr = String(rno).padStart(2, '0');
-  return `${ymd}${venue}${rr}`;
-}
+const mysql = require("mysql2/promise");
 
 (async () => {
-  const rows = await fetchVenueRaceCounts(day);
+  const ymd = process.argv[2];
 
-  for (const { venue_code, total_races } of rows) {
-    for (let r = 1; r <= total_races; r++) {
-      console.log(makeRaceId(day, venue_code, r));
+  if (!/^\d{8}$/.test(ymd || "")) {
+    console.error("Usage: node list-race-ids.js YYYYMMDD");
+    process.exit(1);
+  }
+
+  const config = require("./config.js");
+  let conn;
+
+  try {
+    conn = await mysql.createConnection({
+      host: config.mysql.host,
+      user: config.mysql.user,
+      password: config.mysql.password,
+      database: config.mysql.database,
+      port: config.mysql.port,
+    });
+
+    // race_count_by_date から対象日の会場別レース数を取得
+    const [rows] = await conn.execute(
+      `
+      SELECT venue_code, total_races
+      FROM race_count_by_date
+      WHERE ymd = ?
+      ORDER BY venue_code
+      `,
+      [ymd]
+    );
+
+    if (rows.length === 0) {
+      console.error(`(warn) race_count_by_date に ${ymd} のデータがありません。`);
+      // ここで終了しても daily-yosou-batch 側は「0件」で止まるので問題なし
+      return;
+    }
+
+    // race_id 生成: YYYYMMDD + RR(2桁) + venue_code(2桁)
+    for (const row of rows) {
+      const vc = String(row.venue_code).padStart(2, "0");
+      const maxR = Number(row.total_races) || 0;
+      for (let rr = 1; rr <= maxR; rr++) {
+        const rr2 = String(rr).padStart(2, "0");
+        const raceId = `${ymd}${rr2}${vc}`;
+        console.log(raceId);
+      }
+    }
+  } catch (e) {
+    console.error("[fatal] list-race-ids:", e.message || e);
+    process.exit(1);
+  } finally {
+    if (conn) {
+      try { await conn.end(); } catch {}
     }
   }
 })();
