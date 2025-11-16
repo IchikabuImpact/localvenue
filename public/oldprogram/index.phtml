@@ -1,0 +1,155 @@
+<?php
+
+//$public_dir=realpath(APPLICATION_PATH."/../public");
+$public_dir= $this->public_dir;
+//require_once($public_dir."/text_ja.php");
+$targetDateSuffix = date("Ymd");
+$navigationFileName="navigation".".php";
+
+if(file_exists( $this->public_dir ."/navigation".$targetDateSuffix.".php")){
+	$navigationFileName=$this->public_dir ."/navigation".$targetDateSuffix.".php";
+}
+?>
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="author" content="ken kodama">
+        <meta property="og:type" content="website">
+        <meta property="og:description" content="<?php echo $this->trans->_('siteTitle') . "," .$this->trans->_('siteDesc') ?>">
+        <meta property="og:title" content="<?php echo $this->trans->_('siteTitle') ?>">
+        <meta property="og:url" content="http://ckeiba.appstarrocks.com/">
+        <meta property="og:image" content="http://ckeiba.appstarrocks.com/images/anauma-kuruko408.png">
+        <meta property="og:site_name" content="<?php echo $this->trans->_('siteTitle') ?>">
+        <meta property="og:locale" content="ja_JP">
+        <meta name="description" content="<?php echo $this->trans->_('siteTitle') . "," .$this->trans->_('siteDesc') ?>">
+        <meta name="keywords" content="<?php echo $this->trans->_('siteTitle') ?>" />
+        <meta name="google-site-verification" content="kkR57VEj9LZJ3c5NwlWCrPDMuwQTbAEAEH6t0Jz2AC0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title><?php echo $this->trans->_('titleTag') ?></title>
+        <link rel="alternate" hreflang="ja" href="http://ckeiba.appstarrocks.com/index.php" />
+        <link rel="shortcut icone" href="favicon.ico" hreflang="ja" />
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.0/jquery.mobile-1.4.0.min.css" />
+        <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+        <script src="https://code.jquery.com/mobile/1.4.0/jquery.mobile-1.4.0.min.js"></script>
+        <link rel="stylesheet" href="/css/style.css" />
+<style>
+.adContent {
+    margin: auto;
+    width: 320px;
+    /*width: 300px;*/
+
+    @media #{$small-break} {
+        width: 320px;
+    }
+    @media #{$large-break} {
+        width: 730px;
+    }
+}
+.body1{
+ text-align:left;
+}
+#header{
+ margin-right:20px;
+}
+
+.bgImage {
+/*
+  background-image: url('/images/dart.jpg');
+  repeat center;
+  background-size: cover;
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+*/
+}
+
+
+.bgImage:before {
+/*
+  content: "";
+ position: fixed;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  
+  display: block;
+  width: 1200px;
+  height: 800px;
+  
+  -webkit-filter: blur(5px);
+  -moz-filter: blur(5px);
+  -o-filter: blur(5px);
+  -ms-filter: blur(5px);
+  filter: blur(5px);
+*/
+}
+.content {
+/* 
+ position: absolute;
+*/ 
+ left: 0;
+  right: 0;
+  z-index: 0;
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+ </style>
+</head>
+<body class="content" >
+<?php include_once("analyticstracking.php") ?>
+<div id="content" data-role="content" style="background-color:rgba(0,0,0,0)">        
+	<div id="header" class="ui-bar" data-role="header" data-position="fixed" background-color:rgba(0,0,0,0)>
+		<h2><?php echo $this->trans->_('siteTitle')?></h2>
+		<a  href="/Index">HOME</a>
+ 		<a  href="/Index/Recover" style="margin-right:40px" ><?php echo $this->trans->_('label_recover') ?></a>
+	</div>
+
+	<div class="body1">
+        <div><img src="/images/cassandra2016.png" alt="anamuma-kuruko" /></div>
+		<h4> <?php echo $this->trans->_('siteTitle') ?>
+		<div class="about"><?php  echo $this->trans->_('siteDesc') ?></div></h4>
+ 		<h4><?php echo $this->trans->_('label_senryu') ?>:</h4>
+  		<h4>
+    	<a href="https://twitter.com/kenchan_baken"><img src="/images/cassandra2016.png" alt="kenchanbaken" style="width:40px; height:40px" /></a> &lt;  <?php echo $this->senryu?>
+  		</h4>
+	</div>
+	<div id='resultList'>
+	<h4><?php echo $this->trans->_('label_results_of_expected') ?>:</h4>
+	<ul data-role='listview' data-inset='true'>
+                        <?php
+                        $minus1day = date('Ymd', strtotime("- 1 day"));
+                        $minus2day = date('Ymd', strtotime("- 2 day"));
+                        $minus3day = date('Ymd', strtotime("- 3 day"));
+                        $minus4day = date('Ymd', strtotime("- 4 day"));
+                        $minus5day = date('Ymd', strtotime("- 5 day"));
+                        $atag="";
+                        $atag.= "<li><a data-ajax='false' href='" . '/Index/Result/t/' . date('Ymd') ."'".">"
+                                  .$this->trans->_('label_results_of_expected')."&nbsp;" . date('Ymd')."</a></li>";
+                        for ($i=1; $i<5; $i++){
+                        $minusday =  date('Ymd', strtotime("- $i day"));
+                        $atag.= "<li><a data-ajax='false' href='" . '/Index/Result/t/' . $minusday ."'".">"
+                             .$this->trans->_('label_results_of_expected')."&nbsp;" . $minusday."</a></li>";
+                        }
+                        echo $atag;
+                        ?>
+     </ul>
+    </div>
+    <h4><?php echo $this->trans->_('label_expected') ?> <?php echo $targetDateSuffix?></h4>
+                <?php
+                require_once($navigationFileName);
+                ?>
+
+<hr/>
+<?php require_once("amazon.php");?>
+            <div data-role="footer" >
+                <p><?php echo $this->trans->_('notes') ?></p>
+                 <h4>
+				<a rel="author" href="http://developer.appstarrocks.com/" ><?php echo $this->trans->_('copyright')  ?><a>
+</h4>
+            </div><!--footer-->
+        </div><!--content-->
+        <script>            $("a").attr({"data-ajax": "false"});        </script>
+   </body>
+</html>

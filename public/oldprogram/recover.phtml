@@ -1,0 +1,159 @@
+<?php
+//require_once("text_ja.php");
+
+
+require_once(realpath(APPLICATION_PATH."/../"."./vendor/mobiledetect/mobiledetectlib/Mobile_Detect.php"));
+function right($str,$n){
+  //文字コードUTF-8で、right関数。$strの右から$n文字取得
+  return mb_substr($str,($n)*(-1),$n,"UTF-8");
+}
+ 
+function left($str,$n){
+  //文字コードUTF-8で、left関数。$strの左から$n文字取得
+  return mb_substr($str,0,$n,"UTF-8");
+}
+
+class Recovers{
+	function execute($yosouDir){
+		$kikan = 30;
+		$dt= new DateTime();
+		$dt->setTimeZone(new DateTimeZone('Asia/Tokyo'));
+		$targetDay = $dt->format('Ymd');
+		$result=[];
+		for($i=0; $i<$kikan; $i++){
+			$minusDate= date('Ymd', strtotime("$targetDay  -$i day"));
+			$filePath=$yosouDir."/recovery_value". $minusDate .".txt";
+			$contents="";
+			if(file_exists($filePath)){
+				 $contents = trim(file_get_contents($filePath));
+			}
+        	$result[$minusDate] = trim($contents);
+		}
+        return $result;   
+	}
+}
+
+$rec = new Recovers();
+$yosouDir = realpath(APPLICATION_PATH."/../public/yosou");
+$result = $rec->execute($yosouDir);
+
+$values=[];
+foreach($result as $key => $value){
+ $values[]=$value;
+}
+$total = array_sum($values);
+$head_count = count($values); 
+
+//print_r($result);
+$detect= new Mobile_Detect();
+
+$chart_width= 800;
+$chart_height= 600;
+if ( $detect->isMobile() ) {
+$chart_width=420;
+$chart_height= 590;
+}
+
+
+?>
+
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="author" content="ken kodama">
+<meta property="og:type" content="website">
+<meta property="og:description" content="<?php echo $this->trans->_('siteTitle') . "," .$this->trans->_('siteDesc') ?>">
+<meta property="og:title" content="<?php echo $this->trans->_('siteTitle') ?>">
+<meta property="og:url" content="https://ckeiba.appstarrocks.com/">
+<meta property="og:image" content="https://ckeiba.appstarrocks.com/images/anauma-kuruko408.png">
+<meta property="og:site_name" content="<?php echo $this->trans->_('siteTitle') ?>">
+<meta property="og:locale" content="ja_JP">
+<meta name="keywords" content="<?php echo $this->trans->_('siteTitle') ?>" />
+<meta name="description" content="<?php echo $this->trans->_('siteTitle') . "," .$this->trans->_('siteDesc') ?>">
+<meta name="google-site-verification" content="kkR57VEj9LZJ3c5NwlWCrPDMuwQTbAEAEH6t0Jz2AC0" />
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <title><?php echo $this->trans->_('titleTag') ?></title>
+<link rel="alternate" hreflang="ja" href="https://ckeiba.appstarrocks.com/index.php">
+<link rel="shortcut icon" href="favicon.ico" >
+<link rel="stylesheet" href="/css/style.css" />
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.0/jquery.mobile-1.4.0.min.css" />
+        <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+        <script src="https://code.jquery.com/mobile/1.4.0/jquery.mobile-1.4.0.min.js"></script>
+
+<!--google mobile ads-->
+<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+  (adsbygoogle = window.adsbygoogle || []).push({
+    google_ad_client: "ca-pub-4498051423313001",
+    enable_page_level_ads: true
+  });
+</script>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript">
+    google.charts.load("current", {packages:['corechart']});
+    google.charts.setOnLoadCallback(drawChart);
+    function drawChart() {
+      var data = google.visualization.arrayToDataTable([
+        ["Element", "<?php echo  count($result)."days"; ?>", { role: "style" } ]
+        <?php
+          foreach($result as $key => $value){
+                echo ",";
+                echo ' [' . "\"".  right($key,4) ."\"" . "," . $value . ",". "\"silver\"".  "]" . "";      
+          }
+      
+        ?>
+      ]);
+
+      var view = new google.visualization.DataView(data);
+      view.setColumns([0, 1,
+                       { calc: "stringify",
+                         sourceColumn: 1,
+                         type: "string",
+                         role: "annotation" },
+                       2]);
+
+      var options = {
+        title: "<?php
+	    echo "回収率 " /*$this->trans->_('siteTitle')*/
+            // .$this->trans->_("mode_".$this->mode)
+             .$this->trans->_('label_time_period'). ":" . count($result)."days"
+             .$this->trans->_('label_average') .":" . round($total / $head_count)?>%",
+        width: <?php echo $chart_width ?>,
+        height:<?php echo $chart_height ?>,
+        bar: {groupWidth: "50%"},
+        legend: { position: "center" },
+      };
+      var chart = new google.visualization.ColumnChart(document.getElementById("columnchart_values"));
+      chart.draw(view, options);
+  }
+  </script>
+ <script>
+
+
+
+</script>
+</head>
+<body>
+<?php include_once("analyticstracking.php") ?>
+<div id="content" data-role="content" data-theme="c">  
+<div id="header" class="ui-bar" data-role="header" data-position="fixed">
+        <h2>Cassandra2016kkのAI予想(地方競馬)</h2>
+        <a  href="/Index">HOME</a>
+        <a  href="/Index/Recover" style="margin-right:40px" ><?php echo $this->trans->_('label_recover') ?></a>
+</div>
+<br/>
+
+<div id="columnchart_values" style="margin:auto;text-align:left; "></div>
+
+
+
+</div><!--content-->
+
+
+
+
+
+<script>            $("a").attr({"data-ajax": "false"});        </script>
+
+</body>
+</html>

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>kenchanbaken  — レース詳細（モック）</title>
+  <title>enchanbaken  — レース詳細（モック）</title>
   <link rel="stylesheet" href="./localvenue-mockup.css" />
 </head>
 <body>
   <header class="header">
     <div class="header__inner container">
-      <div class="brand">kenchanbaken <span class="sub">horse racing analytics</span></div>
+      <div class="brand">Localvenue <span class="sub">horse racing analytics</span></div>
       <nav class="nav" aria-label="Primary">
         <a href="./index.html">開催一覧</a>
         <a href="#" aria-current="page">レース詳細</a>
@@ -29,14 +29,16 @@
           <span class="pill" id="race-no">—</span>
         </div>
         <div class="mt-12 pills">
-          <span class="tag tag--win">単勝・複勝それぞれ100円ずつ</span>
+          <span class="tag tag--win">単勝</span>
+          <span class="tag tag--place">複勝</span>
+          <span class="tag tag--quinella">BOX</span>
         </div>
       </div>
     </div>
 
     <section class="card mb-12">
       <div class="card__header">
-        <div class="card__title">推奨馬（public/yosou/{race_id}.php をそのまま描画）</div>
+        <div class="card__title">推奨（public/yosou/{race_id}.php をそのまま描画）</div>
         <div class="card__actions"><button class="btn" id="btn-open-yosou">元ファイル</button></div>
       </div>
       <div class="card__body">
@@ -62,6 +64,7 @@
       </div>
       <div class="card__body">
         <ul class="list">
+          <li><span>ZF1 旧URL</span> <span class="badge">/index/detail/race_id/:race_id</span></li>
           <li><span>現モックURL</span> <span class="badge">/detail.html?race_id=YYYYMMDD_{場コード}_{R}</span></li>
           <li><span>Rはゼロ埋め</span> <span class="badge">なし（現物準拠）</span></li>
         </ul>

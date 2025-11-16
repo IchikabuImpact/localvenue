@@ -1,0 +1,2 @@
+http://ckeiba.appstarrocks.com/Index  priority=1.0
+http://ckeiba.appstarrocks.com/Index/Recover priority=0.9
