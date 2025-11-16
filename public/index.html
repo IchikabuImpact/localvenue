@@ -4,187 +4,42 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Localvenue — 開催サマリー / レース一覧（モック）</title>
-  <link rel="stylesheet" href="./localvenue-mockup.css" />
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <header class="header">
     <div class="header__inner container">
-      <div class="brand">Localvenue <span class="sub">horse racing analytics</span></div>
+      <div class="brand">kenchanbaken <span class="sub">horse racing analytics</span></div>
       <nav class="nav" aria-label="Primary">
-        <a href="#" aria-current="page">開催一覧</a>
-        <a href="#">レース詳細</a>
+        <a href="#" aria-current="page">HOME</a>
         <a href="#">統計</a>
-        <a href="#">設定</a>
       </nav>
     </div>
   </header>
 
   <main class="main container">
+
+    <h4>
+    	 <a href="https://twitter.com/kenchan_baken"><img src="./images/kenchanbaken.jpg" alt="kenchanbaken" style="width:40px; height:40px" /></a> 
+  	</h4>
+
     <div class="card mb-8">
       <div class="card__header">
-        <div class="card__title">今週の開催サマリー <span class="badge">2025-10-18(土) - 2025-10-19(日)</span></div>
-        <div class="card__actions">
-          <button class="btn btn--ghost" type="button">CSV</button>
-          <button class="btn btn--primary" type="button">更新</button>
-        </div>
-      </div>
-      <div class="card__body">
-        <section class="index-summary">
-          <article class="metric">
-            <div class="label">開催場数</div>
-            <div class="value">6</div>
-            <div class="delta ok">先週比 +1</div>
-          </article>
-          <article class="metric">
-            <div class="label">総レース数</div>
-            <div class="value">72</div>
-            <div class="delta">—</div>
-          </article>
-          <article class="metric">
-            <div class="label">推奨買い目 命中率</div>
-            <div class="value">34.7%</div>
-            <div class="delta ok">+2.3pt</div>
-          </article>
-          <article class="metric">
-            <div class="label">回収率（概算）</div>
-            <div class="value">108.9%</div>
-            <div class="delta ok">+6.1pt</div>
-          </article>
-        </section>
+        <div class="card__title"><span class="badge">2024-11-1(日)</span></div>
       </div>
     </div>
 
     <div class="grid">
-      <section class="card">
-        <div class="card__header">
-          <div class="card__title">レース一覧</div>
-          <div class="toolbar">
-            <label class="row"><span class="label">日付</span><input class="input" type="date" value="2025-10-18" /></label>
-            <label class="row"><span class="label">開催場</span>
-              <select class="select">
-                <option value="">すべて</option>
-                <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option>
-                <option>東京</option><option>中山</option><option>中京</option><option>京都</option>
-                <option>阪神</option><option>小倉</option>
-              </select>
-            </label>
-            <label class="row"><span class="label">検索</span><input class="input" type="search" placeholder="例）3歳以上1勝クラス / 1200m / ダート" /></label>
-            <button class="btn" type="button">絞り込み</button>
-          </div>
-        </div>
-        <div class="card__body">
-          <div class="table-wrap">
-            <table class="table table--dense" aria-describedby="race-list-desc">
-              <caption id="race-list-desc" class="visually-hidden">指定条件に合致するレース一覧</caption>
-              <thead>
-                <tr>
-                  <th class="col-xs center">R</th>
-                  <th>開催</th>
-                  <th>レース名</th>
-                  <th class="col-sm center">発走</th>
-                  <th class="col-md center">条件</th>
-                  <th class="col-sm center">距離</th>
-                  <th class="col-sm center">馬場</th>
-                  <th class="col-sm center">印</th>
-                  <th class="col-sm num">的中率</th>
-                  <th class="col-sm num">回収率</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Mock rows -->
-                <tr onclick="location.href='detail.html'" style="cursor:pointer">
-                  <td class="center">1</td>
-                  <td><div class="race-list"><span class="course">東京</span> 1日目 <span class="date">10:05</span></div></td>
-                  <td>2歳未勝利</td>
-                  <td class="center">10:05</td>
-                  <td class="center">2歳・未勝利</td>
-                  <td class="center">芝 1600m</td>
-                  <td class="center"><span class="tag tag--turf">芝</span></td>
-                  <td class="center">◎○▲</td>
-                  <td class="num">33.3%</td>
-                  <td class="num">94.1%</td>
-                </tr>
-                <tr onclick="location.href='detail.html'" style="cursor:pointer">
-                  <td class="center">5</td>
-                  <td><div class="race-list"><span class="course">京都</span> 1日目 <span class="date">12:25</span></div></td>
-                  <td>障害OP</td>
-                  <td class="center">12:25</td>
-                  <td class="center">3歳以上・OP</td>
-                  <td class="center">ダ 3170m</td>
-                  <td class="center"><span class="tag tag--dirt">ダ</span></td>
-                  <td class="center">◎▲△</td>
-                  <td class="num">28.6%</td>
-                  <td class="num">112.0%</td>
-                </tr>
-                <tr onclick="location.href='detail.html'" style="cursor:pointer">
-                  <td class="center">11</td>
-                  <td><div class="race-list"><span class="course">阪神</span> 2日目 <span class="date">15:40</span></div></td>
-                  <td>G2 スワンS</td>
-                  <td class="center">15:40</td>
-                  <td class="center">3歳以上・G2</td>
-                  <td class="center">芝 1400m</td>
-                  <td class="center"><span class="tag tag--turf">芝</span></td>
-                  <td class="center">◎○△</td>
-                  <td class="num">36.0%</td>
-                  <td class="num status-ok">128.3%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <button class="page-btn" type="button">前へ</button>
-            <button class="page-btn" aria-current="page" type="button">1</button>
-            <button class="page-btn" type="button">2</button>
-            <button class="page-btn" type="button">3</button>
-            <button class="page-btn" type="button">次へ</button>
-          </div>
-        </div>
-      </section>
-
-      <aside class="aside">
-        <section class="card">
-          <div class="card__header">
-            <div class="card__title">開催状況</div>
-          </div>
-          <div class="card__body">
-            <div class="row row--wrap gap-8">
-              <span class="chip">東京 <span class="badge">12R</span></span>
-              <span class="chip">京都 <span class="badge">12R</span></span>
-              <span class="chip">阪神 <span class="badge">12R</span></span>
-              <span class="chip">新潟 <span class="badge">12R</span></span>
-            </div>
-            <div class="mt-12">
-              <span class="progress" title="今週の結果確定率">
-                <span>確定</span>
-                <span class="bar"><i style="--value:62%"></i></span>
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card__header">
-            <div class="card__title">注目レース</div>
-          </div>
-          <div class="card__body">
-            <ul class="list">
-              <li><span>阪神 11R スワンS (G2)</span><span class="badge badge--warn">15:40</span></li>
-              <li><span>東京 10R オータムS</span><span class="badge">15:10</span></li>
-              <li><span>京都 9R 紫野特別</span><span class="badge">14:35</span></li>
-            </ul>
-          </div>
-        </section>
-      </aside>
+      <div id='raceList'><ul data-role='listview' data-inset='true'><li><a href='/Index/Detail/race_id/20241124_11_1' data-ajax='false'>水沢:1R Ｃ２</a></li><li><a href='/Index/Detail/race_id/20241124_11_2' data-ajax='false'>水沢:2R Ｃ２</a></li><li><a href='/Index/Detail/race_id/20241124_11_3' data-ajax='false'>水沢:3R Ｃ２九組</a></li><li><a href='/Index/Detail/race_id/20241124_11_4' data-ajax='false'>水沢:4R Ｃ２八組</a></li><li><a href='/Index/Detail/race_id/20241124_11_5' data-ajax='false'>水沢:5R Ｃ２七組</a></li><li><a href='/Index/Detail/race_id/20241124_11_6' data-ajax='false'>水沢:6R ２歳Ｃ２二組</a></li><li><a href='/Index/Detail/race_id/20241124_11_7' data-ajax='false'>水沢:7R ２歳Ｃ２一組</a></li><li><a href='/Index/Detail/race_id/20241124_11_8' data-ajax='false'>水沢:8R Ｃ１</a></li><li><a href='/Index/Detail/race_id/20241124_11_9' data-ajax='false'>水沢:9R Ｃ１</a></li><li><a href='/Index/Detail/race_id/20241124_11_10' data-ajax='false'>水沢:10R 馬仙峡賞Ｃ１四組</a></li><li><a href='/Index/Detail/race_id/20241124_11_11' data-ajax='false'>水沢:11R レックススタッド特別Ｃ１三組</a></li><li><a href='/Index/Detail/race_id/20241124_11_12' data-ajax='false'>水沢:12R 北上川大賞典オープン</a></li><li><a href='/Index/Detail/race_id/20241124_22_1' data-ajax='false'>金沢:1R 能登半島地震復興応援杯Ｃ２十七</a></li><li><a href='/Index/Detail/race_id/20241124_22_2' data-ajax='false'>金沢:2R キマシタァ！たいき君２５歳記念Ｃ２十六</a></li><li><a href='/Index/Detail/race_id/20241124_22_3' data-ajax='false'>金沢:3R 中澤和希生誕１周年おめでとう記念Ｃ２十五</a></li><li><a href='/Index/Detail/race_id/20241124_22_4' data-ajax='false'>金沢:4R 陽一お誕生日おめでとう記念Ｃ２十四</a></li><li><a href='/Index/Detail/race_id/20241124_22_5' data-ajax='false'>金沢:5R 柳瀬さん、勤続３３年お疲れ様でしＣ２十三</a></li><li><a href='/Index/Detail/race_id/20241124_22_6' data-ajax='false'>金沢:6R 紫翠にむ生誕祭祝福レースＣ２十二</a></li><li><a href='/Index/Detail/race_id/20241124_22_7' data-ajax='false'>金沢:7R Ｃ２十一</a></li><li><a href='/Index/Detail/race_id/20241124_22_8' data-ajax='false'>金沢:8R 冬牡丹賞Ｃ２十以下牝馬</a></li><li><a href='/Index/Detail/race_id/20241124_22_9' data-ajax='false'>金沢:9R 桂川家・松岡家結婚記念レースＢ１四</a></li><li><a href='/Index/Detail/race_id/20241124_22_10' data-ajax='false'>金沢:10R Ｂ１三</a></li><li><a href='/Index/Detail/race_id/20241124_22_11' data-ajax='false'>金沢:11R ポイントでネット投票！楽天競馬特別Ａ２二</a></li><li><a href='/Index/Detail/race_id/20241124_31_1' data-ajax='false'>高知:1R ２歳新馬</a></li><li><a href='/Index/Detail/race_id/20241124_31_2' data-ajax='false'>高知:2R Ｃ３－２１</a></li><li><a href='/Index/Detail/race_id/20241124_31_3' data-ajax='false'>高知:3R Ｃ３－２０</a></li><li><a href='/Index/Detail/race_id/20241124_31_4' data-ajax='false'>高知:4R みっちゃんガンバ特別Ｃ３－１９</a></li><li><a href='/Index/Detail/race_id/20241124_31_5' data-ajax='false'>高知:5R Ｃ３－１８</a></li><li><a href='/Index/Detail/race_id/20241124_31_6' data-ajax='false'>高知:6R ファンキータイム特別Ｃ３－１７</a></li><li><a href='/Index/Detail/race_id/20241124_31_7' data-ajax='false'>高知:7R Ｃ３－１６</a></li><li><a href='/Index/Detail/race_id/20241124_31_8' data-ajax='false'>高知:8R Ｃ３－１５</a></li><li><a href='/Index/Detail/race_id/20241124_31_9' data-ajax='false'>高知:9R Ｃ３－１４</a></li><li><a href='/Index/Detail/race_id/20241124_31_10' data-ajax='false'>高知:10R Ａ－２</a></li><li><a href='/Index/Detail/race_id/20241124_31_11' data-ajax='false'>高知:11R トパーズ特別Ａ－１</a></li><li><a href='/Index/Detail/race_id/20241124_31_12' data-ajax='false'>高知:12R ファイナルレースＣ３－２３記者選抜</a></li><li><a href='/Index/Detail/race_id/20241124_32_1' data-ajax='false'>佐賀:1R Ｃ２－１１組</a></li><li><a href='/Index/Detail/race_id/20241124_32_2' data-ajax='false'>佐賀:2R Ｃ２－１０組</a></li><li><a href='/Index/Detail/race_id/20241124_32_3' data-ajax='false'>佐賀:3R 博多和牛杯Ｃ２－９組</a></li><li><a href='/Index/Detail/race_id/20241124_32_4' data-ajax='false'>佐賀:4R はかた地どり杯Ｃ２－８組</a></li><li><a href='/Index/Detail/race_id/20241124_32_5' data-ajax='false'>佐賀:5R ばんえい十勝フェア実施中！Ｃ１－１２組</a></li><li><a href='/Index/Detail/race_id/20241124_32_6' data-ajax='false'>佐賀:6R 帯広競馬×佐賀競馬コラボ記念Ｃ１－１１組</a></li><li><a href='/Index/Detail/race_id/20241124_32_7' data-ajax='false'>佐賀:7R 九州大賞典オープン</a></li><li><a href='/Index/Detail/race_id/20241124_32_8' data-ajax='false'>佐賀:8R Ｃ１－１０組</a></li><li><a href='/Index/Detail/race_id/20241124_32_9' data-ajax='false'>佐賀:9R 天正月賞Ｂ－６組</a></li><li><a href='/Index/Detail/race_id/20241124_32_10' data-ajax='false'>佐賀:10R ＫＹＵＳＨＵ　ＤＲＥＡＭ賞Ａ１</a></li><li><a href='/Index/Detail/race_id/20241124_32_11' data-ajax='false'>佐賀:11R アンドロメダ座特選Ｃ２</a></li><li><a href='/Index/Detail/race_id/20241124_32_12' data-ajax='false'>佐賀:12R ＳＡＧＡリベンジャーズＣ２－１２組</a></li></ul></div>
     </div>
 
-    <p class="kb-help mt-16">ヒント: <span class="kbd">J</span> / <span class="kbd">K</span> で行移動、<span class="kbd">Enter</span> で詳細へ</p>
   </main>
 
   <footer class="footer container">
     <div class="footer-links">
       <a href="#">利用規約</a>
-      <a href="#">プライバシー</a>
-      <a href="#">ソースコード</a>
+      <a href="#">PRIVACY-POLICY</a>
+      <a href="#">CONCACT</a>
     </div>
   </footer>
 </body>
