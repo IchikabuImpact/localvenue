@@ -3,18 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
-  "description": "LocalVenue: NAR monthly scraper + simple REST API (/api-venue)",
-  "main": "api-todays-venue.js",
+  "description": "LocalVenue: NAR monthly scraper",
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "node api-todays-venue.js",
-    "api:start": "node api-todays-venue.js",
-    "api:pm2": "pm2 start api-todays-venue.js --name localvenue-api",
-    "api:reload": "pm2 reload localvenue-api",
-    "api:stop": "pm2 stop localvenue-api && pm2 delete localvenue-api",
-    "api:logs": "pm2 logs localvenue-api --lines 50",
     "pm2:save": "pm2 save",
     "pm2:resurrect": "pm2 resurrect",
     "scrape:month": "node kaisai-info.js",
