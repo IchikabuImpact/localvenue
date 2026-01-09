@@ -38,7 +38,6 @@ module.exports = {
 ## 🚀 Usage — 全体の作り
 ```bash
 node kaisai-info.js 2025 10         # 月間開催カレンダー → calendar へ登録
-node api-todays-venue.js & http://localhost:3000/api-venue/2025-09-21  # 指定日/当日の会場コードを返すAPI。
 node save-race-count-by-date.js 20250921   # 各会場のレース数を収集し race_count テーブルへ保存します。
 node racing-form-to-db.js 202509211131     # 出馬表を DB に保存します (yyyymmdd+race番号+baba)
 node guess.js 202509211131                 # 予想して DB に保存します (yyyymmdd+race番号+baba)
@@ -52,7 +51,6 @@ node generate-web.js 20250921              # 指定日分のWEBページを生�
 
 ## 🧩 スクリプト概要
 - **kaisai-info.js**: 月間開催スケジュール → `calendar`
-- **api-todays-venue.js**: 指定日/当日の会場コードを返す REST API
 - **save-race-count-by-date.js**: 会場ごとのレース数を収集 → `race_count`
 - **racing-form-to-db.js**: 出馬表を保存
 - **guess.js**: 予想を保存
@@ -67,7 +65,6 @@ node generate-web.js 20250921              # 指定日分のWEBページを生�
 ```mermaid
 graph TD
   A[kaisai-info.js\n(月間開催スクレイプ)] -->|calendar更新| B[(MySQL)]
-  B --> C[api-todays-venue.js\n(REST API)]
   D[save-race-count-by-date.js\n(レース数収集)] --> B
   E[racing-form-to-db.js\n(出馬表保存)] --> B
   F[guess.js\n(予想保存)] --> B

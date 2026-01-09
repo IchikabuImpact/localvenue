@@ -15,7 +15,8 @@ const config = require('./config.js');
 
 const webdriver = require('selenium-webdriver');
 const { By, until } = webdriver;
-const chrome = require('selenium-webdriver/chrome');
+
+const { buildDriver } = require('./lib/webdriver');
 
 // ===== DB Pool =====
 const pool = mysql.createPool({
@@ -187,23 +188,16 @@ async function saveRows(rows, year) {
   const url = buildUrl(theYear, division);
   console.log('[year]', theYear, '[division]', division);
   console.log('[url]', url);
-
-  const options = new chrome.Options()
-    // 安定運用後は headless でOK（必要ならコメント解除）
-    // .addArguments('--headless=new')
-    .addArguments(
-      '--disable-gpu','--no-sandbox','--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--lang=ja-JP,ja',
-      `--user-data-dir=${path.resolve('./.chrome-profile')}`,
-      '--profile-directory=Default'
-    )
-    .windowSize({ width: 1400, height: 1600 });
-
-  const driver = await new webdriver.Builder()
-    .forBrowser('chrome')
-    .setChromeOptions(options)
-    .build();
+const driver = await buildDriver({
+  // 並列実行(2本とか)があるなら、プロファイル共有は事故りやすいので分ける
+  userDataDir: path.resolve(`./.chrome-profile/jockey-${process.pid}`),
+  windowSize: { width: 1400, height: 1600 },
+  extraArgs: [
+    '--disable-blink-features=AutomationControlled',
+    '--lang=ja-JP,ja',
+    '--profile-directory=Default',
+  ],
+});
 
   try {
     // 1) ランキングTOP → 同意処理 → dump
