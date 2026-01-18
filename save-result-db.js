@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 /**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
+/**
  * save-result-db.js
  * Usage: node save-result-db.js 202510130110
  *
@@ -9,11 +14,11 @@
  * 4) 未確定文言検知で exit code 2
  */
 
-const axios  = require('axios').default;
+const axios = require('axios').default;
 const cheerio = require('cheerio');
-const mysql  = require('mysql2/promise');
-const fs     = require('fs');
-const path   = require('path');
+const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
 const config = require('./config.js');
 
 // ========= Constants =========
@@ -46,8 +51,8 @@ if (!raceId || !/^\d{12}$/.test(raceId)) {
   process.exit(1);
 }
 const YMD = raceId.slice(0, 8);
-const RR  = raceId.slice(8, 10);
-const BB  = raceId.slice(10, 12);
+const RR = raceId.slice(8, 10);
+const BB = raceId.slice(10, 12);
 
 // ========= Small utils =========
 const U = {
@@ -84,8 +89,8 @@ function isNotReadyText(text) {
 // ========= Rakuten RACEID =========
 function narToRakutenRaceIdCandidates(narId) {
   const ymd = narId.slice(0, 8);
-  const rr  = narId.slice(8, 10);
-  const bb  = narId.slice(10, 12);
+  const rr = narId.slice(8, 10);
+  const bb = narId.slice(10, 12);
   const codes = RAKUTEN_BABA_CODE[bb] || [];
   return codes.map(code8 => `${ymd}${code8}${rr}`);
 }
@@ -99,7 +104,7 @@ function pickResultTable($) {
     if (!$hdrTr.length) $hdrTr = $t.find('tr').first();
     const headers = $hdrTr.find('th,td').map((_, th) => U.norm($(th).text())).get();
     if (!headers.length) return;
-    const hasPos  = headers.some(h => h.includes('着順') || h === '着');
+    const hasPos = headers.some(h => h.includes('着順') || h === '着');
     const hasName = headers.some(h => h.includes('馬名'));
     if (!hasPos || !hasName) return;
 
@@ -122,7 +127,7 @@ function parseResultRows($, table) {
   let $headerTr = table.find('thead tr').first();
   if (!$headerTr.length) $headerTr = table.find('tr').first();
 
-  const headers  = $headerTr.find('th,td').map((_, th) => U.norm($(th).text())).get();
+  const headers = $headerTr.find('th,td').map((_, th) => U.norm($(th).text())).get();
   const bodyRows = table.find('tbody tr').length ? table.find('tbody tr') : table.find('tr').slice(1);
 
   const idx = (alts) => {
@@ -134,15 +139,15 @@ function parseResultRows($, table) {
   };
 
   const col = {
-    pos:    idx(['着順','着']),
-    frame:  idx(['枠','枠番']),
-    num:    idx(['馬番','馬']),
-    name:   idx(['馬名']),
+    pos: idx(['着順', '着']),
+    frame: idx(['枠', '枠番']),
+    num: idx(['馬番', '馬']),
+    name: idx(['馬名']),
     jockey: idx(['騎手']),
-    time:   idx(['タイム']),
+    time: idx(['タイム']),
     margin: idx(['着差']),
-    odds:   idx(['単勝','オッズ']),
-    prize:  idx(['賞金']),
+    odds: idx(['単勝', 'オッズ']),
+    prize: idx(['賞金']),
   };
 
   bodyRows.each((_, tr) => {
@@ -152,7 +157,7 @@ function parseResultRows($, table) {
     const cell = (i) => (i >= 0 && i < cells.length) ? U.norm($(cells[i]).text()) : '';
 
     const horse_number = U.toInt(cell(col.num >= 0 ? col.num : 2));
-    const horse_name   = cell(col.name >= 0 ? col.name : 3);
+    const horse_name = cell(col.name >= 0 ? col.name : 3);
     if (!horse_number || !horse_name) return;
 
     let posRaw = cell(col.pos >= 0 ? col.pos : 0);
@@ -162,12 +167,12 @@ function parseResultRows($, table) {
       if (/失格|取消|除外/.test(posRaw)) { disqualified = 1; notes = posRaw; pos = 99; }
       else if (/中止|落馬|競走中止/.test(posRaw)) { disqualified = 1; notes = posRaw; pos = 98; }
       else if (/同着/.test(posRaw)) {
-        const m = posRaw.match(/(\d+)/); pos = m ? parseInt(m[1],10) : null; notes = '同着';
+        const m = posRaw.match(/(\d+)/); pos = m ? parseInt(m[1], 10) : null; notes = '同着';
       }
     }
 
     const frame_number = U.toInt(cell(col.frame >= 0 ? col.frame : 1));
-    const jockey_name  = cell(col.jockey >= 0 ? col.jockey : -1) || null;
+    const jockey_name = cell(col.jockey >= 0 ? col.jockey : -1) || null;
 
     const timeRaw = cell(col.time);
     const finish_time = (col.time >= 0 && /\d{1,2}:\d{2}(?:\.\d)?/.test(timeRaw)) ? timeRaw : null;
@@ -176,7 +181,7 @@ function parseResultRows($, table) {
 
     let prize = null;
     if (col.prize >= 0) {
-      const t = cell(col.prize).replace(/[^\d]/g,'');
+      const t = cell(col.prize).replace(/[^\d]/g, '');
       if (t) prize = parseInt(t, 10);
     }
 
@@ -224,9 +229,9 @@ function parseWinRow($, $table, validNumbers) {
   const $row = $rows.filter((_, tr) => U.norm($(tr).children('th,td').first().text()) === '単勝').first();
   if (!$row.length) return [];
 
-  const num   = U.toInt($row.find('td.number').first().text());
+  const num = U.toInt($row.find('td.number').first().text());
   const money = U.toInt($row.find('td.money').first().text());
-  const pop   = U.toInt(($row.find('td.rank').first().text().match(/(\d+)\s*番人気/) || [])[1]);
+  const pop = U.toInt(($row.find('td.rank').first().text().match(/(\d+)\s*番人気/) || [])[1]);
 
   if (!U.inRangeHorse(num) || !Number.isFinite(money)) return [];
   if (validNumbers.size && !validNumbers.has(num)) return [];
@@ -241,14 +246,14 @@ function parsePlaceRow($, $table, validNumbers) {
   const $row = $rows.filter((_, tr) => U.norm($(tr).children('th,td').first().text()) === '複勝').first();
   if (!$row.length) return [];
 
-  const nums   = U.splitByBr($row.find('td.number').first()); // ["7","1","2"] など
+  const nums = U.splitByBr($row.find('td.number').first()); // ["7","1","2"] など
   const moneys = U.splitByBr($row.find('td.money').first());  // ["180 円","370 円","160 円"]
-  const ranks  = U.splitByBr($row.find('td.rank').first());   // ["3番人気","7番人気","2番人気"] or []
+  const ranks = U.splitByBr($row.find('td.rank').first());   // ["3番人気","7番人気","2番人気"] or []
 
   const len = Math.max(nums.length, moneys.length);
   const out = [];
   for (let i = 0; i < len; i++) {
-    const n   = U.toInt(nums[i]);
+    const n = U.toInt(nums[i]);
     const pay = U.toInt(moneys[i]);
     const pop = U.toInt((ranks[i] || '').match(/(\d+)\s*番人気/)?.[1]);
     if (!U.inRangeHorse(n) || !Number.isFinite(pay)) continue;
@@ -313,7 +318,7 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
     const rows = parseResultRows($, resultTable);
     if (!rows.length) {
       const dump = path.join('/tmp', `rakuten_result_${raceId}.html`);
-      try { fs.writeFileSync(dump, $.html(), 'utf8'); } catch {}
+      try { fs.writeFileSync(dump, $.html(), 'utf8'); } catch { }
       throw new Error('no result rows parsed');
     }
 
@@ -321,12 +326,12 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
     let maxPos = Math.max(0, ...rows.map(r => r.official_finish_position || 0));
     for (const r of rows) if (!Number.isFinite(r.official_finish_position)) r.official_finish_position = ++maxPos;
 
-    rows.sort((a,b) => a.official_finish_position - b.official_finish_position || a.horse_number - b.horse_number);
-    for (let i = 0; i < rows.length; ) {
+    rows.sort((a, b) => a.official_finish_position - b.official_finish_position || a.horse_number - b.horse_number);
+    for (let i = 0; i < rows.length;) {
       const pos = rows[i].official_finish_position;
       const same = rows.filter(x => x.official_finish_position === pos);
       if (same.length > 1) {
-        same.sort((a,b) => a.horse_number - b.horse_number).forEach((r, j) => {
+        same.sort((a, b) => a.horse_number - b.horse_number).forEach((r, j) => {
           r.dead_heat_group = (r.dead_heat_group || 1);
           r.dead_heat_order_in_group = j + 1;
         });
@@ -351,10 +356,10 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
 
     // race_results
     const resultCols = [
-      'race_id','frame_number','horse_number','horse_name',
-      'official_finish_position','dead_heat_group','dead_heat_order_in_group',
-      'finish_time','margin','jockey_name','odds_final','prize',
-      'disqualified','notes'
+      'race_id', 'frame_number', 'horse_number', 'horse_name',
+      'official_finish_position', 'dead_heat_group', 'dead_heat_order_in_group',
+      'finish_time', 'margin', 'jockey_name', 'odds_final', 'prize',
+      'disqualified', 'notes'
     ];
     const resultRows = rows.map(r => ({
       race_id: raceId,
@@ -373,19 +378,19 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
       notes: r.notes ?? null
     }));
     await bulkInsertOrUpdate(conn, 'race_results', resultCols, resultRows, [
-      'frame_number','horse_name','official_finish_position','dead_heat_group','dead_heat_order_in_group',
-      'finish_time','margin','jockey_name','odds_final','prize','disqualified','notes'
+      'frame_number', 'horse_name', 'official_finish_position', 'dead_heat_group', 'dead_heat_order_in_group',
+      'finish_time', 'margin', 'jockey_name', 'odds_final', 'prize', 'disqualified', 'notes'
     ]);
 
     // race_payouts（WIN/PLACE のみ扱うので、対象 bet_type を事前削除してから再投入）
     if (payouts.length) {
       const betTypes = [...new Set(payouts.map(p => p.bet_type))]; // 通常は ['WIN','PLACE']
-      const placeholdersBT = betTypes.map(()=>'?').join(',');
+      const placeholdersBT = betTypes.map(() => '?').join(',');
       await conn.execute(
         `DELETE FROM race_payouts WHERE race_id = ? AND bet_type IN (${placeholdersBT})`,
         [raceId, ...betTypes]
       );
-      const payoutCols = ['race_id','bet_type','horse_number','payout','popularity'];
+      const payoutCols = ['race_id', 'bet_type', 'horse_number', 'payout', 'popularity'];
       const payoutRows = payouts.map(p => ({
         race_id: raceId,
         bet_type: p.bet_type,
@@ -393,17 +398,17 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
         payout: p.payout ?? null,
         popularity: p.popularity ?? null,
       }));
-      await bulkInsertOrUpdate(conn, 'race_payouts', payoutCols, payoutRows, ['payout','popularity','updated_at']);
+      await bulkInsertOrUpdate(conn, 'race_payouts', payoutCols, payoutRows, ['payout', 'popularity', 'updated_at']);
       console.log(`[OK] race_id=${raceId} → upsert ${payouts.length} rows into race_payouts`);
     }
 
     await conn.commit();
     console.log(`[OK] race_id=${raceId} → upsert ${rows.length} rows into race_results`);
   } catch (e) {
-    try { if (conn) await conn.rollback(); } catch {}
+    try { if (conn) await conn.rollback(); } catch { }
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {
-    try { if (conn) await conn.end(); } catch {}
+    try { if (conn) await conn.end(); } catch { }
   }
 })();

@@ -4,6 +4,11 @@
  *   node racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB（※BBは使わず自動で解決）
  */
 
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 const webdriver = require('selenium-webdriver');
 const { By, until } = webdriver;
 const chrome = require('selenium-webdriver/chrome');
@@ -17,18 +22,18 @@ if (!id12 || !/^\d{12}$/.test(id12)) {
   process.exit(1);
 }
 const yyyymmdd = id12.slice(0, 8);
-const raceNo2  = id12.slice(8, 10);
+const raceNo2 = id12.slice(8, 10);
 // const baba2    = id12.slice(10, 12); // ← 受け取るが使わない（当日に存在する k_babaCode を自動解決）
 const raceNumber = Number(raceNo2);
-const year  = Number(yyyymmdd.slice(0, 4));
-const yy    = year % 100;
-const raceDateStr = `${yyyymmdd.slice(0,4)}/${yyyymmdd.slice(4,6)}/${yyyymmdd.slice(6,8)}`;
+const year = Number(yyyymmdd.slice(0, 4));
+const yy = year % 100;
+const raceDateStr = `${yyyymmdd.slice(0, 4)}/${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(6, 8)}`;
 //const encodedRaceDate = encodeURIComponent(raceDateStr).replace(/%20/g, '%2f');
 const race_id = id12;
 
 // ===== babaCode 自動解決ユーティリティ =====
 function encodeDateForQuery(ymd) {
-  return `${ymd.slice(0,4)}%2F${ymd.slice(4,6)}%2F${ymd.slice(6,8)}`;
+  return `${ymd.slice(0, 4)}%2F${ymd.slice(4, 6)}%2F${ymd.slice(6, 8)}`;
 }
 async function getCandidateBabaCodesFromDB(ymd) {
   let conn;
@@ -66,7 +71,7 @@ async function getCandidateBabaCodesFromDB(ymd) {
 }
 
 async function getCandidateBabaCodesFromWeb(driver, ymd) {
-  const dateStr = `${ymd.slice(0,4)}/${ymd.slice(4,6)}/${ymd.slice(6,8)}`;
+  const dateStr = `${ymd.slice(0, 4)}/${ymd.slice(4, 6)}/${ymd.slice(6, 8)}`;
   const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList?k_raceDate=${encodeURIComponent(dateStr)}`;
   await driver.get(url);
   await acceptConsentIfAny(driver);
@@ -101,7 +106,7 @@ async function tryOpenDebaTable(driver, ymd, raceNo, babaCode) {
         console.warn(`[info] DebaTable not ready (baba=${babaCode})`);
         return { ok: false, url, reason: 'not-ready' };
       }
-    } catch {}
+    } catch { }
     console.warn(`[info] DebaTable timeout (baba=${babaCode})`);
     return { ok: false, url, reason: 'timeout' };
   }
@@ -110,7 +115,7 @@ async function resolveAndOpenDebaTable(driver, ymd, raceNo) {
   // 1) DB候補 → 2) Web候補 の順で重複除去して総当たり
   const dbCodes = await getCandidateBabaCodesFromDB(ymd);
   const webCodes = await getCandidateBabaCodesFromWeb(driver, ymd).catch(() => []);
-  const candidates = [...new Set([...(dbCodes||[]), ...(webCodes||[])])];
+  const candidates = [...new Set([...(dbCodes || []), ...(webCodes || [])])];
   if (!candidates.length) throw new Error(`no k_babaCode candidates for ${ymd}`);
 
   for (const code of candidates) {
@@ -127,7 +132,7 @@ async function acceptConsentIfAny(driver) {
     "//a[contains(.,'同意')]"
   ]) {
     const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch {} break; }
+    if (els.length) { try { await els[0].click(); } catch { } break; }
   }
 }
 
@@ -153,7 +158,7 @@ async function acceptConsentIfAny(driver) {
 
     // ---- 出馬表パース ----
     const rows = await driver.executeScript((yy) => {
-      const norm  = (s) => (s || '').replace(/\s+/g, ' ').trim();
+      const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
       const table =
         document.querySelector('section.cardTable > table') ||
         document.querySelector('table.cardTable') ||
@@ -197,7 +202,7 @@ async function acceptConsentIfAny(driver) {
         if (frameEl) lastFrame = frame_number;
 
         const horse_number = Number(r0.querySelector('td.horseNum')?.textContent?.trim());
-        const horse_name   = norm(
+        const horse_name = norm(
           r0.querySelector('a.horseName')?.textContent ||
           r0.querySelector('.horseName')?.textContent || ''
         );
@@ -209,7 +214,7 @@ async function acceptConsentIfAny(driver) {
           aJ.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) name += n.textContent; });
           jockey = norm(name) || norm(aJ.textContent.replace(/\（[^）]+\）/, '')) || null;
           const area = aJ.querySelector('.jockeyarea');
-          affiliation = area ? area.textContent.replace(/[()（）]/g,'').trim() : null;
+          affiliation = area ? area.textContent.replace(/[()（）]/g, '').trim() : null;
         }
 
         // --- 性齢/毛色/生/斤量 行
@@ -236,9 +241,9 @@ async function acceptConsentIfAny(driver) {
         // --- 血統/調教師/馬主行の抽出
         const geneCands = [];
         for (const tr of block) {
-          const leftTd  = tr.querySelector('td[colspan]');
+          const leftTd = tr.querySelector('td[colspan]');
           if (!leftTd) continue;
-          const left  = norm(leftTd.innerText);
+          const left = norm(leftTd.innerText);
           const right = norm((tr.querySelector('td[colspan] + td') || tr.querySelectorAll('td')[1])?.innerText || '');
           if (!left || /^[-－]+$/.test(left)) continue;
           if (timeRx.test(left) || timeRx.test(right)) continue;
@@ -251,13 +256,13 @@ async function acceptConsentIfAny(driver) {
         for (const tr of block) {
           const tds = tr.querySelectorAll('td');
           if (tds.length < 2) continue;
-          const left  = norm(tds[0].innerText);
+          const left = norm(tds[0].innerText);
           const right = norm(tds[1].innerText);
           if (!trainer && /^調教師[:：]/.test(right)) {
-            trainer = right.replace(/^調教師[:：]\s*/,'').replace(/\s*[（(].*?[)）]\s*$/,'').trim() || null;
+            trainer = right.replace(/^調教師[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
           }
           if (!owner && /^馬主[:：]/.test(right)) {
-            owner = right.replace(/^馬主[:：]\s*/,'').replace(/\s*[（(].*?[)）]\s*$/,'').trim() || null;
+            owner = right.replace(/^馬主[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
           }
         }
 
@@ -266,8 +271,8 @@ async function acceptConsentIfAny(driver) {
         let broodmare_sire = null, breeder = null;
         if (bmsIdx >= 0) {
           const x = geneCands.splice(bmsIdx, 1)[0];
-          broodmare_sire = x.left.replace(/^[（(]\s*|\s*[)）]$/g,'').trim() || null;
-          breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/,'').trim() || null;
+          broodmare_sire = x.left.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
+          breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/, '').trim() || null;
         }
 
         // 残りから 父/母 を割り当て（調教師/馬主 表示行は除外）
@@ -277,7 +282,7 @@ async function acceptConsentIfAny(driver) {
         let sire = null, dam = null;
         if (pureGeneRows.length >= 2) {
           sire = pureGeneRows[0].left || null;
-          dam  = pureGeneRows[1].left || null;
+          dam = pureGeneRows[1].left || null;
         }
 
         // --- バリデーション
@@ -315,9 +320,9 @@ async function acceptConsentIfAny(driver) {
     await conn.beginTransaction();
 
     const cols = [
-      'race_id','frame_number','horse_number','horse_name','sex_age','hair',
-      'birthyear','birthymonth','sire','dam','broodmare_sire',
-      'jockey_name','affiliation','carried_weight','trainer_name','owner','breeder'
+      'race_id', 'frame_number', 'horse_number', 'horse_name', 'sex_age', 'hair',
+      'birthyear', 'birthymonth', 'sire', 'dam', 'broodmare_sire',
+      'jockey_name', 'affiliation', 'carried_weight', 'trainer_name', 'owner', 'breeder'
     ];
 
     const placeholders = rows.map(() => '(' + cols.map(() => '?').join(',') + ')').join(',');
@@ -359,10 +364,10 @@ async function acceptConsentIfAny(driver) {
 
     console.log(`[OK] race_id=${race_id} → upsert ${rows.length} rows`);
   } catch (err) {
-    try { if (conn) await conn.rollback(); } catch {}
+    try { if (conn) await conn.rollback(); } catch { }
     console.error('[ERROR]', err && err.message ? err.message : err);
     process.exitCode = 1;
   } finally {
-    try { await driver.quit(); } catch {}
+    try { await driver.quit(); } catch { }
   }
 })();

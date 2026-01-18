@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 // daily-yosou-batch.js
 //
 // Usage:

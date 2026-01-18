@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
  * Usage: node predict-race.js 202510130110
+ *
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ *
  *  1) racing_form から出馬表を取得（正しい列名に対応）
  *  2) jockey_ranking(year) を“頭3文字の前方一致”で照合して加点
  *  3) sire_ranking を“前方一致”で照合して加点（年なし・同名は最大スコア）
@@ -145,10 +149,10 @@ function customScore(horse) {
 
     console.log(`[OK] race_id=${raceId} 推奨: 馬番${best.horse_number} (score=${best.score}) 内訳=${JSON.stringify(best.breakdown)}`);
   } catch (e) {
-    try { if (conn) await conn.rollback(); } catch {}
+    try { if (conn) await conn.rollback(); } catch { }
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {
-    try { if (conn) await conn.end(); } catch {}
+    try { if (conn) await conn.end(); } catch { }
   }
 })();

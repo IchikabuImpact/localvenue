@@ -5,6 +5,11 @@
  *   node Kaisai-info.js 2025 09   // 年 月
  */
 
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
@@ -62,15 +67,15 @@ const driver = new Builder().forBrowser('chrome').setChromeOptions(options).buil
 
 // -------- 会場一覧（表示名に合わせる）--------
 const VENUES = [
-  "門別","盛岡","水沢","浦和","船橋",
-  "大井","川崎","金沢","笠松","名古屋",
-  "園田","姫路","高知","佐賀"
+  "門別", "盛岡", "水沢", "浦和", "船橋",
+  "大井", "川崎", "金沢", "笠松", "名古屋",
+  "園田", "姫路", "高知", "佐賀"
 ];
 
 // -------- babaコードのフォールバック（hrefに無い場合の保険）--------
 const venueCodes = {
   10: "盛岡", 11: "水沢", 18: "浦和", 19: "船橋", 20: "大井", 21: "川崎",
-  22: "金沢", 23: "笠松", 24: "名古屋",  27: "園田", 28: "姫路",
+  22: "金沢", 23: "笠松", 24: "名古屋", 27: "園田", 28: "姫路",
   31: "高知", 32: "佐賀", 36: "門別"
 };
 const fallbackMap = new Map(Object.entries(venueCodes).map(([k, v]) => [v, Number(k)]));
@@ -138,17 +143,17 @@ async function judgeCell(cellEl) {
   // return { holding: boolean, deltaOnly: boolean, anchorHref?: string }
   const imgs = await cellEl.findElements(By.css('img'));
   let sawHolding = false; // ●/☆/Ｄ
-  let sawDelta   = false; // △
+  let sawDelta = false; // △
   if (imgs.length) {
     for (const img of imgs) {
       const alt = (await img.getAttribute('alt')) || '';
       if (/[●☆Ｄ]/.test(alt)) sawHolding = true;
-      if (/△/.test(alt))       sawDelta   = true;
+      if (/△/.test(alt)) sawDelta = true;
     }
   } else {
     const text = (await cellEl.getText()).trim();
     if (/[●☆Ｄ]/.test(text)) sawHolding = true;
-    if (/△/.test(text))       sawDelta   = true;
+    if (/△/.test(text)) sawDelta = true;
   }
 
   // a の href を拾って公式日付/コードを優先利用
@@ -248,7 +253,7 @@ async function saveAllToMysql(merged) {
       user: config.mysql.user,
       password: config.mysql.password,
       database: config.mysql.database,
-      port:config.mysql.port
+      port: config.mysql.port
     });
     await conn.beginTransaction();
 

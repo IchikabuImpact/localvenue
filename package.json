@@ -2,10 +2,12 @@
   "name": "localvenue",
   "version": "0.1.0",
   "private": true,
+  "author": "IchikabuImpact",
+  "license": "UNLICENSED",
   "type": "commonjs",
-  "description": "LocalVenue: NAR monthly scraper",
+  "description": "LocalVenue: NAR monthly scraper. © 2026 IchikabuImpact. All rights reserved.",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.20.0"
   },
   "scripts": {
     "pm2:save": "pm2 save",
@@ -33,5 +35,6 @@
     "express",
     "mysql"
   ],
-  "license": "UNLICENSED"
+],
+"readme": "README.md"
 }

@@ -1,169 +1,111 @@
 # LocalVenue — 地方競馬（サラ系）開催情報スクレイパ & API
 
-NAR（月間開催情報）をスクレイピングして **MySQL** に保存し、
-指定日（または **本日〈Asia/Tokyo〉**）の開催会場コードや出馬表・レース結果を扱う疎結合スクリプト群と REST API を提供します。
+NAR（地方競馬全国協会）の情報を収集・蓄積し、レース予想や結果分析を行うための基盤システムです。
+設計思想として「疎結合」を採用しており、各工程（開催日取得、出馬表取得、予想、結果収集、集計）が独立したスクリプトとして動作します。
 
 ---
 
-## ✅ 動作要件
-- **Node.js 20+**（開発環境は v22 系）  
-- **MySQL 8+**  
-- **Google Chrome**（Selenium が自動でドライバを解決）  
-- Windows PowerShell / Linux シェル（FW 設定・スケジューラ用）
+## 🚀 Cheat Sheet (作業再開用)
+
+久しぶりに作業するときは、まずここを見てください。
+基本的な日次運用フローは以下の通りです。
+
+### 1. 予想バッチ (Daily Prediction)
+指定日の予想を実行します（開催情報収集、出馬表保存、予想計算を一括実行）。
+```bash
+# 本日分を実行
+node daily-yosou-batch.js
+
+# 指定日を実行 (例: 2025年10月13日)
+node daily-yosou-batch.js 20251013
+```
+
+### 2. 結果収集 (Daily Result Collection)
+⚠ **注意**: 日次一括収集スクリプト (`daily-save-race-results.js`) は現在リポジトリに見当たりません。
+単発で収集する場合は以下を使用します。
+```bash
+# 指定レースの結果収集 (YYYYMMDDRRBB)
+node save-result-db.js 202510130101
+```
+
+### 3. Webページ生成 (Web Generation)
+⚠ **注意**: Web生成スクリプト (`generate-web.js`) は現在リポジトリに見当たりません。
+`public/` ディレクトリ配下に PHP ファイル等が存在するため、Webサーバー経由での閲覧を想定している可能性があります。
 
 ---
 
-## 📦 セットアップ（初回）
+## 🧩 Component Reference (プログラム一覧)
+
+どのスクリプトに何を渡すとどうなるかのリファレンスです。
+
+### 🔮 Prediction Phase (予想フェーズ)
+
+| スクリプト名 | 入力 (引数) | 出力 (DB) | 役割 |
+| :--- | :--- | :--- | :--- |
+| **`daily-yosou-batch.js`** | `[YYYYMMDD]` (省略時は当日) | (一連のテーブル) | **【メイン】** 以下の収集・予想処理を一括で行うラッパーです。 |
+| `kaisai-info.js` | `YYYY MM` | `calendar` | 指定月の開催スケジュールを取得します。 |
+| `save-race-count-by-date.js` | `YYYYMMDD` | `race_count` | その日の各会場のレース数を取得します。 |
+| `list-race-ids.js` | `YYYYMMDD` | (標準出力) | その日の全レースID (12桁) をリストアップします。 |
+| `racing-form-to-db.js` | `YYYYMMDDRRBB` | `race_card` 等 | 指定レースの出馬表を取得・保存します。 |
+| `predict-race.js` | `YYYYMMDDRRBB` | `prediction` | モデルを使って予想を作成し、JSON形式で保存します。 |
+
+### 📊 Result & Analysis Phase (結果・集計フェーズ)
+
+| スクリプト名 | 入力 (引数) | 出力 (DB) | 役割 |
+| :--- | :--- | :--- | :--- |
+| **`save-result-db.js`** | `YYYYMMDDRRBB` | `race_results`<br>`race_payouts` | 楽天競馬から結果と払戻を取得・保存します。 |
+| `eval-prediction.js` | `YYYYMMDDRRBB` | `prediction_eval` | 予想と結果を突き合わせ、的中有無を判定して保存します。 |
+| `eval-roi.js` | `--from` `--to` 等 | (標準出力)<br>`prediction_roi` | 期間を指定して回収率 (ROI) をシミュレーション・集計します。<br>例: `node eval-roi.js --from 2025-10-01 --to 2025-10-31` |
+
+---
+
+## 🔁 Data Flow (データフロー)
+
+```mermaid
+graph TD
+    subgraph DailyBatch [Daily Prediction Batch]
+        A[kaisai-info.js] -->|Calendar| DB[(MySQL)]
+        B[save-race-count] -->|Race Counts| DB
+        C[racing-form-to-db] -->|Race Card| DB
+        D[predict-race] -->|Prediction (JSON)| DB
+    end
+
+    subgraph ResultFlow [Result Collection]
+        E[save-result-db] -->|Race Results/Payouts| DB
+    end
+
+    subgraph AnalysisFlow [Analysis]
+        D & E --> F[eval-prediction]
+        F -->|Hit/Miss| DB
+        DB --> G[eval-roi]
+        G -->|ROI Stats| Console/DB
+    end
+```
+
+---
+
+## ⚠️ Missing / Known Issues (確認事項)
+
+以下のスクリプトは旧ドキュメントに記載がありましたが、現在のルートディレクトリに見当たりません。
+これらが必要な場合は、バックアップからの復旧や再実装が必要です。
+
+*   `daily-save-race-results.js` (日次で全レース結果を保存するバッチ)
+*   `generate-web.js` (静的Webページジェネレータ)
+*   `daily-guess.js` (これは `daily-yosou-batch.js` にリネームされた可能性が高いです)
+
+---
+
+## ✅ Prerequisites (動作要件)
+
+*   **Node.js v22.20.0 (LTS)**
+*   **MySQL 8+**
+*   **Google Chrome** (Selenium用)
+
+### Setup
 ```bash
 git clone https://github.com/kenchanbaken/localvenue.git
 cd localvenue
 npm i
+# config.sample.js を config.js にコピーしてDB設定を記述
+cp config.sample.js config.js
 ```
-
-### `config.js` を作成
-```js
-// config.js （コミットしない。代わりに config.sample.js を参照）
-module.exports = {
-  mysql: {
-    host: 'localhost',
-    user: 'youruser',
-    password: 'yourpass',
-    database: 'localkeiba'
-  }
-};
-```
-
----
-
-## 🚀 Usage — 全体の作り
-```bash
-node kaisai-info.js 2025 10         # 月間開催カレンダー → calendar へ登録
-node save-race-count-by-date.js 20250921   # 各会場のレース数を収集し race_count テーブルへ保存します。
-node racing-form-to-db.js 202509211131     # 出馬表を DB に保存します (yyyymmdd+race番号+baba)
-node guess.js 202509211131                 # 予想して DB に保存します (yyyymmdd+race番号+baba)
-node save-race-results.js 202509141131     # レース結果を DB に保存します (yyyymmdd+race番号+baba)
-node daily-guess.js 20250921               # デイリーバッチ: 指定日分の開催情報を取得し予想を実行
-node daily-save-race-results.js 20250921   # デイリーバッチ: 指定日分のレース結果を処理
-node generate-web.js 20250921              # 指定日分のWEBページを生成 (予想・予想結果ページ)
-```
-
----
-
-## 🧩 スクリプト概要
-- **kaisai-info.js**: 月間開催スケジュール → `calendar`
-- **save-race-count-by-date.js**: 会場ごとのレース数を収集 → `race_count`
-- **racing-form-to-db.js**: 出馬表を保存
-- **guess.js**: 予想を保存
-- **save-race-results.js**: レース結果を保存
-- **daily-guess.js**: 日次で全レースの予想を実行
-- **daily-save-race-results.js**: 日次で全レース結果を保存
-- **generate-web.js**: 指定日分の予想・予想結果ページを生成
-
----
-
-## 🔁 データフロー（ざっくり）
-```mermaid
-graph TD
-  A[kaisai-info.js\n(月間開催スクレイプ)] -->|calendar更新| B[(MySQL)]
-  D[save-race-count-by-date.js\n(レース数収集)] --> B
-  E[racing-form-to-db.js\n(出馬表保存)] --> B
-  F[guess.js\n(予想保存)] --> B
-  G[save-race-results.js\n(結果保存)] --> B
-  H[daily-guess.js\n(日次予想)] --> B
-  I[daily-save-race-results.js\n(日次結果保存)] --> B
-  J[generate-web.js\n(Webページ生成)] --> B
-```
-
----
-
-## 🗄️ テーブル定義（DDL）
-
-正式な定義・インデックスはリポジトリ同梱の localkeiba.sql を最優先してください。
-ここでは運用に必要な5テーブルの要点を抜粋しています（MySQL 8+ 想定）
-```sql
--- 1) 予想（モデル出力をJSONで保存）
-CREATE TABLE IF NOT EXISTS prediction (
-  prediction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  race_id       BIGINT      NOT NULL,
-  model_version VARCHAR(32) NOT NULL,
-  memo          JSON        NULL,     -- 例: {best:{horse_number,...}, items:[{horse_number,score,...}], ...}
-  created_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_prediction_race (race_id),
-  KEY idx_prediction_model_time (model_version, created_at)
-);
-
--- 2) 結果（着順など）
-CREATE TABLE IF NOT EXISTS race_results (
-  race_id                      BIGINT       NOT NULL,
-  frame_number                 INT          NULL,
-  horse_number                 INT          NOT NULL,
-  horse_name                   VARCHAR(255) NULL,
-  official_finish_position     INT          NULL,
-  dead_heat_group              INT          NULL,
-  dead_heat_order_in_group     INT          NULL,
-  finish_time                  VARCHAR(16)  NULL,
-  margin                       VARCHAR(32)  NULL,
-  jockey_name                  VARCHAR(255) NULL,
-  odds_final                   DECIMAL(10,2) NULL,
-  prize                        INT          NULL,
-  disqualified                 TINYINT(1)   NOT NULL DEFAULT 0,
-  notes                        VARCHAR(255) NULL,
-  created_at                   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at                   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (race_id, horse_number)
-);
-
--- 3) 払戻（本運用では WIN/PLACE を使用）
-CREATE TABLE IF NOT EXISTS race_payouts (
-  race_id      BIGINT                      NOT NULL,
-  bet_type     ENUM('WIN','PLACE','OTHER') NOT NULL,
-  horse_number INT                         NOT NULL,
-  payout       INT                         NULL,   -- 100円基準の払戻
-  popularity   INT                         NULL,   -- n番人気（任意）
-  created_at   TIMESTAMP                   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   TIMESTAMP                   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (race_id, bet_type, horse_number),
-  KEY idx_payouts_race (race_id)
-);
-
--- 4) 単複評価のスナップショット（1レース1行）
-CREATE TABLE IF NOT EXISTS prediction_eval (
-  race_id                 BIGINT      NOT NULL,
-  model_version           VARCHAR(32) NOT NULL,
-  predicted_horse_number  INT         NULL,
-  win_hit                 TINYINT(1)  NOT NULL,  -- 単勝 的中=1/不的中=0
-  win_payout              INT         NULL,      -- 的中時のみ（100円基準）
-  place_hit               TINYINT(1)  NOT NULL,  -- 複勝 的中=1/不的中=0
-  place_payout            INT         NULL,      -- 的中時のみ（100円基準）
-  created_at              TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at              TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (race_id, model_version)
-);
-
--- 5) ROI（単複の2行を保存する方針：strategy IN ('single','place')）
---    研究用に 'ev_win' / 'ev_place' 等を同テーブルに並存させてもOK
-CREATE TABLE IF NOT EXISTS prediction_roi (
-  race_id       BIGINT       NOT NULL,
-  model_version VARCHAR(32)  NOT NULL,
-  strategy      VARCHAR(32)  NOT NULL,  -- 'single' | 'place' | 'ev_*'（任意）
-  stake         INT          NOT NULL,  -- 投資額（円）
-  returned      INT          NOT NULL,  -- 回収額（円）
-  roi_pct       DECIMAL(10,4) NOT NULL, -- (returned / stake) * 100
-  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (race_id, model_version, strategy)
-);
-```
-
----
-
-## ⏰ スケジューリング例
-- **月初**: `kaisai-info.js` を 6:00 に実行  
-- **毎日**: `save-race-count-by-date.js %YYYY%%MM%%DD%` → 6:10 実行  
-- **毎日**: `daily-guess.js %YYYY%%MM%%DD%` / `daily-save-race-results.js %YYYY%%MM%%DD%` → 6:20 実行  
-- **毎日**: `generate-web.js %YYYY%%MM%%DD%` → 6:30 実行  
-
----
-
-## 📝 ライセンス
-本リポジトリのコードは私的利用を想定しています。再配布や公開運用時は各サイトの利用規約と法令を遵守してください。

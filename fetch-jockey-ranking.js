@@ -8,6 +8,11 @@
  * 取得データ:
  *   上位100件の { 年度, 騎手名, スコア(=101-順位) } を DB(jockey_ranking) へUPSERT
  */
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
@@ -46,7 +51,7 @@ const theYear = Number(yearOpt) || now.getFullYear();
 
 // ===== dump / cleanup =====
 const dumpedFiles = [];
-function safeUnlink(p) { try { fs.unlinkSync(p); } catch {} }
+function safeUnlink(p) { try { fs.unlinkSync(p); } catch { } }
 function cleanupDumps() {
   if (KEEP_DUMPS) {
     console.log('[keep-dumps] オプション有効のため削除しません');
@@ -62,12 +67,12 @@ let cleanupDone = false;
 async function finalizeAndExit(code = 0) {
   if (!cleanupDone) {
     cleanupDone = true;
-    try { await pool.end(); } catch {}
+    try { await pool.end(); } catch { }
     cleanupDumps();
   }
   process.exit(code);
 }
-process.on('SIGINT',  () => finalizeAndExit(130));
+process.on('SIGINT', () => finalizeAndExit(130));
 process.on('SIGTERM', () => finalizeAndExit(143));
 process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err?.message || err);
@@ -122,7 +127,7 @@ async function acceptConsentIfAny(driver) {
     "//button[contains(.,'許可')]",
   ]) {
     const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch {} break; }
+    if (els.length) { try { await els[0].click(); } catch { } break; }
   }
 }
 
@@ -154,7 +159,7 @@ async function scrapeTop100(driver) {
       if (out.length >= 100) break;
     }
     // 念のため順位で昇順に整える
-    out.sort((a,b) => a.rank - b.rank);
+    out.sort((a, b) => a.rank - b.rank);
     return out;
   });
 }
@@ -188,16 +193,16 @@ async function saveRows(rows, year) {
   const url = buildUrl(theYear, division);
   console.log('[year]', theYear, '[division]', division);
   console.log('[url]', url);
-const driver = await buildDriver({
-  // 並列実行(2本とか)があるなら、プロファイル共有は事故りやすいので分ける
-  userDataDir: path.resolve(`./.chrome-profile/jockey-${process.pid}`),
-  windowSize: { width: 1400, height: 1600 },
-  extraArgs: [
-    '--disable-blink-features=AutomationControlled',
-    '--lang=ja-JP,ja',
-    '--profile-directory=Default',
-  ],
-});
+  const driver = await buildDriver({
+    // 並列実行(2本とか)があるなら、プロファイル共有は事故りやすいので分ける
+    userDataDir: path.resolve(`./.chrome-profile/jockey-${process.pid}`),
+    windowSize: { width: 1400, height: 1600 },
+    extraArgs: [
+      '--disable-blink-features=AutomationControlled',
+      '--lang=ja-JP,ja',
+      '--profile-directory=Default',
+    ],
+  });
 
   try {
     // 1) ランキングTOP → 同意処理 → dump
@@ -207,7 +212,7 @@ const driver = await buildDriver({
       await driver.executeScript(
         `Object.defineProperty(navigator,'webdriver',{get:()=>undefined});`
       );
-    } catch {}
+    } catch { }
     await dump(driver, 'step1_enter');
 
     // 2) 結果ページへ（Referer維持のため in-page <a> click）
@@ -241,7 +246,7 @@ const driver = await buildDriver({
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exitCode = 1;
   } finally {
-    try { await driver.quit(); } catch {}
+    try { await driver.quit(); } catch { }
     await finalizeAndExit(process.exitCode || 0);
   }
 })();

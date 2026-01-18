@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 /**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
+/**
  * Usage: node eval-prediction.js YYYYMMDDRRBB [--stake-win 100] [--stake-place 100]
  * node eval-prediction.js 202510130110  
  * - prediction.memo.best.horse_number を起点に、単勝/複勝の的中判定＆払戻を表示
@@ -16,11 +21,11 @@ if (!raceId || !/^\d{12}$/.test(raceId)) {
   console.error('Usage: node eval-prediction.js YYYYMMDDRRBB [--stake-win 100] [--stake-place 100]');
   process.exit(1);
 }
-function arg(name, def=null){
+function arg(name, def = null) {
   const i = process.argv.indexOf(`--${name}`);
-  return i >= 0 ? process.argv[i+1] : def;
+  return i >= 0 ? process.argv[i + 1] : def;
 }
-const stakeWin   = Number(arg('stake-win',   0)); // 0なら記録しない
+const stakeWin = Number(arg('stake-win', 0)); // 0なら記録しない
 const stakePlace = Number(arg('stake-place', 0));
 
 async function upsertPredictionEval(conn, row) {
@@ -61,7 +66,7 @@ async function upsertPredictionROI(conn, row) {
   await conn.execute(sql, params);
 }
 
-(async function main () {
+(async function main() {
   let conn;
   try {
     conn = await mysql.createConnection({
@@ -119,7 +124,7 @@ async function upsertPredictionROI(conn, row) {
 
     // 実着順（参考）
     const actualOrder = [...resRows]
-      .sort((a,b) =>
+      .sort((a, b) =>
         (a.official_finish_position ?? 9999) - (b.official_finish_position ?? 9999) ||
         (a.dead_heat_group ?? 0) - (b.dead_heat_group ?? 0) ||
         (a.dead_heat_order_in_group ?? 0) - (b.dead_heat_order_in_group ?? 0) ||
@@ -134,37 +139,37 @@ async function upsertPredictionROI(conn, row) {
         WHERE race_id = ? AND bet_type IN ('WIN','PLACE')`,
       [raceId]
     );
-    const winPay   = new Map(payRows.filter(x=>x.bet_type==='WIN').map(x => [x.horse_number, x.payout]));
-    const placePay = new Map(payRows.filter(x=>x.bet_type==='PLACE').map(x => [x.horse_number, x.payout]));
+    const winPay = new Map(payRows.filter(x => x.bet_type === 'WIN').map(x => [x.horse_number, x.payout]));
+    const placePay = new Map(payRows.filter(x => x.bet_type === 'PLACE').map(x => [x.horse_number, x.payout]));
 
     // 勝ち馬（参考）
     const minPos = Math.min(...resRows.map(r => r.official_finish_position ?? 9999));
     const winners = resRows
       .filter(r => (r.official_finish_position ?? 9999) === minPos)
-      .sort((a,b)=>a.horse_number-b.horse_number);
+      .sort((a, b) => a.horse_number - b.horse_number);
     const winnersText = winners.map(w => `馬番${w.horse_number}（${w.horse_name || ''}）`).join(', ');
 
     // 4) 的中判定（払戻テーブル基準）
-    const winHit      = !!bestNo && winPay.has(bestNo);
-    const placeHit    = !!bestNo && placePay.has(bestNo);
-    const winPayout   = winHit   ? (winPay.get(bestNo)   || 0) : 0; // 100円基準
+    const winHit = !!bestNo && winPay.has(bestNo);
+    const placeHit = !!bestNo && placePay.has(bestNo);
+    const winPayout = winHit ? (winPay.get(bestNo) || 0) : 0; // 100円基準
     const placePayout = placeHit ? (placePay.get(bestNo) || 0) : 0;
 
     // 5) 予想順（参考）
     const predictedOrder = Array.isArray(memo?.items)
-      ? [...memo.items].sort((a,b) => b.score - a.score || a.horse_number - b.horse_number).map(x => x.horse_number)
+      ? [...memo.items].sort((a, b) => b.score - a.score || a.horse_number - b.horse_number).map(x => x.horse_number)
       : (bestNo ? [bestNo] : []);
 
     // 6) 出力
     console.log('=== EVAL RESULT ===');
     console.log(`race_id: ${raceId}`);
     console.log(`model : ${pred.model_version}  at ${pred.created_at.toISOString?.() || pred.created_at}`);
-    console.log(`予想◎ : ${bestNo ? '馬番'+bestNo : '(不明)'}`);
+    console.log(`予想◎ : ${bestNo ? '馬番' + bestNo : '(不明)'}`);
     console.log(`結果  : 1着 ${winnersText}${winners.length > 1 ? '（同着）' : ''}`);
-    console.log(`単勝   : ${winHit   ? `的中 🎯（払戻 ${winPayout} 円/100円）` : '不的中 ❌'}`);
+    console.log(`単勝   : ${winHit ? `的中 🎯（払戻 ${winPayout} 円/100円）` : '不的中 ❌'}`);
     console.log(`複勝   : ${placeHit ? `的中 🎯（払戻 ${placePayout} 円/100円）` : '不的中 ❌'}`);
-    if (predictedOrder.length) console.log(`予想順: ${predictedOrder.slice(0,5).join(' → ')} ...`);
-    console.log(`実着順: ${actualOrder.slice(0,5).join(' → ')} ...`);
+    if (predictedOrder.length) console.log(`予想順: ${predictedOrder.slice(0, 5).join(' → ')} ...`);
+    console.log(`実着順: ${actualOrder.slice(0, 5).join(' → ')} ...`);
 
     // --- スナップショット保存 ---
     await upsertPredictionEval(conn, {
@@ -179,7 +184,7 @@ async function upsertPredictionROI(conn, row) {
 
     // --- ROI保存：単勝/複勝の2行だけ ---
     if (stakeWin > 0) {
-      const ret = winHit ? Math.round(winPayout * (stakeWin/100)) : 0;
+      const ret = winHit ? Math.round(winPayout * (stakeWin / 100)) : 0;
       const roiPct = stakeWin ? ((ret / stakeWin) * 100) : 0;
       await upsertPredictionROI(conn, {
         race_id: raceId,
@@ -191,7 +196,7 @@ async function upsertPredictionROI(conn, row) {
       });
     }
     if (stakePlace > 0) {
-      const ret = placeHit ? Math.round(placePayout * (stakePlace/100)) : 0;
+      const ret = placeHit ? Math.round(placePayout * (stakePlace / 100)) : 0;
       const roiPct = stakePlace ? ((ret / stakePlace) * 100) : 0;
       await upsertPredictionROI(conn, {
         race_id: raceId,
@@ -208,6 +213,6 @@ async function upsertPredictionROI(conn, row) {
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {
-    try { await conn?.end(); } catch {}
+    try { await conn?.end(); } catch { }
   }
 })();

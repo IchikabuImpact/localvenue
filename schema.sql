@@ -19,6 +19,7 @@
 -- Table structure for table `baba`
 --
 
+DROP TABLE IF EXISTS `baba`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `baba` (
@@ -32,6 +33,7 @@ CREATE TABLE `baba` (
 -- Table structure for table `calendar`
 --
 
+DROP TABLE IF EXISTS `calendar`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `calendar` (
@@ -47,6 +49,7 @@ CREATE TABLE `calendar` (
 -- Table structure for table `jockey_ranking`
 --
 
+DROP TABLE IF EXISTS `jockey_ranking`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `jockey_ranking` (
@@ -63,6 +66,7 @@ CREATE TABLE `jockey_ranking` (
 -- Table structure for table `prediction`
 --
 
+DROP TABLE IF EXISTS `prediction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction` (
@@ -81,6 +85,7 @@ CREATE TABLE `prediction` (
 -- Table structure for table `prediction_eval`
 --
 
+DROP TABLE IF EXISTS `prediction_eval`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction_eval` (
@@ -102,6 +107,7 @@ CREATE TABLE `prediction_eval` (
 -- Table structure for table `prediction_roi`
 --
 
+DROP TABLE IF EXISTS `prediction_roi`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction_roi` (
@@ -122,6 +128,7 @@ CREATE TABLE `prediction_roi` (
 -- Table structure for table `prediction_roi_daily`
 --
 
+DROP TABLE IF EXISTS `prediction_roi_daily`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `prediction_roi_daily` (
@@ -140,6 +147,7 @@ CREATE TABLE `prediction_roi_daily` (
 -- Table structure for table `race_cnt`
 --
 
+DROP TABLE IF EXISTS `race_cnt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_cnt` (
@@ -154,6 +162,7 @@ CREATE TABLE `race_cnt` (
 -- Table structure for table `race_count_by_date`
 --
 
+DROP TABLE IF EXISTS `race_count_by_date`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_count_by_date` (
@@ -169,6 +178,7 @@ CREATE TABLE `race_count_by_date` (
 -- Table structure for table `race_payouts`
 --
 
+DROP TABLE IF EXISTS `race_payouts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_payouts` (
@@ -188,6 +198,7 @@ CREATE TABLE `race_payouts` (
 -- Table structure for table `race_results`
 --
 
+DROP TABLE IF EXISTS `race_results`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_results` (
@@ -218,6 +229,7 @@ CREATE TABLE `race_results` (
 -- Table structure for table `racing_form`
 --
 
+DROP TABLE IF EXISTS `racing_form`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `racing_form` (
@@ -257,6 +269,7 @@ CREATE TABLE `racing_form` (
 -- Table structure for table `sire_ranking`
 --
 
+DROP TABLE IF EXISTS `sire_ranking`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sire_ranking` (
@@ -272,6 +285,7 @@ CREATE TABLE `sire_ranking` (
 -- Table structure for table `venue_master`
 --
 
+DROP TABLE IF EXISTS `venue_master`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `venue_master` (
@@ -282,6 +296,10 @@ CREATE TABLE `venue_master` (
   UNIQUE KEY `uk_rakuten_baba_code` (`rakuten_baba_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping routines for database 'localkeiba'
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -292,4 +310,4 @@ CREATE TABLE `venue_master` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-30 19:49:25
+-- Dump completed

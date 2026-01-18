@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# @copyright © 2026 IchikabuImpact
+# @license Commercial use prohibited without permission.
+
 set -euo pipefail
 
 # 例: 毎月定期実行（地方 = division=3 を既定）

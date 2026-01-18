@@ -1,3 +1,8 @@
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 const { buildDriver } = require("./lib/webdriver");
 
 (async () => {

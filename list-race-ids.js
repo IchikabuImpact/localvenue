@@ -3,6 +3,9 @@
 /**
  * list-race-ids.js
  *
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ *
  * Usage:
  *   node list-race-ids.js 20251116
  *
@@ -65,7 +68,7 @@ const mysql = require("mysql2/promise");
     process.exit(1);
   } finally {
     if (conn) {
-      try { await conn.end(); } catch {}
+      try { await conn.end(); } catch { }
     }
   }
 })();

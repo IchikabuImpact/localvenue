@@ -1,5 +1,9 @@
 /**
  * save-race-count-by-date.js
+ *
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ *
  * 指定日の calendar から会場(venucode)を拾って、レース数(最終R)を全会場分DBに保存します
  *
  * USAGE:
@@ -7,6 +11,11 @@
  *   node save-race-count-by-date.js 2025-09-14
  *   # 引数なしなら Asia/Tokyo の「今日」
  */
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
+
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
@@ -17,15 +26,15 @@ function normalizeDateArg(arg) {
   if (!arg) return moment().tz('Asia/Tokyo').format('YYYY-MM-DD');
   const s = String(arg).replace(/-/g, '');
   if (!/^\d{8}$/.test(s)) throw new Error('Invalid date. Use YYYYMMDD or YYYY-MM-DD.');
-  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 }
 function toParam(dateStr) {
-  const y = dateStr.slice(0,4), m = dateStr.slice(5,7), d = dateStr.slice(8,10);
+  const y = dateStr.slice(0, 4), m = dateStr.slice(5, 7), d = dateStr.slice(8, 10);
   return encodeURIComponent(`${y}/${m}/${d}`); // YYYY%2FMM%2FDD
 }
 
 const options = new chrome.Options()
-  .addArguments('--headless=new','--disable-gpu','--no-sandbox','--lang=ja-JP','--window-size=1280,1000');
+  .addArguments('--headless=new', '--disable-gpu', '--no-sandbox', '--lang=ja-JP', '--window-size=1280,1000');
 
 async function acceptConsentIfAny(driver) {
   for (const xp of [
@@ -35,7 +44,7 @@ async function acceptConsentIfAny(driver) {
     "//a[contains(.,'同意')]",
   ]) {
     const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch(_){} break; }
+    if (els.length) { try { await els[0].click(); } catch (_) { } break; }
   }
 }
 
@@ -108,12 +117,12 @@ async function main() {
   const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
-  await conn.beginTransaction();
+    await conn.beginTransaction();
     let ok = 0, ng = 0;
     for (const code of codes) {
       try {
         const cnt = await scrapeRaceCount(driver, dateParam, code);
-        const id = dateISO.replace(/-/g,'') + String(code);
+        const id = dateISO.replace(/-/g, '') + String(code);
 
         // ① 旧テーブル：race_cnt（互換用）
         await conn.execute(
@@ -128,7 +137,7 @@ async function main() {
           `INSERT INTO race_count_by_date (ymd, venue_code, total_races)
            VALUES (?, ?, ?)
            ON DUPLICATE KEY UPDATE total_races = VALUES(total_races)`,
-          [dateISO.replace(/-/g,''), String(code), cnt]
+          [dateISO.replace(/-/g, ''), String(code), cnt]
         );
 
         console.log(`[OK] ${code}: ${cnt}`);
@@ -141,11 +150,11 @@ async function main() {
     await conn.commit();
     console.log(`[DONE] total=${codes.length}, ok=${ok}, ng=${ng}`);
   } catch (e) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     throw e;
   } finally {
-    try { await conn.end(); } catch {}
-    try { await driver.quit(); } catch {}
+    try { await conn.end(); } catch { }
+    try { await driver.quit(); } catch { }
   }
 }
 

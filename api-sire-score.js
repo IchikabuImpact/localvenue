@@ -1,4 +1,8 @@
 // api-sire-score.js
+/**
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
+ */
 const express = require('express');
 const mysql = require('mysql2/promise');
 const config = require('./config.js');
@@ -30,7 +34,7 @@ app.get('/api/sire-score', async (req, res) => {
     try {
       let row;
       if (sireId) {
-        [ [row] ] = await conn.query(
+        [[row]] = await conn.query(
           'SELECT distance_m, sire_id, sire_name, score FROM sire_ranking WHERE distance_m=? AND sire_id=?',
           [distance, sireId]
         );
