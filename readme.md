@@ -63,11 +63,14 @@ node save-result-db.js 202510130101
 
 ```mermaid
 graph TD
+    DB[(MySQL)]
+    Console[(Console/DB)]
+
     subgraph DailyBatch [Daily Prediction Batch]
-        A[001-save-monthly-calendar.js] -->|Calendar| DB[(MySQL)]
+        A[001-save-monthly-calendar.js] -->|Calendar| DB
         B[002-save-race-count-by-date.js] -->|Race Counts| DB
         C[004-racing-form-to-db.js] -->|Race Card| DB
-        D[005-predict-race.js] -->|Prediction (JSON)| DB
+        D[005-predict-race.js] -->|Prediction JSON| DB
     end
 
     subgraph ResultFlow [Result Collection]
@@ -78,7 +81,7 @@ graph TD
         D & E --> F[eval-prediction]
         F -->|Hit/Miss| DB
         DB --> G[eval-roi]
-        G -->|ROI Stats| Console/DB
+        G -->|ROI Stats| Console
     end
 ```
 
