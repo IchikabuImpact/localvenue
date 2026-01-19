@@ -35,6 +35,5 @@
     "express",
     "mysql"
   ],
-],
-"readme": "README.md"
+  "readme": "README.md"
 }
