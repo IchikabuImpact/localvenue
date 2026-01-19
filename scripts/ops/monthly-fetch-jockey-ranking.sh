@@ -10,4 +10,4 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # 基本はHTMLダンプを自動削除（KEEP_DUMPS=1 を付けたら残す）
-node fetch-jockey-ranking.js --division=3
+node ../fetch-jockey-ranking.js --division=3

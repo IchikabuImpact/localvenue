@@ -13,7 +13,7 @@ const webdriver = require('selenium-webdriver');
 const { By, until } = webdriver;
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 // ---- 引数 ----
 const [, , id12] = process.argv;

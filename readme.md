@@ -5,6 +5,21 @@ NAR（地方競馬全国協会）の情報を収集・蓄積し、レース予�
 
 ---
 
+## 📁 Directory Layout
+
+| ディレクトリ | 役割 |
+| :--- | :--- |
+| `config/` | DB接続設定 (`config.js`) の管理場所 |
+| `data/` | スキーマ、シード、HTMLダンプ等の保管 |
+| `docs/` | 仕様やコード表のドキュメント |
+| `scripts/` | Node.js 実行スクリプト群 |
+| `scripts/ops/` | バッチ/シェル運用スクリプト群 |
+| `tests/` | 動作確認・検証用スクリプト |
+| `lib/` | 共通ユーティリティ |
+| `public/` | Web公開用ファイル |
+
+---
+
 ## 🚀 Cheat Sheet (作業再開用)
 
 久しぶりに作業するときは、まずここを見てください。
@@ -14,10 +29,10 @@ NAR（地方競馬全国協会）の情報を収集・蓄積し、レース予�
 指定日の予想を実行します（開催情報収集、出馬表保存、予想計算を一括実行）。
 ```bash
 # 本日分を実行
-node daily-yosou-batch.js
+node scripts/daily-yosou-batch.js
 
 # 指定日を実行 (例: 2025年10月13日)
-node daily-yosou-batch.js 20251013
+node scripts/daily-yosou-batch.js 20251013
 ```
 
 ### 2. 結果収集 (Daily Result Collection)
@@ -25,7 +40,7 @@ node daily-yosou-batch.js 20251013
 単発で収集する場合は以下を使用します。
 ```bash
 # 指定レースの結果収集 (YYYYMMDDRRBB)
-node save-result-db.js 202510130101
+node scripts/save-result-db.js 202510130101
 ```
 
 ### 3. Webページ生成 (Web Generation)
@@ -42,20 +57,20 @@ node save-result-db.js 202510130101
 
 | スクリプト名 | 入力 (引数) | 出力 (DB) | 役割 |
 | :--- | :--- | :--- | :--- |
-| **`daily-yosou-batch.js`** | `[YYYYMMDD]` (省略時は当日) | (一連のテーブル) | **【メイン】** 以下の収集・予想処理を一括で行うラッパーです。 |
-| `001-save-monthly-calendar.js` | `YYYY MM` | `calendar` | 指定月の開催スケジュールを取得します。 |
-| `002-save-race-count-by-date.js` | `YYYYMMDD` | `race_count` | その日の各会場のレース数を取得します。 |
-| `003-list-race-ids.js` | `YYYYMMDD` | (標準出力) | その日の全レースID (12桁) をリストアップします。 |
-| `004-racing-form-to-db.js` | `YYYYMMDDRRBB` | `race_card` 等 | 指定レースの出馬表を取得・保存します。 |
-| `005-predict-race.js` | `YYYYMMDDRRBB` | `prediction` | モデルを使って予想を作成し、JSON形式で保存します。 |
+| **`scripts/daily-yosou-batch.js`** | `[YYYYMMDD]` (省略時は当日) | (一連のテーブル) | **【メイン】** 以下の収集・予想処理を一括で行うラッパーです。 |
+| `scripts/001-save-monthly-calendar.js` | `YYYY MM` | `calendar` | 指定月の開催スケジュールを取得します。 |
+| `scripts/002-save-race-count-by-date.js` | `YYYYMMDD` | `race_count` | その日の各会場のレース数を取得します。 |
+| `scripts/003-list-race-ids.js` | `YYYYMMDD` | (標準出力) | その日の全レースID (12桁) をリストアップします。 |
+| `scripts/004-racing-form-to-db.js` | `YYYYMMDDRRBB` | `race_card` 等 | 指定レースの出馬表を取得・保存します。 |
+| `scripts/005-predict-race.js` | `YYYYMMDDRRBB` | `prediction` | モデルを使って予想を作成し、JSON形式で保存します。 |
 
 ### 📊 Result & Analysis Phase (結果・集計フェーズ)
 
 | スクリプト名 | 入力 (引数) | 出力 (DB) | 役割 |
 | :--- | :--- | :--- | :--- |
-| **`save-result-db.js`** | `YYYYMMDDRRBB` | `race_results`<br>`race_payouts` | 楽天競馬から結果と払戻を取得・保存します。 |
-| `eval-prediction.js` | `YYYYMMDDRRBB` | `prediction_eval` | 予想と結果を突き合わせ、的中有無を判定して保存します。 |
-| `eval-roi.js` | `--from` `--to` 等 | (標準出力)<br>`prediction_roi` | 期間を指定して回収率 (ROI) をシミュレーション・集計します。<br>例: `node eval-roi.js --from 2025-10-01 --to 2025-10-31` |
+| **`scripts/save-result-db.js`** | `YYYYMMDDRRBB` | `race_results`<br>`race_payouts` | 楽天競馬から結果と払戻を取得・保存します。 |
+| `scripts/eval-prediction.js` | `YYYYMMDDRRBB` | `prediction_eval` | 予想と結果を突き合わせ、的中有無を判定して保存します。 |
+| `scripts/eval-roi.js` | `--from` `--to` 等 | (標準出力)<br>`prediction_roi` | 期間を指定して回収率 (ROI) をシミュレーション・集計します。<br>例: `node scripts/eval-roi.js --from 2025-10-01 --to 2025-10-31` |
 
 ---
 
@@ -67,20 +82,20 @@ graph TD
     Console[(Console/DB)]
 
     subgraph DailyBatch [Daily Prediction Batch]
-        A[001-save-monthly-calendar.js] -->|Calendar| DB
-        B[002-save-race-count-by-date.js] -->|Race Counts| DB
-        C[004-racing-form-to-db.js] -->|Race Card| DB
-        D[005-predict-race.js] -->|Prediction JSON| DB
+        A[scripts/001-save-monthly-calendar.js] -->|Calendar| DB
+        B[scripts/002-save-race-count-by-date.js] -->|Race Counts| DB
+        C[scripts/004-racing-form-to-db.js] -->|Race Card| DB
+        D[scripts/005-predict-race.js] -->|Prediction JSON| DB
     end
 
     subgraph ResultFlow [Result Collection]
-        E[save-result-db] -->|Race Results/Payouts| DB
+        E[scripts/save-result-db] -->|Race Results/Payouts| DB
     end
 
     subgraph AnalysisFlow [Analysis]
-        D & E --> F[eval-prediction]
+        D & E --> F[scripts/eval-prediction]
         F -->|Hit/Miss| DB
-        DB --> G[eval-roi]
+        DB --> G[scripts/eval-roi]
         G -->|ROI Stats| Console
     end
 ```
@@ -94,7 +109,8 @@ graph TD
 
 *   `daily-save-race-results.js` (日次で全レース結果を保存するバッチ)
 *   `generate-web.js` (静的Webページジェネレータ)
-*   `daily-guess.js` (これは `daily-yosou-batch.js` にリネームされた可能性が高いです)
+*   `daily-guess.js` (これは `scripts/daily-yosou-batch.js` にリネームされた可能性が高いです)
+*   `api-sire-score.js` は参照箇所がないため削除済みです。
 
 ---
 
@@ -109,6 +125,6 @@ graph TD
 git clone https://github.com/kenchanbaken/localvenue.git
 cd localvenue
 npm i
-# config.sample.js を config.js にコピーしてDB設定を記述
-cp config.sample.js config.js
+# config/config.sample.js を config/config.js にコピーしてDB設定を記述
+cp config/config.sample.js config/config.js
 ```

@@ -17,20 +17,20 @@ const path = require("path");
 const NODE_BIN = process.env.NODE_BIN || "node";
 const PARALLEL = Math.max(1, Number(process.env.PARALLEL || 2));
 
-// このJSのある場所（= リポジトリ直下に置いている想定）
+// このJSのある場所
 const BASE = __dirname;
 
-// 子スクリプトはリポジトリ直下にある前提。場所が違うならここで調整
+// 子スクリプトは scripts 配下にある想定
 const SCRIPTS = {
   kaisai: path.join(BASE, "001-save-monthly-calendar.js"),
   saveCount: path.join(BASE, "002-save-race-count-by-date.js"),
   listRaceIds: path.join(BASE, "003-list-race-ids.js"),
   racingForm: path.join(BASE, "004-racing-form-to-db.js"),
   predict: path.join(BASE, "005-predict-race.js"),
-  jockeyMonthlySh: path.join(BASE, "monthly-fetch-jockey-ranking.sh"),
-  jockeyMonthlyBat: path.join(BASE, "monthly-fetch-jockey-ranking.bat"),
-  sireMonthlySh: path.join(BASE, "monthly-fetch-sire-ranking.sh"),
-  sireMonthlyBat: path.join(BASE, "monthly-fetch-sire-ranking.bat"),
+  jockeyMonthlySh: path.join(BASE, "ops", "monthly-fetch-jockey-ranking.sh"),
+  jockeyMonthlyBat: path.join(BASE, "ops", "monthly-fetch-jockey-ranking.bat"),
+  sireMonthlySh: path.join(BASE, "ops", "monthly-fetch-sire-ranking.sh"),
+  sireMonthlyBat: path.join(BASE, "ops", "monthly-fetch-sire-ranking.bat"),
 };
 
 const ts = () => {
