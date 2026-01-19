@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Usage: node predict-race.js 202510130110
+ * Usage: node 005-predict-race.js 202510130110
  *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
@@ -21,7 +21,7 @@ const config = require('./config.js');
 
 const [, , raceId] = process.argv;
 if (!raceId || !/^\d{12}$/.test(raceId)) {
-  console.error('Usage: node predict-race.js YYYYMMDDRRBB');
+  console.error('Usage: node 005-predict-race.js YYYYMMDDRRBB');
   process.exit(1);
 }
 const year = Number(raceId.slice(0, 4));

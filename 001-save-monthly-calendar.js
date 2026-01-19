@@ -1,8 +1,8 @@
 /**
- * save-monthly-calendar.js N月の開催情報をMysqlのDBに保存します。
+ * 001-save-monthly-calendar.js N月の開催情報をMysqlのDBに保存します。
  * Usage:
- *   node save-monthly-calendar.js           // 今月
- *   node save-monthly-calendar.js 2025 09   // 年 月
+ *   node 001-save-monthly-calendar.js           // 今月
+ *   node 001-save-monthly-calendar.js 2025 09   // 年 月
  */
 
 /**

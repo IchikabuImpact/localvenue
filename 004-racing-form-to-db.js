@@ -1,7 +1,7 @@
 /*
- * racing-form-to-db.js  (babaCode自動解決版)
+ * 004-racing-form-to-db.js  (babaCode自動解決版)
  * Usage:
- *   node racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB（※BBは使わず自動で解決）
+ *   node 004-racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB（※BBは使わず自動で解決）
  */
 
 /**
@@ -18,7 +18,7 @@ const config = require('./config.js');
 // ---- 引数 ----
 const [, , id12] = process.argv;
 if (!id12 || !/^\d{12}$/.test(id12)) {
-  console.error('Usage: node racing-form-to-db.js YYYYMMDDRRBB  (例: 202509141131)');
+  console.error('Usage: node 004-racing-form-to-db.js YYYYMMDDRRBB  (例: 202509141131)');
   process.exit(1);
 }
 const yyyymmdd = id12.slice(0, 8);

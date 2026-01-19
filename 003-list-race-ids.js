@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * list-race-ids.js
+ * 003-list-race-ids.js
  *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
  *
  * Usage:
- *   node list-race-ids.js 20251116
+ *   node 003-list-race-ids.js 20251116
  *
  * race_count_by_date から対象日の RACE_ID 一覧を生成し、
  * 1行1レコードで標準出力へ出す。
@@ -20,7 +20,7 @@ const mysql = require("mysql2/promise");
   const ymd = process.argv[2];
 
   if (!/^\d{8}$/.test(ymd || "")) {
-    console.error("Usage: node list-race-ids.js YYYYMMDD");
+    console.error("Usage: node 003-list-race-ids.js YYYYMMDD");
     process.exit(1);
   }
 
@@ -64,7 +64,7 @@ const mysql = require("mysql2/promise");
       }
     }
   } catch (e) {
-    console.error("[fatal] list-race-ids:", e.message || e);
+    console.error("[fatal] 003-list-race-ids:", e.message || e);
     process.exit(1);
   } finally {
     if (conn) {

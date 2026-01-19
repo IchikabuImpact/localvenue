@@ -12,7 +12,7 @@
   "scripts": {
     "pm2:save": "pm2 save",
     "pm2:resurrect": "pm2 resurrect",
-    "scrape:month": "node save-monthly-calendar.js",
+    "scrape:month": "node 001-save-monthly-calendar.js",
     "yosou": "node daily-yosou-batch.js",
     "yosou:date": "node daily-yosou-batch.js"
   },
