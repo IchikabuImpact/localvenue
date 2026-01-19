@@ -43,7 +43,7 @@ node save-result-db.js 202510130101
 | スクリプト名 | 入力 (引数) | 出力 (DB) | 役割 |
 | :--- | :--- | :--- | :--- |
 | **`daily-yosou-batch.js`** | `[YYYYMMDD]` (省略時は当日) | (一連のテーブル) | **【メイン】** 以下の収集・予想処理を一括で行うラッパーです。 |
-| `kaisai-info.js` | `YYYY MM` | `calendar` | 指定月の開催スケジュールを取得します。 |
+| `save-monthly-calendar.js` | `YYYY MM` | `calendar` | 指定月の開催スケジュールを取得します。 |
 | `save-race-count-by-date.js` | `YYYYMMDD` | `race_count` | その日の各会場のレース数を取得します。 |
 | `list-race-ids.js` | `YYYYMMDD` | (標準出力) | その日の全レースID (12桁) をリストアップします。 |
 | `racing-form-to-db.js` | `YYYYMMDDRRBB` | `race_card` 等 | 指定レースの出馬表を取得・保存します。 |
@@ -64,7 +64,7 @@ node save-result-db.js 202510130101
 ```mermaid
 graph TD
     subgraph DailyBatch [Daily Prediction Batch]
-        A[kaisai-info.js] -->|Calendar| DB[(MySQL)]
+        A[save-monthly-calendar.js] -->|Calendar| DB[(MySQL)]
         B[save-race-count] -->|Race Counts| DB
         C[racing-form-to-db] -->|Race Card| DB
         D[predict-race] -->|Prediction (JSON)| DB

@@ -1,8 +1,8 @@
 /**
- * Kaisai-info.js N月の開催情報をMysqlのDBに保存します。
+ * save-monthly-calendar.js N月の開催情報をMysqlのDBに保存します。
  * Usage:
- *   node Kaisai-info.js           // 今月
- *   node Kaisai-info.js 2025 09   // 年 月
+ *   node save-monthly-calendar.js           // 今月
+ *   node save-monthly-calendar.js 2025 09   // 年 月
  */
 
 /**
