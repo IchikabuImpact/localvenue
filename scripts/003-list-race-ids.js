@@ -24,7 +24,7 @@ const mysql = require("mysql2/promise");
     process.exit(1);
   }
 
-  const config = require("./config.js");
+  const config = require("../config/config.js");
   let conn;
 
   try {

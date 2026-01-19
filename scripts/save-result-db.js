@@ -19,7 +19,7 @@ const cheerio = require('cheerio');
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 // ========= Constants =========
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari';

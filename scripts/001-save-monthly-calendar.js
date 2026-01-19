@@ -231,7 +231,7 @@ function mergeResults(list) {
 }
 
 async function saveAllToMysql(merged) {
-  const config = require('./config.js');
+  const config = require('../config/config.js');
   let conn;
   try {
     const rows = [];

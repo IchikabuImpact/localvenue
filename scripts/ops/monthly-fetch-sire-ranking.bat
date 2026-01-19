@@ -8,11 +8,13 @@ REM ============================================
 
 setlocal enabledelayedexpansion
 
+pushd %~dp0
+
 REM Node.js スクリプトのパス
-set SCRIPT=fetch-sire-ranking.js
+set SCRIPT=..\\fetch-sire-ranking.js
 
 REM 保存用ログディレクトリ
-set LOGDIR=dumps
+set LOGDIR=..\\..\\data\\dumps
 if not exist %LOGDIR% (
   mkdir %LOGDIR%
 )
@@ -47,5 +49,6 @@ echo [FINISH] All distances completed.
 echo Logs are in %LOGDIR%\
 echo ============================================
 
+popd
 endlocal
 pause

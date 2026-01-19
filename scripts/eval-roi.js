@@ -19,7 +19,7 @@
  */
 
 const mysql = require('mysql2/promise');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 function arg(name, def = null) {
   const i = process.argv.indexOf(`--${name}`);

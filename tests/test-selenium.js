@@ -3,7 +3,7 @@
  * @license Commercial use prohibited without permission.
  */
 
-const { buildDriver } = require("./lib/webdriver");
+const { buildDriver } = require("../lib/webdriver");
 
 (async () => {
   const driver = await buildDriver();

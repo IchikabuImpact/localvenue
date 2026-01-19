@@ -20,7 +20,7 @@ const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const mysql = require('mysql2/promise');
 const moment = require('moment-timezone');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 function normalizeDateArg(arg) {
   if (!arg) return moment().tz('Asia/Tokyo').format('YYYY-MM-DD');

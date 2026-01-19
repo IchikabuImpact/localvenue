@@ -7,11 +7,13 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 const webdriver = require('selenium-webdriver');
 const { By, until } = webdriver;
 const chrome = require('selenium-webdriver/chrome');
+
+const dumpsDir = path.resolve(__dirname, '..', 'data', 'dumps');
 
 const pool = mysql.createPool({
   host: config.mysql.host,
@@ -82,7 +84,8 @@ function buildUrl(distance) {
 async function dump(driver, distance, step) {
   // PNGは作らない。HTMLのみ（最後に基本削除）
   const ts = Date.now();
-  const base = path.resolve(`./dump_rank_${distance}_${step}_${ts}`);
+  fs.mkdirSync(dumpsDir, { recursive: true });
+  const base = path.join(dumpsDir, `dump_rank_${distance}_${step}_${ts}`);
   const htmlPath = `${base}.html`;
 
   try {

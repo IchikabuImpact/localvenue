@@ -16,12 +16,14 @@
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 const webdriver = require('selenium-webdriver');
 const { By, until } = webdriver;
 
-const { buildDriver } = require('./lib/webdriver');
+const { buildDriver } = require('../lib/webdriver');
+
+const dumpsDir = path.resolve(__dirname, '..', 'data', 'dumps');
 
 // ===== DB Pool =====
 const pool = mysql.createPool({
@@ -108,7 +110,8 @@ function buildUrl(year, division) {
 
 async function dump(driver, tag) {
   const ts = Date.now();
-  const base = path.resolve(`./dump_jockey_${theYear}_${tag}_${ts}`);
+  fs.mkdirSync(dumpsDir, { recursive: true });
+  const base = path.join(dumpsDir, `dump_jockey_${theYear}_${tag}_${ts}`);
   const htmlPath = `${base}.html`;
   try {
     const html = await driver.getPageSource();

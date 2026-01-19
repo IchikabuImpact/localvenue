@@ -17,7 +17,7 @@
  */
 
 const mysql = require('mysql2/promise');
-const config = require('./config.js');
+const config = require('../config/config.js');
 
 const [, , raceId] = process.argv;
 if (!raceId || !/^\d{12}$/.test(raceId)) {
