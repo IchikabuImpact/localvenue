@@ -22,11 +22,11 @@ const BASE = __dirname;
 
 // 子スクリプトはリポジトリ直下にある前提。場所が違うならここで調整
 const SCRIPTS = {
-  kaisai: path.join(BASE, "save-monthly-calendar.js"),
-  saveCount: path.join(BASE, "save-race-count-by-date.js"),
-  listRaceIds: path.join(BASE, "list-race-ids.js"),
-  racingForm: path.join(BASE, "racing-form-to-db.js"),
-  predict: path.join(BASE, "predict-race.js"),
+  kaisai: path.join(BASE, "001-save-monthly-calendar.js"),
+  saveCount: path.join(BASE, "002-save-race-count-by-date.js"),
+  listRaceIds: path.join(BASE, "003-list-race-ids.js"),
+  racingForm: path.join(BASE, "004-racing-form-to-db.js"),
+  predict: path.join(BASE, "005-predict-race.js"),
   jockeyMonthlySh: path.join(BASE, "monthly-fetch-jockey-ranking.sh"),
   jockeyMonthlyBat: path.join(BASE, "monthly-fetch-jockey-ranking.bat"),
   sireMonthlySh: path.join(BASE, "monthly-fetch-sire-ranking.sh"),
@@ -155,7 +155,7 @@ async function eachLimit(items, limit, worker) {
 
   log(`=== デイリー予想バッチ開始: ${ymd} (並列: ${PARALLEL}) ===`);
 
-  // [1] 月間開催情報を更新（引数は YYYYMMDD だが、save-monthly-calendar.js 側で年月に解釈）
+  // [1] 月間開催情報を更新（引数は YYYYMMDD だが、001-save-monthly-calendar.js 側で年月に解釈）
   log(`[1] ${path.basename(SCRIPTS.kaisai)} ${ymd}`);
   await runNode(SCRIPTS.kaisai, [ymd]);
 
