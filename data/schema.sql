@@ -59,7 +59,7 @@ CREATE TABLE `jockey_ranking` (
   PRIMARY KEY (`year`,`jockey_name`),
   KEY `idx_year` (`year`),
   KEY `idx_score` (`score`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -78,7 +78,7 @@ CREATE TABLE `prediction` (
   PRIMARY KEY (`prediction_id`),
   UNIQUE KEY `uq_prediction_race_model` (`race_id`,`model_version`),
   KEY `idx_prediction_race` (`race_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -100,7 +100,7 @@ CREATE TABLE `prediction_eval` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`model_version`),
   KEY `idx_prediction_eval_model` (`model_version`,`race_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -121,7 +121,7 @@ CREATE TABLE `prediction_roi` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`model_version`,`strategy`),
   KEY `idx_prediction_roi_model` (`model_version`,`race_id`,`strategy`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -151,11 +151,11 @@ DROP TABLE IF EXISTS `race_cnt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_cnt` (
-  `id` varchar(10) COLLATE utf8mb4_general_ci NOT NULL,
+  `id` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `cnt` int NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -171,7 +171,7 @@ CREATE TABLE `race_count_by_date` (
   `total_races` int NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`ymd`,`venue_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -191,7 +191,7 @@ CREATE TABLE `race_payouts` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`bet_type`,`horse_number`),
   KEY `idx_race_payouts_race` (`race_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -222,7 +222,7 @@ CREATE TABLE `race_results` (
   UNIQUE KEY `uq_race_results` (`race_id`,`horse_number`),
   KEY `idx_race_results_race` (`race_id`),
   KEY `idx_race_results_jockey` (`jockey_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=222 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=222 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -262,7 +262,7 @@ CREATE TABLE `racing_form` (
   KEY `idx_racing_form_race` (`race_id`),
   KEY `idx_racing_form_jockey` (`jockey_name`),
   KEY `idx_racing_form_trainer` (`trainer_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -278,7 +278,7 @@ CREATE TABLE `sire_ranking` (
   `sire_name` varchar(255) NOT NULL,
   `score` int NOT NULL,
   PRIMARY KEY (`distance_m`,`sire_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -290,11 +290,11 @@ DROP TABLE IF EXISTS `venue_master`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `venue_master` (
   `baba_code` int NOT NULL,
-  `rakuten_baba_code` varchar(16) COLLATE utf8mb4_general_ci NOT NULL,
-  `venue` varchar(32) COLLATE utf8mb4_general_ci NOT NULL,
+  `rakuten_baba_code` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `venue` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`baba_code`),
   UNIQUE KEY `uk_rakuten_baba_code` (`rakuten_baba_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
