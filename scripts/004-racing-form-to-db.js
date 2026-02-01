@@ -107,7 +107,16 @@ async function acceptConsentIfAny(driver) {
 }
 
 (async function main() {
-  const options = new chrome.Options().addArguments('--headless=new', '--disable-gpu', '--no-sandbox', '--disable-cache', '--disable-dev-shm-usage', '--window-size=1280,2000', '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari');
+  const options = new chrome.Options().addArguments(
+    '--headless=new',
+    '--disable-gpu',
+    '--no-sandbox',
+    '--disable-cache',
+    '--disable-dev-shm-usage',
+    '--window-size=1280,2000',
+    `--user-data-dir=/tmp/chrome-profile-${id12}`,
+    '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari'
+  );
   const driver = await new webdriver.Builder().forBrowser('chrome').setChromeOptions(options).build();
   await driver.manage().deleteAllCookies();
 
