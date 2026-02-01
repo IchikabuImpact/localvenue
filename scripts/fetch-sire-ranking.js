@@ -30,7 +30,7 @@ const KEEP_DUMPS =
   process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
 
 function safeUnlink(p) {
-  try { fs.unlinkSync(p); } catch {}
+  try { fs.unlinkSync(p); } catch { }
 }
 function cleanupDumps() {
   if (KEEP_DUMPS) {
@@ -47,12 +47,12 @@ let cleanupDone = false;
 async function finalizeAndExit(code = 0) {
   if (!cleanupDone) {
     cleanupDone = true;
-    try { await pool.end(); } catch {}
+    try { await pool.end(); } catch { }
     cleanupDumps(); // ★ 成功/失敗/中断でも必ず削除
   }
   process.exit(code);
 }
-process.on('SIGINT',  () => finalizeAndExit(130));
+process.on('SIGINT', () => finalizeAndExit(130));
 process.on('SIGTERM', () => finalizeAndExit(143));
 process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err?.message || err);
@@ -105,7 +105,7 @@ async function acceptConsentIfAny(driver) {
     "//button[contains(.,'許可')]",
   ]) {
     const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch {} break; }
+    if (els.length) { try { await els[0].click(); } catch { } break; }
   }
 }
 
@@ -132,8 +132,8 @@ async function scrapeTop100(driver) {
       const sireId = m[1];
 
       const row = a.closest('tr') ||
-                  a.closest('.data-row, .dataRow, .tbl-row, .table-row') ||
-                  a.closest('li') || a.parentElement;
+        a.closest('.data-row, .dataRow, .tbl-row, .table-row') ||
+        a.closest('li') || a.parentElement;
 
       let rank = getRankFromRow(row);
       if (!rank) {
@@ -148,7 +148,7 @@ async function scrapeTop100(driver) {
       items.push({ rank, sireId, sireName: name });
     }
 
-    items.sort((a,b) => a.rank - b.rank);
+    items.sort((a, b) => a.rank - b.rank);
     const uniq = [];
     const seen = new Set();
     for (const x of items) {
@@ -195,28 +195,22 @@ async function saveRows(rows, distance) {
   const url = buildUrl(distance);
   console.log('[url]', url);
 
-  const options = new chrome.Options()
-    // 安定後は .addArguments('--headless=new') を有効化OK
-    .addArguments(
-      '--disable-gpu','--no-sandbox','--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
+  const { buildDriver } = require('../lib/webdriver');
+  const driver = await buildDriver({
+    userDataDir: path.resolve('./.chrome-profile'),
+    windowSize: { width: 1400, height: 1600 },
+    extraArgs: [
       '--lang=ja-JP,ja',
-      `--user-data-dir=${path.resolve('./.chrome-profile')}`,
       '--profile-directory=Default'
-    )
-    .windowSize({ width: 1400, height: 1600 });
-
-  const driver = await new webdriver.Builder()
-    .forBrowser('chrome')
-    .setChromeOptions(options)
-    .build();
+    ]
+  });
 
   try {
     await driver.get('https://www.jbis.or.jp/ranking/');
     await acceptConsentIfAny(driver);
     try {
       await driver.executeScript(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined});`);
-    } catch {}
+    } catch { }
     await dump(driver, distance, 'step1_enter');
 
     await driver.executeScript((href) => {
@@ -246,7 +240,7 @@ async function saveRows(rows, distance) {
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exitCode = 1;
   } finally {
-    try { await driver.quit(); } catch {}
+    try { await driver.quit(); } catch { }
     // プールは finalizeAndExit() で閉じる（順序の都合）
     await finalizeAndExit(process.exitCode || 0);
   }

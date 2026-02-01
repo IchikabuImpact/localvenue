@@ -27,9 +27,9 @@ const BASE = __dirname;
 
 const SCRIPTS = {
   listRaceIds: path.join(BASE, '003-list-race-ids.js'),
-  saveResult: path.join(BASE, 'save-result-db.js'),
-  evalPrediction: path.join(BASE, 'eval-prediction.js'),
-  evalRoi: path.join(BASE, 'eval-roi.js'),
+  saveResult: path.join(BASE, '101-save-result-db.js'),
+  evalPrediction: path.join(BASE, '102-eval-prediction.js'),
+  evalRoi: path.join(BASE, '103-eval-roi.js'),
 };
 
 const ts = () => {
