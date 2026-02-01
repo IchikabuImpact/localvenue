@@ -63,8 +63,19 @@ node scripts/save-result-db.js 202510130101
 ```
 
 ### 3. Webページ生成 (Web Generation)
-⚠ **注意**: Web生成スクリプト (`generate-web.js`) は現在リポジトリに見当たりません。
-`public/` ディレクトリ配下に PHP ファイル等が存在するため、Webサーバー経由での閲覧を想定している可能性があります。
+指定日の静的HTML・CSSファイルを `public/` ディレクトリに生成します。
+```bash
+# 指定日のページを生成
+node scripts/generate-daily-pages.js 20260201
+```
+
+### 4. プレビュー用サーバーの起動 (Live Preview)
+Apacheなしでも、Node.jsのみで生成結果を確認できます。
+
+```bash
+# http://localhost:8131 で起動
+npm run serve
+```
 
 ---
 
@@ -127,7 +138,6 @@ graph TD
 これらが必要な場合は、バックアップからの復旧や再実装が必要です。
 
 *   `daily-save-race-results.js` (日次で全レース結果を保存するバッチ)
-*   `generate-web.js` (静的Webページジェネレータ)
 *   `daily-guess.js` (これは `scripts/daily-yosou-batch.js` にリネームされた可能性が高いです)
 *   `api-sire-score.js` は参照箇所がないため削除済みです。
 
@@ -147,3 +157,25 @@ npm i
 # config/config.sample.js を config/config.js にコピーしてDB設定を記述
 cp config/config.sample.js config/config.js
 ```
+
+### Web Server (Apache) Setup
+WSL上のApacheで閲覧する場合は、以下の設定を行います。ポート **8131** を使用します。
+
+1.  設定ファイル `/etc/apache2/sites-available/localvenue.conf` を作成（既にある場合は修正）:
+    ```apache
+    <VirtualHost *:8131>
+        ServerName localvenue.local
+        DocumentRoot /home/ichikabu/projects/localvenue/public
+        <Directory /home/ichikabu/projects/localvenue/public>
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+    </VirtualHost>
+    ```
+2.  `/etc/apache2/ports.conf` に `Listen 8131` を追加。
+3.  サイトを有効化して再起動:
+    ```bash
+    sudo a2ensite localvenue
+    sudo systemctl restart apache2
+    ```
