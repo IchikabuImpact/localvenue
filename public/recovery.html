@@ -1,183 +1,30 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Localvenue — 回収率（モック）</title>
-  <link rel="stylesheet" href="./localvenue-mockup.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>回収率推移</title>
+  <link rel="stylesheet" href="css/style.css">
+  
 </head>
 <body>
-  <header class="header">
-    <div class="header__inner container">
-      <div class="brand">Localvenue <span class="sub">horse racing analytics</span></div>
-      <nav class="nav" aria-label="Primary">
-        <a href="./index.html">開催一覧</a>
-        <a href="./detail.html">レース詳細</a>
-        <a href="#" aria-current="page">回収率</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="main container">
-    <section class="card mb-12">
-      <div class="card__header">
-        <div class="card__title">回収率 — 月次（日別プロット）</div>
-        <div class="card__actions row">
-          <input id="month" class="input" type="month" />
-          <button id="load" class="btn btn--primary" type="button">読み込み</button>
-          <button id="csv" class="btn" type="button">CSV</button>
-        </div>
-      </div>
-      <div class="card__body">
-        <div class="chart-card">
-          <canvas id="recoveryChart" class="chart" aria-label="回収率チャート"></canvas>
-        </div>
-        <div class="mt-12 table-wrap">
-          <table class="table table--dense" id="tbl">
-            <thead>
-              <tr>
-                <th class="col-sm">日付</th>
-                <th class="col-sm num">的中率</th>
-                <th class="col-sm num">回収率</th>
-                <th>メモ</th>
-              </tr>
-            </thead>
-            <tbody id="tbody"><tr><td colspan="4">読み込み待ち…</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card__header"><div class="card__title">データ仕様（当面）</div></div>
-      <div class="card__body">
-        <pre><code class="language-json">// public/recovery-YYYYMM.json
-[
-  { "date": "2025-10-01", "hit_rate": 0.312, "recovery": 0.941, "note": "—" },
-  { "date": "2025-10-02", "hit_rate": 0.287, "recovery": 1.120, "note": "重馬場" }
-]</code></pre>
-        <p class="kb-help">※ 将来は /api/recovery?from=YYYY-MM-DD&to=YYYY-MM-DD に移行予定</p>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer container">
-    <div class="footer-links">
-      <a href="./index.html">開催一覧</a>
-      <a href="#">利用規約</a>
-    </div>
-  </footer>
-
-  <!-- Chart.js（モック用） -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script>
-    const $ = (s) => document.querySelector(s);
-    const monthEl = $('#month');
-    const loadBtn = $('#load');
-    const csvBtn = $('#csv');
-    const tbody = $('#tbody');
-    const ctx = document.getElementById('recoveryChart');
-    let chart;
-
-    function ymToPath(ym) {
-      // ym: "2025-10" → /recovery-202510.json
-      const [y, m] = ym.split('-');
-      return `/recovery-${y}${m}.json`;
-    }
-
-    function fmtPct(v, digits=1) { return (v*100).toFixed(digits) + '%'; }
-
-    async function loadData(ym) {
-      const path = ymToPath(ym);
-      try {
-        const r = await fetch(path, { credentials: 'same-origin' });
-        if (!r.ok) throw new Error('not ok');
-        return await r.json();
-      } catch (e) {
-        // Fallback: スタブデータ
-        const days = 31;
-        const base = ym + '-01';
-        const stub = [];
-        for (let i=0;i<days;i++) {
-          const d = new Date(base);
-          d.setDate(d.getDate()+i);
-          if (d.getMonth()+1 !== Number(ym.slice(5))) break;
-          const rec = 0.95 + Math.sin(i/5)*0.1 + (Math.random()-0.5)*0.05; // 0.85-1.15程度
-          const hit = 0.28 + Math.cos(i/7)*0.05 + (Math.random()-0.5)*0.04; // 0.2-0.4程度
-          stub.push({ date: d.toISOString().slice(0,10), hit_rate: hit, recovery: rec, note: 'stub' });
-        }
-        return stub;
-      }
-    }
-
-    function renderTable(rows) {
-      tbody.innerHTML = '';
-      rows.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${row.date}</td>
-          <td class="num">${fmtPct(row.hit_rate, 1)}</td>
-          <td class="num ${row.recovery>=1? 'status-ok' : row.recovery>=0.95? '' : 'status-danger'}">${fmtPct(row.recovery, 1)}</td>
-          <td>${row.note||''}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderChart(rows) {
-      const labels = rows.map(r => r.date.slice(8,10));
-      const rec = rows.map(r => Number((r.recovery*100).toFixed(1)));
-      const hit = rows.map(r => Number((r.hit_rate*100).toFixed(1)));
-
-      const data = {
-        labels,
-        datasets: [
-          { label: '回収率(%)', data: rec, borderWidth: 2, tension: 0.25, yAxisID: 'y' },
-          { label: '的中率(%)', data: hit, borderWidth: 2, borderDash: [6,4], tension: 0.25, yAxisID: 'y1' }
-        ]
-      };
-      const opts = {
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          y: { beginAtZero: false, suggestedMin: 70, suggestedMax: 130, ticks: { callback: v => v + '%' } },
-          y1: { position: 'right', beginAtZero: true, suggestedMax: 60, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
-        },
-        plugins: {
-          legend: { labels: { usePointStyle: true } },
-          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.formattedValue}%` } }
-        }
-      };
-
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, { type: 'line', data, options: opts });
-    }
-
-    async function refresh() {
-      const ym = monthEl.value;
-      if (!ym) return;
-      const rows = await loadData(ym);
-      renderTable(rows);
-      renderChart(rows);
-    }
-
-    // CSV ダウンロード
-    csvBtn.addEventListener('click', () => {
-      const rows = [...tbody.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.textContent));
-      const head = ['date','hit_rate(%)','recovery(%)','note'];
-      const csv = [head, ...rows].map(r => r.join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `recovery-${monthEl.value.replace('-','')}.csv`;
-      a.click();
-    });
-
-    loadBtn.addEventListener('click', refresh);
-
-    // 初期値: 今月
-    const now = new Date();
-    monthEl.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    refresh();
-  </script>
+<header>
+  <div class="container">
+    <h1><a href="index.html">LocalVenue</a> 2026-02-01</h1>
+    <nav>
+      <a href="index.html">一覧</a>
+      <a href="recovery.html">回収率</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+<h2>直近30日の回収率推移</h2><div class="chart-container"></div><p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p><table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>投資(単)</th></tr></thead><tbody></tbody></table>
+</main>
+<footer>
+  <div class="container">
+    <p>&copy; 2026 IchikabuImpact</p>
+  </div>
+</footer>
 </body>
 </html>

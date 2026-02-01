@@ -30,6 +30,7 @@ const SCRIPTS = {
   saveResult: path.join(BASE, '101-save-result-db.js'),
   evalPrediction: path.join(BASE, '102-eval-prediction.js'),
   evalRoi: path.join(BASE, '103-eval-roi.js'),
+  aggregateDaily: path.join(BASE, '104-aggregate-roi-daily.js'),
 };
 
 const ts = () => {
@@ -163,6 +164,9 @@ function buildEvalPredictionArgs(raceId) {
   const iso = ymdToIso(ymd);
   log(`[roi] ${path.basename(SCRIPTS.evalRoi)} --from ${iso} --to ${iso}`);
   await runNode(SCRIPTS.evalRoi, ['--from', iso, '--to', iso]);
+
+  log(`[agg] ${path.basename(SCRIPTS.aggregateDaily)} ${ymd}`);
+  await runNode(SCRIPTS.aggregateDaily, [ymd]);
 
   log(`=== デイリー結果バッチ完了: ${ymd} ===`);
 })().catch((e) => {

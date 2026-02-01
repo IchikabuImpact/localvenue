@@ -261,3 +261,52 @@ code.inline { padding: 2px 6px; border-radius: 6px; background: var(--chip); bor
 /* Footer links */
 .footer-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .footer-links a { padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--chip); }
+
+/* --- Added for Static Daily Pages --- */
+/* ROI Summary (Index) */
+.roi-summary { margin-bottom: 24px; }
+.roi-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.roi-cards .card { text-align: center; padding: 16px; border-top: 4px solid var(--border); }
+.roi-cards .card h3 { margin: 0 0 8px; font-size: 1rem; color: var(--muted); }
+.roi-cards .card .roi-val { font-size: 2rem; font-weight: 800; margin: 0; line-height: 1.1; }
+.roi-cards .card .roi-detail { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+.roi-cards .card.good { border-top-color: var(--ok); background: color-mix(in oklab, var(--ok) 5%, var(--elev-1)); }
+.roi-cards .card.good .roi-val { color: var(--ok); }
+
+/* Race List (Index) */
+.race-list ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+.race-link { display: grid; grid-template-columns: 80px 1fr 60px; align-items: center; gap: 10px; padding: 12px; background: var(--elev-1); border: 1px solid var(--border); border-radius: 12px; transition: transform .1s; }
+.race-link:hover { transform: translateY(-1px); border-color: var(--accent); text-decoration: none; }
+.race-link .venue { font-weight: 700; color: var(--text); }
+.race-link .pred { font-size: 0.95rem; color: var(--muted); }
+.race-link .status { font-size: 0.85rem; text-align: right; }
+.race-link.win .status { color: var(--ok); font-weight: bold; }
+.race-link.lose .status { color: var(--muted); }
+.race-link.pending .status { color: var(--warn); }
+
+/* Detail Page */
+.breadcrumb { margin-bottom: 16px; }
+.model-info { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; }
+.prediction-table { margin-bottom: 24px; overflow-x: auto; }
+.prediction-table table { width: 100%; border-collapse: collapse; }
+.prediction-table th, .prediction-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+.prediction-table th { background: var(--elev-2); font-size: 0.85rem; }
+.result-info dl { display: grid; grid-template-columns: 60px 1fr; gap: 8px 16px; align-items: baseline; background: var(--elev-1); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
+.result-info dt { color: var(--muted); font-weight: 600; }
+.result-info dd { margin: 0; font-weight: 700; font-size: 1.1rem; }
+.result-info .win { color: var(--ok); }
+
+/* Recovery Page (Chart) */
+.chart-container { display: flex; align-items: flex-end; gap: 8px; height: 300px; padding: 20px 0; overflow-x: auto; margin-bottom: 24px; }
+.chart-bar-group { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 32px; flex: 1; }
+.chart-bar-group .bars { display: flex; gap: 2px; align-items: flex-end; height: 200px; width: 100%; justify-content: center; }
+.chart-bar-group .bar { width: 12px; border-radius: 2px 2px 0 0; min-height: 1px; }
+.chart-bar-group .bar.single { background: var(--accent); }
+.chart-bar-group .bar.place { background: var(--ok); }
+.chart-bar-group .label { font-size: 0.7rem; color: var(--muted); transform: rotate(-45deg); white-space: nowrap; margin-top: 8px; }
+
+.recovery-table { width: 100%; border-collapse: collapse; }
+.recovery-table th, .recovery-table td { padding: 8px; border-bottom: 1px solid var(--border); text-align: right; }
+.recovery-table th:first-child, .recovery-table td:first-child { text-align: left; }
+.recovery-table td.win { color: var(--ok); font-weight: bold; }
+
