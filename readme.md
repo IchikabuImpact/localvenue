@@ -158,6 +158,33 @@ npm i
 cp config/config.sample.js config/config.js
 ```
 
+### Database Setup (環境構築手順)
+初回インストールと再構築の手順は以下の通りです。
+
+#### 1. インストール時（初期化）
+`data/data_reset.js` が **schema.sql を適用 → seed-master.sql を投入** まで行います。  
+初期化に必要な最低限のマスターデータを入れる場合は、このスクリプトを使ってください。
+
+```bash
+# DB接続設定が完了していること（config/config.js）
+node data/data_reset.js
+```
+
+#### 2. 再構築手順（スキーマ再作成 + 最低限マスターデータのリセット）
+既存データを作り直して、最低限のマスターデータに戻したい場合も
+`data/data_reset.js` を使います。
+
+```bash
+node data/data_reset.js
+```
+
+#### 3. schema.sql が最新でない場合の更新
+DBから最新スキーマをダンプする場合は以下を実行します。
+
+```bash
+./scripts/ops/gen-schema.sh
+```
+
 ### Web Server (Apache) Setup
 WSL上のApacheで閲覧する場合は、以下の設定を行います。ポート **8131** を使用します。
 
