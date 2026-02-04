@@ -204,8 +204,6 @@ async function acceptConsentIfAny(driver) {
     if (!rows.length) throw new Error('出馬表の抽出に失敗しました');
 
     conn = await mysql.createConnection({ host: config.mysql.host || 'localhost', user: config.mysql.user, password: config.mysql.password, port: config.mysql.port, database: config.mysql.database || 'localkeiba', charset: 'utf8mb4' });
-    await conn.beginTransaction();
-    await conn.execute(`DELETE FROM racing_form WHERE race_id = ?`, [race_id]);
     const cols = ['race_id', 'frame_number', 'horse_number', 'horse_name', 'sex_age', 'hair', 'birthyear', 'birthymonth', 'sire', 'dam', 'broodmare_sire', 'jockey_name', 'affiliation', 'carried_weight', 'trainer_name', 'owner', 'breeder'];
     const placeholders = rows.map(() => '(' + cols.map(() => '?').join(',') + ')').join(',');
     const params = [];
@@ -214,8 +212,23 @@ async function acceptConsentIfAny(driver) {
       params.push(race_id, r.frame_number, r.horse_number, r.horse_name, r.sex_age, r.hair, r.birthyear, r.birthymonth, r.sire, r.dam, r.broodmare_sire, r.jockey, r.affiliation, Number.isFinite(carriedRaw) ? carriedRaw : null, r.trainer, r.owner, r.breeder);
     });
     const sql = `INSERT INTO racing_form (${cols.join(',')}) VALUES ${placeholders} ON DUPLICATE KEY UPDATE frame_number=VALUES(frame_number), horse_name=VALUES(horse_name), sex_age=VALUES(sex_age), hair=VALUES(hair), birthyear=VALUES(birthyear), birthymonth=VALUES(birthymonth), sire=VALUES(sire), dam=VALUES(dam), broodmare_sire=VALUES(broodmare_sire), jockey_name=VALUES(jockey_name), affiliation=VALUES(affiliation), carried_weight=VALUES(carried_weight), trainer_name=VALUES(trainer_name), owner=VALUES(owner), breeder=VALUES(breeder), updated_at=CURRENT_TIMESTAMP`;
-    await conn.execute(sql, params);
-    await conn.commit();
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await conn.execute('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        await conn.beginTransaction();
+        await conn.execute(`DELETE FROM racing_form WHERE race_id = ?`, [race_id]);
+        await conn.execute(sql, params);
+        await conn.commit();
+        break;
+      } catch (txErr) {
+        const msg = txErr && txErr.message ? txErr.message : '';
+        const isDeadlock = txErr && (txErr.code === 'ER_LOCK_DEADLOCK' || /Deadlock found/i.test(msg));
+        try { await conn.rollback(); } catch { }
+        if (!isDeadlock || attempt === maxRetries) throw txErr;
+        await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+      }
+    }
     await conn.end();
     console.log(`[OK] race_id=${race_id} → upsert ${rows.length} rows`);
   } catch (err) {
