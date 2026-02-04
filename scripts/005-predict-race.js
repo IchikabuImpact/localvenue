@@ -142,7 +142,7 @@ function customScore(horse) {
     await conn.execute(`DELETE FROM prediction WHERE race_id = ?`, [raceId]);
     await conn.execute(
       `INSERT INTO prediction (race_id, model_version, memo)
-       VALUES (?, ?, CAST(? AS JSON))`,
+       VALUES (?, ?, ?)`,
       [raceId, MODEL_VERSION, JSON.stringify(memo)]
     );
     await conn.commit();
