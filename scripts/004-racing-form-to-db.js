@@ -1,5 +1,5 @@
 /*
- * 004-racing-form-to-db.js  (babaCode解決版)
+ * 004-racing-form-to-db.js  (babaCode解決版 / deadlock対策版)
  * Usage:
  *   node 004-racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB
  */
@@ -33,14 +33,27 @@ const race_id = id12;
 function encodeDateForQuery(ymd) {
   return `${ymd.slice(0, 4)}%2F${ymd.slice(4, 6)}%2F${ymd.slice(6, 8)}`;
 }
+
 async function getCandidateBabaCodesFromDB(ymd) {
   let conn;
   try {
     conn = await mysql.createConnection(config.mysql);
-    await conn.query("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-    const [r1] = await conn.execute("SELECT venue_code AS code FROM race_count_by_date WHERE ymd = ?", [ymd]);
-    const [r2] = await conn.execute("SELECT LPAD((id % 100), 2, '0') AS code FROM race_cnt WHERE LEFT(CAST(id AS CHAR), 8) = ?", [ymd]);
-    const codes = [...r1.map(x => String(x.code).trim()), ...r2.map(x => String(x.code).trim())].filter(Boolean);
+
+    // MariaDB 10.5 で MySQL8 の utf8mb4_0900_ai_ci は存在しないことがあるので安全に
+    await conn.query("SET NAMES utf8mb4");
+
+    const [r1] = await conn.execute(
+      "SELECT venue_code AS code FROM race_count_by_date WHERE ymd = ?",
+      [ymd]
+    );
+    const [r2] = await conn.execute(
+      "SELECT LPAD((id % 100), 2, '0') AS code FROM race_cnt WHERE LEFT(CAST(id AS CHAR), 8) = ?",
+      [ymd]
+    );
+    const codes = [
+      ...r1.map(x => String(x.code).trim()),
+      ...r2.map(x => String(x.code).trim()),
+    ].filter(Boolean);
     return [...new Set(codes)];
   } catch (e) {
     console.warn('[warn] getCandidateBabaCodesFromDB failed:', e.message);
@@ -106,6 +119,15 @@ async function acceptConsentIfAny(driver) {
   }
 }
 
+// ===== deadlock 対策ユーティリティ =====
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+function isDeadlock(err) {
+  const msg = err && err.message ? err.message : '';
+  return !!(err && (err.code === 'ER_LOCK_DEADLOCK' || /Deadlock found/i.test(msg)));
+}
+
 (async function main() {
   const options = new chrome.Options().addArguments(
     '--headless=new',
@@ -128,16 +150,26 @@ async function acceptConsentIfAny(driver) {
 
     const rows = await driver.executeScript((yy) => {
       const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-      const table = document.querySelector('section.cardTable > table') || document.querySelector('table.cardTable') || document.querySelector('.cardTable table');
+      const table =
+        document.querySelector('section.cardTable > table') ||
+        document.querySelector('table.cardTable') ||
+        document.querySelector('.cardTable table');
       if (!table) return [];
+
       const trs = Array.from(table.querySelectorAll('tbody > tr'));
       const starts = [];
       trs.forEach((tr, i) => { if (tr.querySelector('td.horseNum')) starts.push(i); });
       if (!starts.length) return [];
+
       const hairRx = /鹿毛|黒鹿毛|栗毛|芦毛|栃栗毛|青毛|白毛|青鹿毛/;
       const timeRx = /\b\d{1,2}:\d{2}(?:\.\d)?\b/;
       const babaRx = /(良|稍重|重|不良)/;
-      const asText = (tr, i) => { const td = tr?.querySelectorAll('td')?.[i]; return norm(td ? td.innerText : ''); };
+
+      const asText = (tr, i) => {
+        const td = tr?.querySelectorAll('td')?.[i];
+        return norm(td ? td.innerText : '');
+      };
+
       const weightStr = (s) => {
         const m = (s || '').match(/(▲|△|◇)?\s*(\d{2,3}\.\d)\b/);
         if (!m) return null;
@@ -145,17 +177,28 @@ async function acceptConsentIfAny(driver) {
         if (v < 40 || v > 65) return null;
         return m[1] ? `${m[1]} ${m[2]}` : m[2];
       };
+
       const out = [];
       let lastFrame = 0;
+
       for (let k = 0; k < starts.length; k++) {
-        const s = starts[k], e = (k + 1 < starts.length) ? starts[k + 1] : trs.length;
-        const block = trs.slice(s, e), r0 = block[0];
+        const s = starts[k];
+        const e = (k + 1 < starts.length) ? starts[k + 1] : trs.length;
+        const block = trs.slice(s, e);
+        const r0 = block[0];
+
         const frameEl = r0.querySelector('td.courseNum:not(.waku)');
         let frame_number = frameEl ? Number(frameEl.textContent.trim()) : lastFrame;
         if (!Number.isFinite(frame_number)) frame_number = 0;
         if (frameEl) lastFrame = frame_number;
+
         const horse_number = Number(r0.querySelector('td.horseNum')?.textContent?.trim());
-        const horse_name = norm(r0.querySelector('a.horseName')?.textContent || r0.querySelector('.horseName')?.textContent || '');
+        const horse_name = norm(
+          r0.querySelector('a.horseName')?.textContent ||
+          r0.querySelector('.horseName')?.textContent ||
+          ''
+        );
+
         let jockey = null, affiliation = null;
         const aJ = r0.querySelector('a.jockeyName');
         if (aJ) {
@@ -165,78 +208,204 @@ async function acceptConsentIfAny(driver) {
           const area = aJ.querySelector('.jockeyarea');
           affiliation = area ? area.textContent.replace(/[()（）]/g, '').trim() : null;
         }
+
         let sex_age = null, hair = null, birthStr = null, burden_weight = null;
         for (const tr of block) {
           const t0 = asText(tr, 0), t1 = asText(tr, 1);
-          if (/(牡|牝|騙)\s*\d+/.test(t0) && hairRx.test(t1)) { sex_age = t0; hair = t1; birthStr = asText(tr, 2); burden_weight = weightStr(asText(tr, 3)); break; }
+          if (/(牡|牝|騙)\s*\d+/.test(t0) && hairRx.test(t1)) {
+            sex_age = t0;
+            hair = t1;
+            birthStr = asText(tr, 2);
+            burden_weight = weightStr(asText(tr, 3));
+            break;
+          }
         }
+
         let birthyear = 0, birthymonth = 0;
         const bm = (birthStr || '').match(/(\d{2})\.(\d{2})生/);
         if (bm) birthymonth = Number(bm[1]) || 0;
+
         const ageM = (sex_age || '').match(/(\d+)/);
-        if (ageM) { const age = Number(ageM[1]); if (Number.isFinite(age)) { birthyear = yy - age; if (birthyear < 0) birthyear += 100; } }
+        if (ageM) {
+          const age = Number(ageM[1]);
+          if (Number.isFinite(age)) {
+            birthyear = yy - age;
+            if (birthyear < 0) birthyear += 100;
+          }
+        }
+
         const geneCands = [];
         for (const tr of block) {
-          const leftTd = tr.querySelector('td[colspan]'); if (!leftTd) continue;
-          const left = norm(leftTd.innerText), right = norm((tr.querySelector('td[colspan] + td') || tr.querySelectorAll('td')[1])?.innerText || '');
+          const leftTd = tr.querySelector('td[colspan]');
+          if (!leftTd) continue;
+
+          const left = norm(leftTd.innerText);
+          const right = norm((tr.querySelector('td[colspan] + td') || tr.querySelectorAll('td')[1])?.innerText || '');
           if (!left || /^[-－]+$/.test(left) || timeRx.test(left) || timeRx.test(right) || babaRx.test(right)) continue;
+
           geneCands.push({ tr, left, right });
         }
+
         let trainer = null, owner = null;
         for (const tr of block) {
-          const tds = tr.querySelectorAll('td'); if (tds.length < 2) continue;
-          const left = norm(tds[0].innerText), right = norm(tds[1].innerText);
+          const tds = tr.querySelectorAll('td');
+          if (tds.length < 2) continue;
+
+          const left = norm(tds[0].innerText);
+          const right = norm(tds[1].innerText);
           if (!trainer && /^調教師[:：]/.test(right)) trainer = right.replace(/^調教師[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
           if (!owner && /^馬主[:：]/.test(right)) owner = right.replace(/^馬主[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
         }
+
         const bmsIdx = geneCands.findIndex(x => /^[（(]/.test(x.left));
         let broodmare_sire = null, breeder = null;
-        if (bmsIdx >= 0) { const x = geneCands.splice(bmsIdx, 1)[0]; broodmare_sire = x.left.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null; breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/, '').trim() || null; }
+        if (bmsIdx >= 0) {
+          const x = geneCands.splice(bmsIdx, 1)[0];
+          broodmare_sire = x.left.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
+          breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/, '').trim() || null;
+        }
+
         const pureGeneRows = geneCands.filter(x => !/^調教師[:：]/.test(x.right) && !/^馬主[:：]/.test(x.right));
         let sire = null, dam = null;
-        if (pureGeneRows.length >= 2) { sire = pureGeneRows[0].left || null; dam = pureGeneRows[1].left || null; }
+        if (pureGeneRows.length >= 2) {
+          sire = pureGeneRows[0].left || null;
+          dam = pureGeneRows[1].left || null;
+        }
+
         if (!Number.isFinite(horse_number) || horse_number < 1 || frame_number < 1 || frame_number > 8 || !horse_name) continue;
-        out.push({ frame_number, horse_number, horse_name, sex_age, hair, birthyear, birthymonth, sire, dam, broodmare_sire, jockey, affiliation, burden_weight, trainer, owner, breeder });
+
+        out.push({
+          frame_number,
+          horse_number,
+          horse_name,
+          sex_age,
+          hair,
+          birthyear,
+          birthymonth,
+          sire,
+          dam,
+          broodmare_sire,
+          jockey,
+          affiliation,
+          burden_weight,
+          trainer,
+          owner,
+          breeder
+        });
       }
+
       return out;
     }, yy);
 
     if (!rows.length) throw new Error('出馬表の抽出に失敗しました');
 
-    conn = await mysql.createConnection({ host: config.mysql.host || 'localhost', user: config.mysql.user, password: config.mysql.password, port: config.mysql.port, database: config.mysql.database || 'localkeiba', charset: 'utf8mb4' });
-    const cols = ['race_id', 'frame_number', 'horse_number', 'horse_name', 'sex_age', 'hair', 'birthyear', 'birthymonth', 'sire', 'dam', 'broodmare_sire', 'jockey_name', 'affiliation', 'carried_weight', 'trainer_name', 'owner', 'breeder'];
-    const placeholders = rows.map(() => '(' + cols.map(() => '?').join(',') + ')').join(',');
+    conn = await mysql.createConnection({
+      host: config.mysql.host || 'localhost',
+      user: config.mysql.user,
+      password: config.mysql.password,
+      port: config.mysql.port,
+      database: config.mysql.database || 'localkeiba',
+      charset: 'utf8mb4',
+    });
+
+    const cols = [
+      'race_id', 'frame_number', 'horse_number', 'horse_name',
+      'sex_age', 'hair', 'birthyear', 'birthymonth',
+      'sire', 'dam', 'broodmare_sire',
+      'jockey_name', 'affiliation',
+      'carried_weight', 'trainer_name', 'owner', 'breeder'
+    ];
+
+    const placeholders = rows
+      .map(() => '(' + cols.map(() => '?').join(',') + ')')
+      .join(',');
+
     const params = [];
     rows.forEach(r => {
       const carriedRaw = r.burden_weight ? parseFloat(String(r.burden_weight).replace(/[^\d.]/g, '')) : null;
-      params.push(race_id, r.frame_number, r.horse_number, r.horse_name, r.sex_age, r.hair, r.birthyear, r.birthymonth, r.sire, r.dam, r.broodmare_sire, r.jockey, r.affiliation, Number.isFinite(carriedRaw) ? carriedRaw : null, r.trainer, r.owner, r.breeder);
+      params.push(
+        race_id,
+        r.frame_number,
+        r.horse_number,
+        r.horse_name,
+        r.sex_age,
+        r.hair,
+        r.birthyear,
+        r.birthymonth,
+        r.sire,
+        r.dam,
+        r.broodmare_sire,
+        r.jockey,
+        r.affiliation,
+        Number.isFinite(carriedRaw) ? carriedRaw : null,
+        r.trainer,
+        r.owner,
+        r.breeder
+      );
     });
-    const sql = `INSERT INTO racing_form (${cols.join(',')}) VALUES ${placeholders} ON DUPLICATE KEY UPDATE frame_number=VALUES(frame_number), horse_name=VALUES(horse_name), sex_age=VALUES(sex_age), hair=VALUES(hair), birthyear=VALUES(birthyear), birthymonth=VALUES(birthymonth), sire=VALUES(sire), dam=VALUES(dam), broodmare_sire=VALUES(broodmare_sire), jockey_name=VALUES(jockey_name), affiliation=VALUES(affiliation), carried_weight=VALUES(carried_weight), trainer_name=VALUES(trainer_name), owner=VALUES(owner), breeder=VALUES(breeder), updated_at=CURRENT_TIMESTAMP`;
+
+    const sql = `
+      INSERT INTO racing_form (${cols.join(',')})
+      VALUES ${placeholders}
+      ON DUPLICATE KEY UPDATE
+        frame_number=VALUES(frame_number),
+        horse_name=VALUES(horse_name),
+        sex_age=VALUES(sex_age),
+        hair=VALUES(hair),
+        birthyear=VALUES(birthyear),
+        birthymonth=VALUES(birthymonth),
+        sire=VALUES(sire),
+        dam=VALUES(dam),
+        broodmare_sire=VALUES(broodmare_sire),
+        jockey_name=VALUES(jockey_name),
+        affiliation=VALUES(affiliation),
+        carried_weight=VALUES(carried_weight),
+        trainer_name=VALUES(trainer_name),
+        owner=VALUES(owner),
+        breeder=VALUES(breeder),
+        updated_at=CURRENT_TIMESTAMP
+    `;
+
     const maxRetries = 3;
     const lockName = `racing_form_${race_id}`;
+    const lockTimeoutSec = 10;
+
+    // 同一 race_id の同時更新を直列化（deadlock回避に効く）
+    await conn.execute('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+
+    let gotLock = 0;
     try {
-      await conn.execute('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
-      const [[lockRow]] = await conn.execute('SELECT GET_LOCK(?, 10) AS got_lock', [lockName]);
-      if (!lockRow || lockRow.got_lock !== 1) throw new Error(`failed to acquire lock: ${lockName}`);
+      const [[lockRow]] = await conn.execute('SELECT GET_LOCK(?, ?) AS got_lock', [lockName, lockTimeoutSec]);
+      gotLock = lockRow?.got_lock || 0;
+      if (gotLock !== 1) {
+        // 取れない場合も、リトライでワンチャン通す（状況見たいならthrowでもOK）
+        console.warn(`[warn] failed to acquire lock: ${lockName} (timeout=${lockTimeoutSec}s) → continue without lock`);
+      }
+
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           await conn.beginTransaction();
-          await conn.execute(`DELETE FROM racing_form WHERE race_id = ?`, [race_id]);
+          await conn.execute('DELETE FROM racing_form WHERE race_id = ?', [race_id]);
           await conn.execute(sql, params);
           await conn.commit();
           break;
         } catch (txErr) {
-          const msg = txErr && txErr.message ? txErr.message : '';
-          const isDeadlock = txErr && (txErr.code === 'ER_LOCK_DEADLOCK' || /Deadlock found/i.test(msg));
           try { await conn.rollback(); } catch { }
-          if (!isDeadlock || attempt === maxRetries) throw txErr;
-          await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+
+          if (!isDeadlock(txErr) || attempt === maxRetries) throw txErr;
+
+          // 指数バックオフ気味
+          await sleep(200 * attempt);
         }
       }
     } finally {
-      try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch { }
+      if (gotLock === 1) {
+        try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch { }
+      }
       await conn.end();
+      conn = null;
     }
+
     console.log(`[OK] race_id=${race_id} → upsert ${rows.length} rows`);
   } catch (err) {
     try { if (conn) await conn.rollback(); } catch { }
