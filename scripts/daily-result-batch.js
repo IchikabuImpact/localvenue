@@ -14,6 +14,7 @@
 // 2) save-result-db.js で結果保存
 // 3) eval-prediction.js で予想評価
 // 4) eval-roi.js で日次ROI集計
+// 5) generate-daily-pages.js で静的ページ生成
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -32,6 +33,7 @@ const SCRIPTS = {
   evalPrediction: path.join(BASE, '102-eval-prediction.js'),
   evalRoi: path.join(BASE, '103-eval-roi.js'),
   aggregateDaily: path.join(BASE, '104-aggregate-roi-daily.js'),
+  generatePages: path.join(BASE, 'generate-daily-pages.js'),
 };
 
 const ts = () => {
@@ -185,6 +187,9 @@ function buildEvalPredictionArgs(raceId) {
 
   log(`[agg] ${path.basename(SCRIPTS.aggregateDaily)} ${ymd}`);
   await runNode(SCRIPTS.aggregateDaily, [ymd]);
+
+  log(`[web] ${path.basename(SCRIPTS.generatePages)} ${ymd}`);
+  await runNode(SCRIPTS.generatePages, [ymd]);
 
   log(`=== デイリー結果バッチ完了: ${ymd} ===`);
 })().catch((e) => {
