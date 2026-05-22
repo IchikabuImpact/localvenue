@@ -7,7 +7,8 @@
 // daily-result-batch.js
 //
 // Usage:
-//   node daily-result-batch.js 20260119
+//   node daily-result-batch.js           // JST 今日
+//   node daily-result-batch.js 20260119  // 指定日
 //
 // 1) 当日レース一覧を取得
 // 2) save-result-db.js で結果保存
@@ -40,6 +41,15 @@ const ts = () => {
 };
 
 const log = (m) => console.log(`[${ts()}] ${m}`);
+
+// JST 今日を YYYYMMDD で返す
+const jstTodayYmd = () => {
+  const jst = new Date(Date.now() + 9 * 3600 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(jst.getUTCDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+};
 
 const exists = (p) => {
   try {
@@ -130,11 +140,8 @@ function buildEvalPredictionArgs(raceId) {
 }
 
 (async () => {
-  const ymd = process.argv[2] || '';
-  if (!/^\d{8}$/.test(ymd)) {
-    console.error('Usage: node daily-result-batch.js YYYYMMDD');
-    process.exit(1);
-  }
+  const ymdArg = process.argv[2] || '';
+  const ymd = /^\d{8}$/.test(ymdArg) ? ymdArg : jstTodayYmd();
 
   log(`=== デイリー結果バッチ開始: ${ymd} (並列: ${PARALLEL}) ===`);
 
@@ -158,7 +165,18 @@ function buildEvalPredictionArgs(raceId) {
     }
 
     log(`[eval-pred ] ${raceId}`);
-    await runNode(SCRIPTS.evalPrediction, buildEvalPredictionArgs(raceId));
+    const evalCode = await runNodeWithCode(SCRIPTS.evalPrediction, buildEvalPredictionArgs(raceId));
+    if (evalCode === 2) {
+      log(`[skip] 予想なし: ${raceId}`);
+      return;
+    }
+    if (evalCode === 3) {
+      log(`[skip] 結果なし: ${raceId}`);
+      return;
+    }
+    if (evalCode !== 0) {
+      throw new Error(`${path.basename(SCRIPTS.evalPrediction)} exited with ${evalCode}`);
+    }
   });
 
   const iso = ymdToIso(ymd);

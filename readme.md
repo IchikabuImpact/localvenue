@@ -54,9 +54,17 @@ node scripts/daily-yosou-batch.js
 node scripts/daily-yosou-batch.js 20251013
 ```
 
-### 2. 結果収集 (Daily Result Collection)
-⚠ **注意**: 日次一括収集スクリプト (`daily-save-race-results.js`) は現在リポジトリに見当たりません。
-単発で収集する場合は以下を使用します。
+### 2. 結果収集・評価バッチ (Daily Result Collection)
+日次一括収集は以下を使用します。
+```bash
+# 本日分
+node scripts/daily-result-batch.js
+
+# 指定日
+node scripts/daily-result-batch.js 20251013
+```
+
+単発で収集する場合は以下です。
 ```bash
 # 指定レースの結果収集 (YYYYMMDDRRBB)
 node scripts/101-save-result-db.js 202510130101
@@ -311,7 +319,7 @@ rsync -avz --delete ./public/ user@your-vps:/var/www/localvenue/
 
 ### 5) 日次運用の最小例
 1. `node scripts/daily-yosou-batch.js YYYYMMDD`
-2. （必要なら）`node scripts/101-save-result-db.js YYYYMMDDRRBB`
+2. `node scripts/daily-result-batch.js YYYYMMDD`
 3. `node scripts/generate-daily-pages.js YYYYMMDD`
 4. `rsync -avz --delete ./public/ user@your-vps:/var/www/localvenue/`
 

@@ -28,7 +28,7 @@
 - 単レース結果収集: `scripts/101-save-result-db.js`
 - 予想評価: `scripts/102-eval-prediction.js`
 - ROI評価: `scripts/103-eval-roi.js`
-- 日次一括の結果収集ラッパーは未整備（手動/別途実装が必要）。
+- 日次一括ラッパー: `scripts/daily-result-batch.js`（結果取得→予想評価→日次ROI集計）。
 
 ### 2.3 静的ページ生成バッチ
 - エントリポイント: `scripts/generate-daily-pages.js`
