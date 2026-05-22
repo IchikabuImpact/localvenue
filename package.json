@@ -16,7 +16,9 @@
     "yosou": "node scripts/daily-yosou-batch.js",
     "yosou:date": "node scripts/daily-yosou-batch.js",
     "db:dump": "node scripts/dump-db-context.js",
-    "serve": "node scripts/server.js"
+    "serve": "node scripts/server.js",
+    "result": "node scripts/daily-result-batch.js",
+    "result:date": "node scripts/daily-result-batch.js"
   },
   "dependencies": {
     "axios": "^1.10.0",
