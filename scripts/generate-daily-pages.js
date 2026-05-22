@@ -7,10 +7,9 @@
 /**
  * generate-daily-pages.js
  * 
- * 3画面（一覧・詳細・回収率）の静的HTMLを生成する。
- * public/index.html
- * public/{race_id}.html
- * public/recovery.html
+ * 日次の静的HTMLを生成する（30日保持）。
+ * - 最新: public/index.html / public/recovery.html / public/{race_id}.html
+ * - 日次アーカイブ: public/daily/YYYYMMDD/index.html / recovery.html / {race_id}.html
  * 
  * Usage:
  *   node scripts/generate-daily-pages.js [YYYYMMDD] [model_version]
@@ -38,26 +37,31 @@ if (!/^\d{8}$/.test(ymdArg)) {
 }
 
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
+const DAILY_DIR = path.join(PUBLIC_DIR, 'daily');
 const isoDate = `${ymdArg.slice(0, 4)}-${ymdArg.slice(4, 6)}-${ymdArg.slice(6, 8)}`;
+const currentDailyDir = path.join(DAILY_DIR, ymdArg);
+
+if (!fs.existsSync(DAILY_DIR)) fs.mkdirSync(DAILY_DIR, { recursive: true });
+if (!fs.existsSync(currentDailyDir)) fs.mkdirSync(currentDailyDir, { recursive: true });
 
 // HTML Helpers
-const htmlHead = (title, meta = '') => `
+const htmlHead = (title, opts = {}) => `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
-  <link rel="stylesheet" href="css/style.css">
-  ${meta}
+  <link rel="stylesheet" href="${opts.cssPath || 'css/style.css'}">
+  ${opts.meta || ''}
 </head>
 <body>
 <header>
   <div class="container">
-    <h1><a href="index.html">LocalVenue</a> ${isoDate}</h1>
+    <h1><a href="${opts.indexPath || 'index.html'}">LocalVenue</a> ${isoDate}</h1>
     <nav>
-      <a href="index.html">一覧</a>
-      <a href="recovery.html">回収率</a>
+      <a href="${opts.indexPath || 'index.html'}">一覧</a>
+      <a href="${opts.recoveryPath || 'recovery.html'}">回収率</a>
     </nav>
   </div>
 </header>
@@ -80,6 +84,34 @@ function safeJSON(raw) {
   if (typeof raw === 'string') { try { return JSON.parse(raw); } catch { return null; } }
   if (Buffer.isBuffer(raw)) { try { return JSON.parse(raw.toString('utf8')); } catch { return null; } }
   return raw;
+}
+
+function buildCutoffYmd(days = 30) {
+  const base = new Date(Date.UTC(
+    Number(ymdArg.slice(0, 4)),
+    Number(ymdArg.slice(4, 6)) - 1,
+    Number(ymdArg.slice(6, 8)),
+    0, 0, 0
+  ));
+  base.setUTCDate(base.getUTCDate() - days);
+  const y = base.getUTCFullYear();
+  const m = String(base.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(base.getUTCDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
+function purgeOldDailyDirs() {
+  const cutoff = buildCutoffYmd(30);
+  if (!fs.existsSync(DAILY_DIR)) return;
+  const dirs = fs.readdirSync(DAILY_DIR, { withFileTypes: true });
+  for (const dirent of dirs) {
+    if (!dirent.isDirectory()) continue;
+    if (!/^\d{8}$/.test(dirent.name)) continue;
+    if (dirent.name < cutoff) {
+      fs.rmSync(path.join(DAILY_DIR, dirent.name), { recursive: true, force: true });
+      console.log(`[CLEAN] removed daily/${dirent.name}`);
+    }
+  }
 }
 
 (async () => {
@@ -152,13 +184,19 @@ function safeJSON(raw) {
     // 1. INDEX HTML
     // ==========================================
     let indexHtml = htmlHead(`レース一覧 ${isoDate}`);
+    let indexHtmlDaily = htmlHead(`レース一覧 ${isoDate}`, {
+      cssPath: '../../css/style.css',
+      indexPath: 'index.html',
+      recoveryPath: 'recovery.html'
+    });
 
     // ROI Header
     indexHtml += `<section class="roi-summary"><h2>今日の回収率 (${isoDate})</h2><div class="roi-cards">`;
+    indexHtmlDaily += `<section class="roi-summary"><h2>今日の回収率 (${isoDate})</h2><div class="roi-cards">`;
     if (dailyRoi.length) {
       const single = dailyRoi.find(d => d.strategy === 'single') || {};
       const place = dailyRoi.find(d => d.strategy === 'place') || {};
-      indexHtml += `
+      const roiCards = `
         <div class="card ${Number(single.roi_percent) >= 100 ? 'good' : ''}">
           <h3>単勝</h3>
           <p class="roi-val">${single.roi_percent || '---'}%</p>
@@ -170,13 +208,18 @@ function safeJSON(raw) {
           <p class="roi-detail">${place.return_yen || 0} / ${place.invest_yen || 0}円 (${place.races || 0}R)</p>
         </div>
       `;
+      indexHtml += roiCards;
+      indexHtmlDaily += roiCards;
     } else {
       indexHtml += `<p>集計データなし</p>`;
+      indexHtmlDaily += `<p>集計データなし</p>`;
     }
     indexHtml += `</div></section>`;
+    indexHtmlDaily += `</div></section>`;
 
     // Race List
     indexHtml += `<section class="race-list"><h2>レース一覧 (${races.length}件)</h2><ul>`;
+    indexHtmlDaily += `<section class="race-list"><h2>レース一覧 (${races.length}件)</h2><ul>`;
     for (const r of races) {
       const memo = safeJSON(r.memo);
       const venueCode = r.race_id.slice(10, 12); // 末尾2桁
@@ -191,7 +234,7 @@ function safeJSON(raw) {
       if (r.win_hit === 1) { statusClass = 'win'; statusText = '的中🎯'; }
       else if (r.win_hit === 0) { statusClass = 'lose'; statusText = '不的中'; }
 
-      indexHtml += `
+      const raceItem = `
         <li>
           <a href="${r.race_id}.html" class="race-link ${statusClass}">
             <span class="venue">${venueName} ${parseInt(rr)}R</span>
@@ -200,10 +243,31 @@ function safeJSON(raw) {
           </a>
         </li>
       `;
+      indexHtml += raceItem;
+      indexHtmlDaily += raceItem;
     }
     indexHtml += `</ul></section>`;
+    indexHtmlDaily += `</ul></section>`;
+
+    const dailyDirs = fs.readdirSync(DAILY_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory() && /^\d{8}$/.test(d.name))
+      .map(d => d.name)
+      .sort()
+      .reverse()
+      .slice(0, 30);
+    if (dailyDirs.length > 0) {
+      indexHtml += `<section class="race-list"><h2>日次アーカイブ (最大30日)</h2><ul>`;
+      for (const d of dailyDirs) {
+        const label = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+        indexHtml += `<li><a class="race-link" href="daily/${d}/index.html"><span class="venue">${label}</span><span class="pred">一覧ページ</span></a></li>`;
+      }
+      indexHtml += `</ul></section>`;
+    }
+
     indexHtml += htmlFoot();
+    indexHtmlDaily += htmlFoot();
     fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), indexHtml, 'utf8');
+    fs.writeFileSync(path.join(currentDailyDir, 'index.html'), indexHtmlDaily, 'utf8');
     console.log('[GEN] index.html');
 
 
@@ -218,14 +282,22 @@ function safeJSON(raw) {
       const venueName = venueMap.get(venueCode) || `Venue${venueCode}`;
 
       let detailHtml = htmlHead(`${venueName}${parseInt(rr)}R 詳細`);
-      detailHtml += `
+      let detailHtmlDaily = htmlHead(`${venueName}${parseInt(rr)}R 詳細`, {
+        cssPath: '../../css/style.css',
+        indexPath: 'index.html',
+        recoveryPath: 'recovery.html'
+      });
+      const detailHeader = `
         <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
         <h2>${venueName} ${parseInt(rr)}R (${r.race_id})</h2>
         <p class="model-info">Model: ${r.model_version}</p>
       `;
+      detailHtml += detailHeader;
+      detailHtmlDaily += detailHeader;
 
       // 予想テーブル
       detailHtml += `<section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody>`;
+      detailHtmlDaily += `<section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody>`;
       // memo.items があればそれを表示、なければ best だけ
       if (items.length > 0) {
         // ソート: score降順
@@ -233,28 +305,37 @@ function safeJSON(raw) {
         let idx = 0;
         for (const item of items) {
           const mark = idx === 0 ? '◎' : idx < 5 ? '○' : '';
-          detailHtml += `<tr><td>${mark}</td><td>${item.horse_number}</td><td>${item.horse_name || ''}</td><td>${Number(item.score).toFixed(4)}</td></tr>`;
+          const rowHtml = `<tr><td>${mark}</td><td>${item.horse_number}</td><td>${item.horse_name || ''}</td><td>${Number(item.score).toFixed(4)}</td></tr>`;
+          detailHtml += rowHtml;
+          detailHtmlDaily += rowHtml;
           idx++;
           if (idx >= 5) break; // 上位5頭
         }
       } else {
         const best = memo?.best || {};
-        detailHtml += `<tr><td>◎</td><td>${best.horse_number || '?'}</td><td>${best.horse_name || ''}</td><td>-</td></tr>`;
+        const fallbackRow = `<tr><td>◎</td><td>${best.horse_number || '?'}</td><td>${best.horse_name || ''}</td><td>-</td></tr>`;
+        detailHtml += fallbackRow;
+        detailHtmlDaily += fallbackRow;
       }
       detailHtml += `</tbody></table></section>`;
+      detailHtmlDaily += `</tbody></table></section>`;
 
       // 結果 (もしあれば)
       if (r.win_hit !== null) {
-        detailHtml += `<section class="result-info"><h3>結果</h3>
+        const resultSection = `<section class="result-info"><h3>結果</h3>
            <dl>
              <dt>単勝</dt><dd>${r.win_hit ? '<span class="win">的中🎯</span>' : '不的中'} (戻り: ${r.eval_win_return || 0})</dd>
              <dt>複勝</dt><dd>${r.place_hit ? '<span class="win">的中🎯</span>' : '不的中'} (戻り: ${r.eval_place_return || 0})</dd>
            </dl>
          </section>`;
+        detailHtml += resultSection;
+        detailHtmlDaily += resultSection;
       }
 
       detailHtml += htmlFoot();
+      detailHtmlDaily += htmlFoot();
       fs.writeFileSync(path.join(PUBLIC_DIR, `${r.race_id}.html`), detailHtml, 'utf8');
+      fs.writeFileSync(path.join(currentDailyDir, `${r.race_id}.html`), detailHtmlDaily, 'utf8');
     }
     console.log(`[GEN] ${races.length} race pages`);
 
@@ -279,16 +360,23 @@ function safeJSON(raw) {
     }
 
     let recHtml = htmlHead(`回収率推移`);
+    let recHtmlDaily = htmlHead(`回収率推移`, {
+      cssPath: '../../css/style.css',
+      indexPath: 'index.html',
+      recoveryPath: 'recovery.html'
+    });
     recHtml += `<h2>直近30日の回収率推移</h2>`;
+    recHtmlDaily += `<h2>直近30日の回収率推移</h2>`;
 
     // グラフ (CSS Bar Chart)
     recHtml += `<div class="chart-container">`;
+    recHtmlDaily += `<div class="chart-container">`;
     for (const [d, st] of dateStats) {
       const sVal = st['single'] ? Math.min(200, Number(st['single'].roi_percent)) : 0; // 最大200%でキャップ表示
       const pVal = st['place'] ? Math.min(200, Number(st['place'].roi_percent)) : 0;
       const label = d.slice(5); // MM-DD
 
-      recHtml += `
+      const bar = `
         <div class="chart-bar-group">
           <div class="bars">
             <div class="bar single" style="height: ${sVal / 2}%" title="単: ${st['single']?.roi_percent}%"></div>
@@ -297,19 +385,24 @@ function safeJSON(raw) {
           <div class="label">${label}</div>
         </div>
       `;
+      recHtml += bar;
+      recHtmlDaily += bar;
     }
     recHtml += `</div>`;
+    recHtmlDaily += `</div>`;
     recHtml += `<p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p>`;
+    recHtmlDaily += `<p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p>`;
 
     // テーブル
     recHtml += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>投資(単)</th></tr></thead><tbody>`;
+    recHtmlDaily += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>投資(単)</th></tr></thead><tbody>`;
     // 新しい順に表示したいなら逆順
     const sortedKeys = Array.from(dateStats.keys()).sort().reverse();
     for (const d of sortedKeys) {
       const st = dateStats.get(d);
       const s = st['single'];
       const p = st['place'];
-      recHtml += `
+      const tr = `
         <tr>
           <td>${d}</td>
           <td class="${(Number(s?.roi_percent) || 0) >= 100 ? 'win' : ''}">${s?.roi_percent || '-'}%</td>
@@ -317,11 +410,17 @@ function safeJSON(raw) {
           <td>${s?.invest_yen || 0}</td>
         </tr>
       `;
+      recHtml += tr;
+      recHtmlDaily += tr;
     }
     recHtml += `</tbody></table>`;
+    recHtmlDaily += `</tbody></table>`;
     recHtml += htmlFoot();
+    recHtmlDaily += htmlFoot();
     fs.writeFileSync(path.join(PUBLIC_DIR, 'recovery.html'), recHtml, 'utf8');
+    fs.writeFileSync(path.join(currentDailyDir, 'recovery.html'), recHtmlDaily, 'utf8');
     console.log('[GEN] recovery.html');
+    purgeOldDailyDirs();
 
   } catch (e) {
     console.error('[FATAL]', e);
