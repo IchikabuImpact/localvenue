@@ -262,6 +262,15 @@ code.inline { padding: 2px 6px; border-radius: 6px; background: var(--chip); bor
 .footer-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .footer-links a { padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--chip); }
 
+/* --- Static Pages: Header --- */
+header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 12px 0 8px; }
+header h1 { margin: 0 0 2px; font-size: 1.3rem; }
+header h1 a { color: var(--text); font-weight: 800; }
+header h1 a:hover { text-decoration: none; color: var(--accent); }
+.site-subtitle { margin: 0 0 8px; font-size: 0.82rem; color: var(--muted); font-style: italic; }
+header nav { display: flex; gap: 12px; }
+header nav a { font-size: 0.9rem; color: var(--link); }
+
 /* --- Added for Static Daily Pages --- */
 /* ROI Summary (Index) */
 .roi-summary { margin-bottom: 24px; }
