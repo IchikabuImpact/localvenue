@@ -1,19 +1,27 @@
-/*
- * 004-racing-form-to-db.js  (babaCode解決版 / deadlock対策版)
- * Usage:
- *   node 004-racing-form-to-db.js 202510130110   # YYYYMMDD + RR + BB
- */
-
+#!/usr/bin/env node
 /**
+ * 004-racing-form-to-db.js  (axios+cheerio版 — Selenium不使用)
+ *
+ * Usage:
+ *   node 004-racing-form-to-db.js YYYYMMDDRRBB  (例: 202509141131)
+ *
+ * HTML構造（keiba.go.jp DebaTable）— 馬1頭につき5行ブロック:
+ *   行1 (tr.tBorder): 枠番(.courseNum) / 馬番(.horseNum) / 馬名(a.horseName) / 騎手(a.jockeyName)
+ *   行2              : 性齢(td.noBorder span) / 毛色(td.noBorder) / 生月("MM.DD生") / 斤量("57.0 ...")
+ *   行3              : 父(td[colspan=3]) / 調教師(td[colspan=1] a)
+ *   行4              : 母(td[colspan=3]) / 馬主(td[colspan=1])
+ *   行5              : 母父(td[colspan=3], 括弧付き) / 生産者(td[colspan=1])
+ *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
  */
 
-const webdriver = require('selenium-webdriver');
-const { By, until } = webdriver;
-const chrome = require('selenium-webdriver/chrome');
-const mysql = require('mysql2/promise');
-const config = require('../config/config.js');
+'use strict';
+
+const axios   = require('axios');
+const cheerio = require('cheerio');
+const mysql   = require('mysql2/promise');
+const config  = require('../config/config.js');
 
 // ---- 引数 ----
 const [, , id12] = process.argv;
@@ -21,328 +29,203 @@ if (!id12 || !/^\d{12}$/.test(id12)) {
   console.error('Usage: node 004-racing-form-to-db.js YYYYMMDDRRBB  (例: 202509141131)');
   process.exit(1);
 }
+
 const yyyymmdd = id12.slice(0, 8);
-const raceNo2 = id12.slice(8, 10);
-const raceNumber = Number(raceNo2);
-const year = Number(yyyymmdd.slice(0, 4));
-const yy = year % 100;
-const raceDateStr = `${yyyymmdd.slice(0, 4)}/${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(6, 8)}`;
-const race_id = id12;
+const raceNo   = Number(id12.slice(8, 10));
+const babaCode = id12.slice(10, 12);
+const year     = Number(yyyymmdd.slice(0, 4));
+const yy       = year % 100;  // 生年計算用（年齢から逆算）
+const race_id  = id12;
 
-// ===== babaCode 解決ユーティリティ =====
-function encodeDateForQuery(ymd) {
-  return `${ymd.slice(0, 4)}%2F${ymd.slice(4, 6)}%2F${ymd.slice(6, 8)}`;
+// ---- 定数 ----
+const UA              = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+const HTTP_TIMEOUT_MS = 30000;
+const RETRY_MAX       = 3;
+const RETRY_DELAY_MS  = 3000;
+
+// ---- URL 生成 ----
+function buildUrl(ymd, no, baba) {
+  const d = `${ymd.slice(0, 4)}%2F${ymd.slice(4, 6)}%2F${ymd.slice(6, 8)}`;
+  return `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/DebaTable?k_raceDate=${d}&k_raceNo=${no}&k_babaCode=${baba}`;
 }
 
-async function getCandidateBabaCodesFromDB(ymd) {
-  let conn;
-  try {
-    conn = await mysql.createConnection(config.mysql);
-
-    // MariaDB 10.5 で MySQL8 の utf8mb4_0900_ai_ci は存在しないことがあるので安全に
-    await conn.query("SET NAMES utf8mb4");
-
-    const [r1] = await conn.execute(
-      "SELECT venue_code AS code FROM race_count_by_date WHERE ymd = ?",
-      [ymd]
-    );
-    const [r2] = await conn.execute(
-      "SELECT LPAD((id % 100), 2, '0') AS code FROM race_cnt WHERE LEFT(CAST(id AS CHAR), 8) = ?",
-      [ymd]
-    );
-    const codes = [
-      ...r1.map(x => String(x.code).trim()),
-      ...r2.map(x => String(x.code).trim()),
-    ].filter(Boolean);
-    return [...new Set(codes)];
-  } catch (e) {
-    console.warn('[warn] getCandidateBabaCodesFromDB failed:', e.message);
-    return [];
-  } finally {
-    if (conn) await conn.end();
-  }
-}
-
-async function getCandidateBabaCodesFromWeb(driver, ymd) {
-  const dateStr = `${ymd.slice(0, 4)}/${ymd.slice(4, 6)}/${ymd.slice(6, 8)}`;
-  const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList?k_raceDate=${encodeURIComponent(dateStr)}`;
-  await driver.get(url);
-  await acceptConsentIfAny(driver);
-  const sel = await driver.wait(until.elementLocated(By.css('select[name="k_babaCode"], #k_babaCode')), 15000);
-  const opts = await sel.findElements(By.css('option'));
-  const codes = [];
-  for (const opt of opts) {
-    const v = (await opt.getAttribute('value'))?.trim();
-    if (v) codes.push(v);
-  }
-  return [...new Set(codes)];
-}
-
-async function tryOpenDebaTable(driver, ymd, raceNo, babaCode) {
-  const url = `https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/DebaTable?k_raceDate=${encodeDateForQuery(ymd)}&k_raceNo=${raceNo}&k_babaCode=${babaCode}`;
-  await driver.get(url);
-  await acceptConsentIfAny(driver);
-  try {
-    await driver.wait(until.elementLocated(By.css('section.cardTable table, table.cardTable, .cardTable table')), 30000);
-    console.log(`[info] DebaTable OK with k_babaCode=${babaCode} → ${url}`);
-    return { ok: true, url };
-  } catch (e) {
+// ---- HTTP リトライ付き取得 ----
+async function fetchHtml(url) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
     try {
-      const body = await driver.findElement(By.css('body')).getText();
-      if (/該当|準備中|メンテ/i.test(body)) return { ok: false, url, reason: 'not-ready' };
-    } catch { }
-    return { ok: false, url, reason: 'timeout' };
+      const res = await axios.get(url, {
+        headers: {
+          'User-Agent':      UA,
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer':         'https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RaceList',
+        },
+        timeout: HTTP_TIMEOUT_MS,
+        decompress: true,
+      });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      return res.data;
+    } catch (e) {
+      lastErr = e;
+      const status = e.response?.status;
+      const wait = status === 429
+        ? RETRY_DELAY_MS * attempt * 2
+        : RETRY_DELAY_MS * attempt;
+      console.warn(`[WARN] attempt ${attempt}/${RETRY_MAX} failed (${status || e.code || e.message}), retry in ${wait}ms...`);
+      if (attempt < RETRY_MAX) await new Promise(r => setTimeout(r, wait));
+    }
   }
+  throw lastErr;
 }
 
-async function resolveAndOpenDebaTable(driver, ymd, raceNo, targetBaba = null) {
-  let candidates = [];
-  if (targetBaba) {
-    candidates = [targetBaba];
-  } else {
-    const dbCodes = await getCandidateBabaCodesFromDB(ymd);
-    const webCodes = await getCandidateBabaCodesFromWeb(driver, ymd).catch(() => []);
-    candidates = [...new Set([...(dbCodes || []), ...(webCodes || [])])];
+// ---- HTML パース ----
+function parse(html, yy) {
+  const $ = cheerio.load(html);
+
+  if (!$('section.cardTable table').length) {
+    throw new Error('出馬表テーブルが見つかりません（準備中または該当レースなし）');
   }
-  if (!candidates.length) throw new Error(`no k_babaCode candidates for ${ymd}`);
-  for (const code of candidates) {
-    const r = await tryOpenDebaTable(driver, ymd, raceNo, code);
-    if (r.ok) return { babaCode: code, url: r.url };
-  }
-  throw new Error(`DebaTable not available for ${ymd} R${raceNo}. tried=${JSON.stringify(candidates)}`);
+
+  const results = [];
+
+  // 馬1頭 = tr.tBorder から始まる連続5行
+  $('section.cardTable table tbody tr.tBorder').each((_, tr1el) => {
+    const $r1 = $(tr1el);
+    const $r2 = $r1.next('tr');
+    const $r3 = $r2.next('tr');
+    const $r4 = $r3.next('tr');
+    const $r5 = $r4.next('tr');
+
+    // ---- 行1: 枠番・馬番・馬名・騎手 ----
+    const frame_number = Number($r1.find('td.courseNum').text().trim());
+    const horse_number = Number($r1.find('td.horseNum').text().trim());
+    const horse_name   = $r1.find('a.horseName').text().trim();
+    if (!frame_number || !horse_number || !horse_name) return;
+
+    // 騎手名: jockeyarea（所属）span を除いたテキストノードのみ
+    const $jockeyA = $r1.find('a.jockeyName');
+    let jockey = null, affiliation = null;
+    if ($jockeyA.length) {
+      const $c = $jockeyA.clone();
+      affiliation = $c.find('span.jockeyarea').text().replace(/[()（）]/g, '').trim() || null;
+      $c.find('span').remove();
+      jockey = $c.text().trim() || null;
+    }
+
+    // ---- 行2: 性齢・毛色・生月・斤量 ----
+    const $noBorder = $r2.find('td.noBorder');
+    const sex_age   = $noBorder.eq(0).find('span').text().trim()
+                   || $noBorder.eq(0).text().trim()
+                   || null;
+    const hair      = $noBorder.eq(1).text().trim() || null;
+
+    let birthStr = '', burden_weight = null;
+    $r2.find('td').each((_, td) => {
+      const t = $(td).text().trim();
+      // 生月: "MM.DD生" 形式
+      if (!birthStr && /\d{2}\.\d{2}生/.test(t)) {
+        birthStr = t;
+      }
+      // 斤量: 先頭が "NN.N" の形式で 40〜65 の範囲
+      if (burden_weight === null) {
+        const m = t.replace(/[　\s]+/g, ' ').match(/^(\d{2,3}\.\d)\b/);
+        if (m) {
+          const v = parseFloat(m[1]);
+          if (v >= 40 && v <= 65) burden_weight = v;
+        }
+      }
+    });
+
+    let birthymonth = 0, birthyear = 0;
+    const birthMatch = birthStr.match(/(\d{2})\.(\d{2})生/);
+    if (birthMatch) birthymonth = Number(birthMatch[1]) || 0;
+    const ageMatch = (sex_age || '').match(/(\d+)/);
+    if (ageMatch) {
+      const age = Number(ageMatch[1]);
+      birthyear = yy - age;
+      if (birthyear < 0) birthyear += 100;
+    }
+
+    // ---- 行3: 父・調教師 ----
+    const sire       = $r3.find('td[colspan="3"]').first().text().trim() || null;
+    const trainerRaw = ($r3.find('td[colspan="1"]').first().find('a').text()
+                     || $r3.find('td[colspan="1"]').first().text()).trim();
+    // 末尾の（地区）を除去: "中西達（高知）" → "中西達"
+    const trainer    = trainerRaw.replace(/\s*[（(][^)）]*[)）]\s*$/, '').trim() || null;
+
+    // ---- 行4: 母・馬主 ----
+    const dam   = $r4.find('td[colspan="3"]').first().text().trim() || null;
+    const owner = $r4.find('td[colspan="1"]').first().text().trim() || null;
+
+    // ---- 行5: 母父・生産者 ----
+    // 母父は "（ゴールドアリュール）" 形式なので括弧を除去
+    const bmsRaw       = $r5.find('td[colspan="3"]').first().text().trim();
+    const broodmare_sire = bmsRaw.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
+    const breeder      = $r5.find('td[colspan="1"]').first().text().trim() || null;
+
+    results.push({
+      frame_number, horse_number, horse_name,
+      sex_age, hair, birthyear, birthymonth,
+      sire, dam, broodmare_sire,
+      jockey, affiliation,
+      burden_weight,
+      trainer, owner, breeder,
+    });
+  });
+
+  return results;
 }
 
-async function acceptConsentIfAny(driver) {
-  for (const xp of ["//button[contains(.,'同意') or contains(.,'OK')]", "//a[contains(.,'同意')]"]) {
-    const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch { } break; }
-  }
-}
-
-// ===== deadlock 対策ユーティリティ =====
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// ---- deadlock 対策ユーティリティ ----
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function isDeadlock(err) {
-  const msg = err && err.message ? err.message : '';
+  const msg = err?.message || '';
   return !!(err && (err.code === 'ER_LOCK_DEADLOCK' || /Deadlock found/i.test(msg)));
 }
 
-(async function main() {
-  const options = new chrome.Options().addArguments(
-    '--headless=new',
-    '--disable-gpu',
-    '--no-sandbox',
-    '--disable-cache',
-    '--disable-dev-shm-usage',
-    '--window-size=1280,2000',
-    `--user-data-dir=/tmp/chrome-profile-${id12}`,
-    '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari'
-  );
-  const driver = await new webdriver.Builder().forBrowser('chrome').setChromeOptions(options).build();
-  await driver.manage().deleteAllCookies();
+// ---- メイン ----
+(async () => {
+  const url = buildUrl(yyyymmdd, raceNo, babaCode);
+  console.log(`[info] ${race_id} → ${url}`);
 
   let conn;
   try {
-    const baba2 = id12.slice(10, 12);
-    const { babaCode } = await resolveAndOpenDebaTable(driver, yyyymmdd, raceNumber, baba2);
-    console.log(`[info] using k_babaCode=${babaCode} for ${raceDateStr} R${raceNumber}`);
-
-    const rows = await driver.executeScript((yy) => {
-      const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-      const table =
-        document.querySelector('section.cardTable > table') ||
-        document.querySelector('table.cardTable') ||
-        document.querySelector('.cardTable table');
-      if (!table) return [];
-
-      const trs = Array.from(table.querySelectorAll('tbody > tr'));
-      const starts = [];
-      trs.forEach((tr, i) => { if (tr.querySelector('td.horseNum')) starts.push(i); });
-      if (!starts.length) return [];
-
-      const hairRx = /鹿毛|黒鹿毛|栗毛|芦毛|栃栗毛|青毛|白毛|青鹿毛/;
-      const timeRx = /\b\d{1,2}:\d{2}(?:\.\d)?\b/;
-      const babaRx = /(良|稍重|重|不良)/;
-
-      const asText = (tr, i) => {
-        const td = tr?.querySelectorAll('td')?.[i];
-        return norm(td ? td.innerText : '');
-      };
-
-      const weightStr = (s) => {
-        const m = (s || '').match(/(▲|△|◇)?\s*(\d{2,3}\.\d)\b/);
-        if (!m) return null;
-        const v = parseFloat(m[2]);
-        if (v < 40 || v > 65) return null;
-        return m[1] ? `${m[1]} ${m[2]}` : m[2];
-      };
-
-      const out = [];
-      let lastFrame = 0;
-
-      for (let k = 0; k < starts.length; k++) {
-        const s = starts[k];
-        const e = (k + 1 < starts.length) ? starts[k + 1] : trs.length;
-        const block = trs.slice(s, e);
-        const r0 = block[0];
-
-        const frameEl = r0.querySelector('td.courseNum:not(.waku)');
-        let frame_number = frameEl ? Number(frameEl.textContent.trim()) : lastFrame;
-        if (!Number.isFinite(frame_number)) frame_number = 0;
-        if (frameEl) lastFrame = frame_number;
-
-        const horse_number = Number(r0.querySelector('td.horseNum')?.textContent?.trim());
-        const horse_name = norm(
-          r0.querySelector('a.horseName')?.textContent ||
-          r0.querySelector('.horseName')?.textContent ||
-          ''
-        );
-
-        let jockey = null, affiliation = null;
-        const aJ = r0.querySelector('a.jockeyName');
-        if (aJ) {
-          let name = '';
-          aJ.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) name += n.textContent; });
-          jockey = norm(name) || norm(aJ.textContent.replace(/\（[^）]+\）/, '')) || null;
-          const area = aJ.querySelector('.jockeyarea');
-          affiliation = area ? area.textContent.replace(/[()（）]/g, '').trim() : null;
-        }
-
-        let sex_age = null, hair = null, birthStr = null, burden_weight = null;
-        for (const tr of block) {
-          const t0 = asText(tr, 0), t1 = asText(tr, 1);
-          if (/(牡|牝|騙)\s*\d+/.test(t0) && hairRx.test(t1)) {
-            sex_age = t0;
-            hair = t1;
-            birthStr = asText(tr, 2);
-            burden_weight = weightStr(asText(tr, 3));
-            break;
-          }
-        }
-
-        let birthyear = 0, birthymonth = 0;
-        const bm = (birthStr || '').match(/(\d{2})\.(\d{2})生/);
-        if (bm) birthymonth = Number(bm[1]) || 0;
-
-        const ageM = (sex_age || '').match(/(\d+)/);
-        if (ageM) {
-          const age = Number(ageM[1]);
-          if (Number.isFinite(age)) {
-            birthyear = yy - age;
-            if (birthyear < 0) birthyear += 100;
-          }
-        }
-
-        const geneCands = [];
-        for (const tr of block) {
-          const leftTd = tr.querySelector('td[colspan]');
-          if (!leftTd) continue;
-
-          const left = norm(leftTd.innerText);
-          const right = norm((tr.querySelector('td[colspan] + td') || tr.querySelectorAll('td')[1])?.innerText || '');
-          if (!left || /^[-－]+$/.test(left) || timeRx.test(left) || timeRx.test(right) || babaRx.test(right)) continue;
-
-          geneCands.push({ tr, left, right });
-        }
-
-        let trainer = null, owner = null;
-        for (const tr of block) {
-          const tds = tr.querySelectorAll('td');
-          if (tds.length < 2) continue;
-
-          const left = norm(tds[0].innerText);
-          const right = norm(tds[1].innerText);
-          if (!trainer && /^調教師[:：]/.test(right)) trainer = right.replace(/^調教師[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
-          if (!owner && /^馬主[:：]/.test(right)) owner = right.replace(/^馬主[:：]\s*/, '').replace(/\s*[（(].*?[)）]\s*$/, '').trim() || null;
-        }
-
-        const bmsIdx = geneCands.findIndex(x => /^[（(]/.test(x.left));
-        let broodmare_sire = null, breeder = null;
-        if (bmsIdx >= 0) {
-          const x = geneCands.splice(bmsIdx, 1)[0];
-          broodmare_sire = x.left.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
-          breeder = x.right.replace(/^(生産牧場|生産者|生産)[:：]?\s*/, '').trim() || null;
-        }
-
-        const pureGeneRows = geneCands.filter(x => !/^調教師[:：]/.test(x.right) && !/^馬主[:：]/.test(x.right));
-        let sire = null, dam = null;
-        if (pureGeneRows.length >= 2) {
-          sire = pureGeneRows[0].left || null;
-          dam = pureGeneRows[1].left || null;
-        }
-
-        if (!Number.isFinite(horse_number) || horse_number < 1 || frame_number < 1 || frame_number > 8 || !horse_name) continue;
-
-        out.push({
-          frame_number,
-          horse_number,
-          horse_name,
-          sex_age,
-          hair,
-          birthyear,
-          birthymonth,
-          sire,
-          dam,
-          broodmare_sire,
-          jockey,
-          affiliation,
-          burden_weight,
-          trainer,
-          owner,
-          breeder
-        });
-      }
-
-      return out;
-    }, yy);
-
-    if (!rows.length) throw new Error('出馬表の抽出に失敗しました');
+    const html = await fetchHtml(url);
+    const rows = parse(html, yy);
+    if (!rows.length) throw new Error('出馬表の抽出に失敗しました（0頭）');
 
     conn = await mysql.createConnection({
-      host: config.mysql.host || 'localhost',
-      user: config.mysql.user,
+      host:     config.mysql.host || 'localhost',
+      user:     config.mysql.user,
       password: config.mysql.password,
-      port: config.mysql.port,
-      database: config.mysql.database || 'localkeiba',
-      charset: 'utf8mb4',
+      port:     config.mysql.port,
+      database: config.mysql.database || 'localvenue',
+      charset:  'utf8mb4',
     });
+    await conn.query('SET NAMES utf8mb4');
 
     const cols = [
       'race_id', 'frame_number', 'horse_number', 'horse_name',
       'sex_age', 'hair', 'birthyear', 'birthymonth',
       'sire', 'dam', 'broodmare_sire',
       'jockey_name', 'affiliation',
-      'carried_weight', 'trainer_name', 'owner', 'breeder'
+      'carried_weight', 'trainer_name', 'owner', 'breeder',
     ];
-
-    const placeholders = rows
-      .map(() => '(' + cols.map(() => '?').join(',') + ')')
-      .join(',');
-
+    const placeholders = rows.map(() => `(${cols.map(() => '?').join(',')})`).join(',');
     const params = [];
-    rows.forEach(r => {
-      const carriedRaw = r.burden_weight ? parseFloat(String(r.burden_weight).replace(/[^\d.]/g, '')) : null;
+    for (const r of rows) {
       params.push(
         race_id,
-        r.frame_number,
-        r.horse_number,
-        r.horse_name,
-        r.sex_age,
-        r.hair,
-        r.birthyear,
-        r.birthymonth,
-        r.sire,
-        r.dam,
-        r.broodmare_sire,
-        r.jockey,
-        r.affiliation,
-        Number.isFinite(carriedRaw) ? carriedRaw : null,
-        r.trainer,
-        r.owner,
-        r.breeder
+        r.frame_number, r.horse_number, r.horse_name,
+        r.sex_age, r.hair, r.birthyear, r.birthymonth,
+        r.sire, r.dam, r.broodmare_sire,
+        r.jockey, r.affiliation,
+        r.burden_weight,
+        r.trainer, r.owner, r.breeder,
       );
-    });
+    }
 
     const sql = `
       INSERT INTO racing_form (${cols.join(',')})
@@ -366,23 +249,17 @@ function isDeadlock(err) {
         updated_at=CURRENT_TIMESTAMP
     `;
 
-    const maxRetries = 3;
+    // 同一 race_id の同時更新を直列化（deadlock回避）
     const lockName = `racing_form_${race_id}`;
-    const lockTimeoutSec = 10;
-
-    // 同一 race_id の同時更新を直列化（deadlock回避に効く）
     await conn.execute('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 
     let gotLock = 0;
     try {
-      const [[lockRow]] = await conn.execute('SELECT GET_LOCK(?, ?) AS got_lock', [lockName, lockTimeoutSec]);
-      gotLock = lockRow?.got_lock || 0;
-      if (gotLock !== 1) {
-        // 取れない場合も、リトライでワンチャン通す（状況見たいならthrowでもOK）
-        console.warn(`[warn] failed to acquire lock: ${lockName} (timeout=${lockTimeoutSec}s) → continue without lock`);
-      }
+      const [[lRow]] = await conn.execute('SELECT GET_LOCK(?, ?) AS got', [lockName, 10]);
+      gotLock = lRow?.got || 0;
+      if (gotLock !== 1) console.warn(`[warn] lock取得失敗: ${lockName} → ロックなしで続行`);
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           await conn.beginTransaction();
           await conn.execute('DELETE FROM racing_form WHERE race_id = ?', [race_id]);
@@ -390,28 +267,23 @@ function isDeadlock(err) {
           await conn.commit();
           break;
         } catch (txErr) {
-          try { await conn.rollback(); } catch { }
-
-          if (!isDeadlock(txErr) || attempt === maxRetries) throw txErr;
-
-          // 指数バックオフ気味
+          try { await conn.rollback(); } catch {}
+          if (!isDeadlock(txErr) || attempt === 3) throw txErr;
           await sleep(200 * attempt);
         }
       }
     } finally {
       if (gotLock === 1) {
-        try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch { }
+        try { await conn.execute('SELECT RELEASE_LOCK(?)', [lockName]); } catch {}
       }
-      await conn.end();
-      conn = null;
     }
 
     console.log(`[OK] race_id=${race_id} → upsert ${rows.length} rows`);
+
   } catch (err) {
-    try { if (conn) await conn.rollback(); } catch { }
-    console.error('[ERROR]', err && err.message ? err.message : err);
-    process.exitCode = 1;
+    console.error('[ERROR]', err?.message || err);
+    process.exit(1);
   } finally {
-    try { await driver.quit(); } catch { }
+    try { if (conn) await conn.end(); } catch {}
   }
 })();
