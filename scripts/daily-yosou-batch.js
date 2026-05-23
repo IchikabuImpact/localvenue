@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 /**
- * @copyright © 2026 IchikabuImpact
- * @license Commercial use prohibited without permission.
- */
-
-// daily-yosou-batch.js
-//
-// Usage:
-//   node daily-yosou-batch.js           // JST 今日の開催分を対象
+ * @file    daily-yosou-batch.js
+ * @role    【朝バッチ オーケストレーター】 001〜005 を順番に実行して当日の予想を完成させる
+ *
+ * 実行順序:
+ *   [1] 001-save-monthly-calendar.js   — 月間開催カレンダー取得
+ *   [2] 002-save-race-count-by-date.js — 当日の会場別レース数取得
+ *   [3] 003-list-race-ids.js           — 当日 race_id 一覧を取得
+ *   [4] 004-racing-form-to-db.js       — 出馬表取得（並列: PARALLEL=2）
+ *       005-predict-race.js            — 予想生成（004の直後、同一race_idで）
+ *
+ * @env  PARALLEL=2  並列実行数（デフォルト2）
+ *       NODE_BIN    使用する node のパス（デフォルト "node"）
+ *
+ * Usage:
+ *   node daily-yosou-batch.js           // JST 今日の開催分を対象
 //   node daily-yosou-batch.js 20251116  // 指定日の開催分を対象（YYYYMMDD）
 
 const { spawn } = require("child_process");

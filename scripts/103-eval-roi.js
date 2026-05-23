@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 /**
- * @copyright © 2026 IchikabuImpact
- * @license Commercial use prohibited without permission.
- */
-
-/**
- * eval-roi.js
- * EV>=threshold の馬だけ均等BETしてROIを評価・保存
+ * @file    103-eval-roi.js
+ * @pipeline [3/4 夜バッチ] ROI（回収率）集計 → prediction_roi 更新
+ * @role    指定期間の prediction と race_payouts を突き合わせて strategy 別 ROI を計算し、
+ *          prediction_roi テーブルを UPSERT する。
+ *          EV >= threshold の馬のみに均等ベットする戦略を評価する。
+ *          ソフトパワー正規化（疑似ソフトマックス）でベット比率を算出。
+ *
+ * @input   DB: prediction（memo.items[] に score を含む JSON）, race_payouts
+ * @output  DB: prediction_roi（race_id × model_version × strategy の3軸）
+ * @calledby daily-result-batch.js [3]（全レース並列完了後に1回だけ実行）
  *
  * Usage:
- *   node eval-roi.js --from 2025-10-13 --to 2025-10-13 [--model yosou-v1] [--stake 100] [--mode both|win|place] [--use-score-for-place] [--threshold 1.0]
+ *   node 103-eval-roi.js --from 2025-10-13 --to 2025-10-13 \
+ *     [--model yosou-v1] [--stake 100] [--mode both|win|place] \
+ *     [--threshold 1.0] [--use-score-for-place]
  *
- * 前提:
- *   - prediction(race_id, model_version, memo(JSON), created_at)
- *     memo.items[] に { horse_number, p_win?, p_place?, score? } のいずれか
- *   - race_payouts(race_id, bet_type IN ('WIN','PLACE'), horse_number, payout)
- *   - prediction_roi(race_id, model_version, strategy, stake, returned, roi_pct)  ※PK: (race_id, model_version, strategy)
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
  */
 
 const mysql = require('mysql2/promise');

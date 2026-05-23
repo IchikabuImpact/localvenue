@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 /**
- * 004-racing-form-to-db.js  (axios+cheerio版 — Selenium不使用)
+ * @file    004-racing-form-to-db.js
+ * @pipeline [4/5 朝バッチ] 出馬表スクレイピング → DB保存
+ * @role    keiba.go.jp の DebaTable（出馬表）を axios+cheerio でパースし、
+ *          馬名・騎手・父・母・斤量等を `racing_form` テーブルへ保存する。
+ *          同一 race_id への同時書き込みを GET_LOCK でシリアライズ（デッドロック対策）。
+ *
+ * @input   keiba.go.jp DebaTable（HTML、SSR）
+ * @output  DB: racing_form（DELETE→INSERT でリフレッシュ、race_id 単位）
+ * @calledby daily-yosou-batch.js [4] (並列実行)
  *
  * Usage:
  *   node 004-racing-form-to-db.js YYYYMMDDRRBB  (例: 202509141131)

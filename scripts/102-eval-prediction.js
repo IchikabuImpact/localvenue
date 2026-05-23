@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 /**
+ * @file    102-eval-prediction.js
+ * @pipeline [2/4 夜バッチ] 予想評価（的中判定・払戻計算）→ DB保存
+ * @role    prediction.memo.best.horse_number と race_payouts を照合して
+ *          単勝・複勝の的中判定と払戻額を計算し、prediction_eval / prediction_roi へ保存。
+ *
+ * @input   DB: prediction（best horse_number 入り memo JSON）, race_payouts
+ * @output  DB: prediction_eval（的中フラグ・払戻額のスナップショット）
+ *              prediction_roi（strategy=single/place の2行）
+ * @exitcodes 0=正常 / 2=予想データなし / 3=結果データなし（いずれもバッチ側がスキップ）
+ * @calledby daily-result-batch.js [2] (101 の直後、並列実行)
+ *
+ * Usage:
+ *   node 102-eval-prediction.js YYYYMMDDRRBB [--stake-win 100] [--stake-place 100]
+ *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
- */
-
-/**
- * Usage: node eval-prediction.js YYYYMMDDRRBB [--stake-win 100] [--stake-place 100]
- * node eval-prediction.js 202510130110  
- * - prediction.memo.best.horse_number を起点に、単勝/複勝の的中判定＆払戻を表示
- * - 判定は race_payouts の確定払戻で実施
- * - 予想なし=exit 2 / 結果なし=exit 3 / 正常=exit 0
- * - 保存は prediction_eval（スナップショット）＋ prediction_roi（single/place の2行のみ）
  */
 
 const mysql = require('mysql2/promise');

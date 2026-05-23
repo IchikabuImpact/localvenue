@@ -1,20 +1,26 @@
 #!/usr/bin/env node
 /**
- * @copyright © 2026 IchikabuImpact
- * @license Commercial use prohibited without permission.
- */
-
-// daily-result-batch.js
-//
-// Usage:
-//   node daily-result-batch.js           // JST 今日
-//   node daily-result-batch.js 20260119  // 指定日
-//
-// 1) 当日レース一覧を取得
-// 2) save-result-db.js で結果保存
-// 3) eval-prediction.js で予想評価
-// 4) eval-roi.js で日次ROI集計
-// 5) generate-daily-pages.js で静的ページ生成
+ * @file    daily-result-batch.js
+ * @role    【夜バッチ オーケストレーター】 101〜104 + HTML生成 + git push を実行する
+ *
+ * 実行順序:
+ *   [1] 003-list-race-ids.js           — 当日 race_id 一覧を取得
+ *   [2] 101-save-result-db.js          — レース結果・払戻取得（並列: PARALLEL=2）
+ *       102-eval-prediction.js         — 予想評価（101の直後、同一race_idで）
+ *         ※ 101 exit 2（未確定）→ スキップ
+ *         ※ 102 exit 2（予想なし）/ exit 3（結果なし）→ スキップ
+ *   [3] 103-eval-roi.js                — ROI集計（--from --to で当日指定）
+ *   [4] 104-aggregate-roi-daily.js     — 日次ROI集計
+ *   [5] generate-daily-pages.js        — 静的HTML生成 + 古ファイル削除
+ *
+ * @env  PARALLEL=2       並列実行数（デフォルト2）
+ *       STAKE_WIN=100    単勝賭け金（デフォルト100円）
+ *       STAKE_PLACE=100  複勝賭け金（デフォルト100円）
+ *       NODE_BIN         使用する node のパス
+ *
+ * Usage:
+ *   node daily-result-batch.js           // JST 今日
+ *   node daily-result-batch.js 20260119  // 指定日
 
 const { spawn } = require('child_process');
 const fs = require('fs');

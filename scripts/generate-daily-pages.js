@@ -1,18 +1,29 @@
 #!/usr/bin/env node
 /**
- * @copyright © 2026 IchikabuImpact
- * @license Commercial use prohibited without permission.
- */
-
-/**
- * generate-daily-pages.js
- * 
- * 日次の静的HTMLを生成する（30日保持）。
- * - 最新: public/index.html / public/recovery.html / public/{race_id}.html
- * - 日次アーカイブ: public/daily/YYYYMMDD/index.html / recovery.html / {race_id}.html
- * 
+ * @file    generate-daily-pages.js
+ * @pipeline [5/5 夜バッチ最終] 静的HTML生成 + 古ファイル削除
+ * @role    DB の prediction・race_results・prediction_roi_daily 等を読み込んで
+ *          テンプレートリテラルで静的 HTML を生成し public/ へ書き出す。
+ *          config.htmlRetentionDays 日以前のファイルを purgeOldFiles() で自動削除する。
+ *
+ * @input   DB: prediction, race_results, race_payouts, prediction_eval,
+ *              prediction_roi_daily, racing_form, venue_master
+ * @output  ファイル:
+ *            public/index.html          — トップページ（当日レース一覧）
+ *            public/recovery.html       — 回収率ページ
+ *            public/YYYYMMDDRRBB.html   — 個別レースページ（ルート直置き・最新用）
+ *            public/daily/YYYYMMDD/     — 日別アーカイブフォルダ
+ * @calledby daily-result-batch.js [5] / 手動実行も可
+ *
+ * サイト情報:
+ *   H1: けんちゃん馬券☆WEB（地方競馬）
+ *   サブタイトル: - 恥ずかしい馬券 - 矛盾にあふれる人間の発想とロジカルなAIがぶつかり合ったものです
+ *
  * Usage:
  *   node scripts/generate-daily-pages.js [YYYYMMDD] [model_version]
+ *
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
  */
 
 const fs = require('fs');

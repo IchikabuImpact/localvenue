@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /**
- * 001-save-monthly-calendar.js
- * N月の開催情報をMySQLのDBに保存する（axios+cheerio版）
+ * @file    001-save-monthly-calendar.js
+ * @pipeline [1/5 朝バッチ] 月間開催カレンダー取得 → DB保存
+ * @role    keiba.go.jp の MonthlyConveneInfoTop をスクレイピングし、
+ *          NAR全会場の開催日程を `calendar` テーブルへ保存する。
+ *
+ * @input   keiba.go.jp MonthlyConveneInfoTop（HTML、SSR）
+ * @output  DB: calendar (race_date, venucode, venue) — INSERT IGNORE
+ * @calledby daily-yosou-batch.js [1]
  *
  * Usage:
  *   node 001-save-monthly-calendar.js           // 今月

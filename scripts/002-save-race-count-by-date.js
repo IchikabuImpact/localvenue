@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * 002-save-race-count-by-date.js
- * 指定日の calendar から会場(venucode)を拾い、
- * 各会場のレース数（最終R番号）を race_cnt / race_count_by_date へ保存する。
- * （axios+cheerio版 — Selenium不使用）
+ * @file    002-save-race-count-by-date.js
+ * @pipeline [2/5 朝バッチ] 会場別レース数取得 → DB保存
+ * @role    `calendar` テーブルから指定日の開催会場を取り出し、
+ *          keiba.go.jp RaceList をスクレイピングして会場ごとの
+ *          最終レース番号（＝レース数）を `race_count_by_date` へ保存する。
+ *          ここで保存した値が 003 の race_id 生成の元になる。
+ *
+ * @input   DB: calendar / keiba.go.jp RaceList（HTML、SSR）
+ * @output  DB: race_count_by_date (race_date, venue_code, race_count)
+ * @calledby daily-yosou-batch.js [2]
  *
  * Usage:
  *   node 002-save-race-count-by-date.js 20251116

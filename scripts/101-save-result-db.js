@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
+ * @file    101-save-result-db.js
+ * @pipeline [1/4 夜バッチ] レース結果・払戻取得 → DB保存
+ * @role    楽天競馬からレース結果（着順・タイム）と払戻金（単勝・複勝）を取得して DB へ保存。
+ *          NAR の baba_code(2桁) → 楽天の8桁場コードへの変換を内部テーブルで行う。
+ *          "確定" 文字列が HTML に見つからない場合は exit 2 を返してスキップを促す。
+ *
+ * @input   keiba.rakuten.co.jp 結果ページ（HTML、SSR）
+ * @output  DB: race_results（着順・タイム等）, race_payouts（WIN/PLACE払戻）
+ * @exitcodes 0=正常保存 / 1=例外 / 2=未確定（バッチ側がスキップ）
+ * @calledby daily-result-batch.js [2] (並列実行)
+ *
+ * Usage:
+ *   node 101-save-result-db.js YYYYMMDDRRBB  (例: 202510130110)
+ *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
- */
-
-/**
- * save-result-db.js
- * Usage: node save-result-db.js 202510130110
- *
- * 1) NARの race_id(YYYYMMDDRRBB) → 楽天RACEID(YYYYMMDD + 8桁場コード + RR) 候補生成
- * 2) 楽天の結果ページを取得して、成績テーブル + 単勝/複勝の払戻をパース
- * 3) race_results / race_payouts に UPSERT（payouts は WIN/PLACE を事前削除して再投入）
- * 4) 未確定文言検知で exit code 2
  */
 
 const axios = require('axios').default;

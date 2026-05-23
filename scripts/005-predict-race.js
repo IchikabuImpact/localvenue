@@ -1,19 +1,28 @@
 #!/usr/bin/env node
 /**
- * Usage: node 005-predict-race.js 202510130110
+ * @file    005-predict-race.js
+ * @pipeline [5/5 朝バッチ] スコアリング → 予想生成 → DB保存
+ * @role    racing_form・jockey_ranking・sire_ranking を組み合わせてスコアを計算し、
+ *          最高スコアの1頭を推奨馬として `prediction` テーブルへ保存する。
+ *          モデル名: yosou-v1（MODEL_VERSION 定数）
+ *
+ * @input   DB: racing_form, jockey_ranking, sire_ranking
+ * @output  DB: prediction (best horse_number + 全頭スコアを memo JSON に格納)
+ * @calledby daily-yosou-batch.js [4] (004 の直後、並列実行)
+ *
+ * スコアロジック:
+ *  1) jockey_ranking: 騎手名を頭3文字で前方一致照合してスコア加算
+ *  2) sire_ranking: 父名を前方一致で照合してスコア加算
+ *  3) 偶数馬番ボーナス: 馬番の値をそのまま加算
+ *  4) 年齢ボーナス: 2歳+40 / 3歳+30 / 4歳+20
+ *  5) 合計0点の場合は馬番を加算（フォールバック）
+ *  6) 最高得点1頭を best として選出
+ *
+ * Usage:
+ *   node 005-predict-race.js YYYYMMDDRRBB  (例: 202510130110)
  *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
- *
- *  1) racing_form から出馬表を取得（正しい列名に対応）
- *  2) jockey_ranking(year) を“頭3文字の前方一致”で照合して加点
- *  3) sire_ranking を“前方一致”で照合して加点（年なし・同名は最大スコア）
- *  4) 独自ルールで加点
- *     - 偶数馬番にボーナス（加点=馬番）
- *     - 2歳:+40, 3歳:+30, 4歳:+20
- *  5) 総得点が0なら馬番を加算
- *  6) 最高得点の1頭を推奨
- *  7) prediction に上書き保存（memo に全頭の内訳JSON）
  */
 
 const mysql = require('mysql2/promise');

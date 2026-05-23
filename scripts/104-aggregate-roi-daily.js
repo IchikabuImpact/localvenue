@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 /**
+ * @file    104-aggregate-roi-daily.js
+ * @pipeline [4/4 夜バッチ] 日次ROI集計 → prediction_roi_daily 更新
+ * @role    prediction_roi テーブルの当日分レコードを集計して strategy 別の日次 ROI を算出し、
+ *          prediction_roi_daily テーブルへ UPSERT する。
+ *          この値が generate-daily-pages.js の回収率ページ（recovery.html）に表示される。
+ *
+ * @input   DB: prediction_roi（103 が書いたデータ）
+ * @output  DB: prediction_roi_daily (ymd, strategy, roi_percent)
+ * @calledby daily-result-batch.js [4]（103 の直後）
+ *
+ * Usage:
+ *   node 104-aggregate-roi-daily.js [YYYYMMDD]  (省略時はJST今日)
+ *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
- */
-
-/**
- * 104-aggregate-roi-daily.js
- * 
- * prediction_roi テーブルを集計し、prediction_roi_daily テーブルを更新する。
- * 
- * Usage:
- *   node scripts/104-aggregate-roi-daily.js [YYYYMMDD]
- *   (省略時はJSTの今日)
  */
 
 const mysql = require('mysql2/promise');
