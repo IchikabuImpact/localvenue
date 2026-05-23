@@ -178,6 +178,16 @@ cp config/config.sample.js config/config.js
 初回インストールと再構築の手順は以下の通りです。
 
 #### 1. インストール時（初期化）
+# create database on mysql
+sudo mysql -u root
+CREATE DATABASE localvenue CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'localvenue'@'localhost' IDENTIFIED BY 'yourpassword';
+GRANT ALL PRIVILEGES ON localvenue.* TO 'localvenue'@'localhost';
+ALTER USER 'localvenue'@'localhost' IDENTIFIED WITH mysql_native_password BY 'yourpassword';
+GRANT ALL PRIVILEGES ON localvenue.* TO 'localvenue'@'localhost';
+
+
+
 `data/data_reset.js` が **schema.sql を適用 → seed-master.sql を投入** まで行います。  
 初期化に必要な最低限のマスターデータを入れる場合は、このスクリプトを使ってください。
 
