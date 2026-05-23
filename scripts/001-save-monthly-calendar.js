@@ -1,18 +1,50 @@
+#!/usr/bin/env node
 /**
- * 001-save-monthly-calendar.js N月の開催情報をMysqlのDBに保存します。
+ * 001-save-monthly-calendar.js
+ * N月の開催情報をMySQLのDBに保存する（axios+cheerio版）
+ *
  * Usage:
  *   node 001-save-monthly-calendar.js           // 今月
  *   node 001-save-monthly-calendar.js 2025 09   // 年 月
- */
-
-/**
+ *   node 001-save-monthly-calendar.js 20250913  // YYYYMMDD形式（年月のみ使用）
+ *   node 001-save-monthly-calendar.js 202509    // YYYYMM形式
+ *
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
  */
 
-const { Builder, By, until } = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
-const mysql = require('mysql2/promise');
+'use strict';
+
+const axios   = require('axios');
+const cheerio = require('cheerio');
+const mysql   = require('mysql2/promise');
+
+// -------- 定数 --------
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+const HTTP_TIMEOUT_MS = 30000;
+const RETRY_MAX = 3;
+const RETRY_DELAY_MS = 3000;
+
+/**
+ * NARサラブレッド競馬の場コード → 正式venue名
+ * ※ 帯広ばんえい（babaCode=3）はサラブレッド競走でないため除外
+ */
+const VENUE_NAME_MAP = {
+  10: '盛岡',
+  11: '水沢',
+  18: '浦和',
+  19: '船橋',
+  20: '大井',
+  21: '川崎',
+  22: '金沢',
+  23: '笠松',
+  24: '名古屋',
+  27: '園田',
+  28: '姫路',
+  31: '高知',
+  32: '佐賀',
+  36: '門別',
+};
 
 // -------- 引数パース --------
 function parseYearMonth(argv) {
@@ -20,276 +52,189 @@ function parseYearMonth(argv) {
   const arg1 = argv[2];
   const arg2 = argv[3];
 
-  // パターン1: YYYYMMDD（例: 20250913）→ YYYY / MM を使用
+  // YYYYMMDD（例: 20250913）→ 年月のみ使用
   if (arg1 && /^\d{8}$/.test(arg1)) {
-    return {
-      year: arg1.slice(0, 4),
-      month: arg1.slice(4, 6)
-    };
+    return { year: arg1.slice(0, 4), month: arg1.slice(4, 6) };
   }
-
-  // パターン2: YYYYMM（例: 202509）
+  // YYYYMM（例: 202509）
   if (arg1 && /^\d{6}$/.test(arg1)) {
-    return {
-      year: arg1.slice(0, 4),
-      month: arg1.slice(4, 6)
-    };
+    return { year: arg1.slice(0, 4), month: arg1.slice(4, 6) };
   }
-
-  // パターン3: YYYY [M or MM]
+  // YYYY [M|MM]（例: 2025 9 または 2025 09）
   if (arg1 && /^\d{4}$/.test(arg1)) {
-    const year = arg1;
     const month = arg2 && /^\d{1,2}$/.test(arg2)
       ? String(arg2).padStart(2, '0')
       : String(now.getMonth() + 1).padStart(2, '0');
-    return { year, month };
+    return { year: arg1, month };
   }
-
-  // パターン4: 引数なし or よくわからない引数 → 今月
+  // 引数なし → 今月
   return {
-    year: String(now.getFullYear()),
-    month: String(now.getMonth() + 1).padStart(2, '0')
+    year:  String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
   };
 }
 
-const { year, month } = parseYearMonth(process.argv);
-
-
-const options = new chrome.Options();
-options.addArguments(
-  '--headless=new',
-  '--disable-gpu',
-  '--no-sandbox',
-  '--window-size=1366,1200',
-  '--lang=ja-JP'
-);
-const driver = new Builder().forBrowser('chrome').setChromeOptions(options).build();
-
-// -------- 会場一覧（表示名に合わせる）--------
-const VENUES = [
-  "門別", "盛岡", "水沢", "浦和", "船橋",
-  "大井", "川崎", "金沢", "笠松", "名古屋",
-  "園田", "姫路", "高知", "佐賀"
-];
-
-// -------- babaコードのフォールバック（hrefに無い場合の保険）--------
-const venueCodes = {
-  10: "盛岡", 11: "水沢", 18: "浦和", 19: "船橋", 20: "大井", 21: "川崎",
-  22: "金沢", 23: "笠松", 24: "名古屋", 27: "園田", 28: "姫路",
-  31: "高知", 32: "佐賀", 36: "門別"
-};
-const fallbackMap = new Map(Object.entries(venueCodes).map(([k, v]) => [v, Number(k)]));
-
-// util
-const toDate = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-const pad2 = n => String(n).padStart(2, '0');
-const daysInMonth = (y, m) => new Date(Number(y), Number(m), 0).getDate();
-
-async function openMonthlyPage() {
+// -------- HTTPリトライ付き取得 --------
+async function fetchPage(year, month) {
   const url = `https://www.keiba.go.jp/KeibaWeb/MonthlyConveneInfo/MonthlyConveneInfoTop?k_year=${year}&k_month=${month}`;
-  await driver.get(url);
+  console.log(`[INFO] Fetching: ${url}`);
 
-  // 同意/OKが出る場合のケア（出なければスルー）
-  for (const xp of [
-    "//button[contains(.,'同意')]", "//button[contains(.,'同意する')]",
-    "//button[contains(.,'OK')]", "//a[contains(.,'同意')]"
-  ]) {
-    const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch (_) { } break; }
-  }
-
-  const tbody = By.css('#mainContainer article table tbody');
-  await driver.wait(until.elementLocated(tbody), 15000);
-  const el = await driver.findElement(tbody);
-  await driver.wait(until.elementIsVisible(el), 5000);
-}
-
-// -------- href のパラメータ抽出（k_raceDate, k_babaCode）--------
-function extractParamsFromHref(href) {
-  if (!href) return {};
-  try {
-    const url = new URL(href, 'https://www.keiba.go.jp');
-    const raceDate = url.searchParams.get('k_raceDate');  // 例: 2025/09/15
-    const babaCode = url.searchParams.get('k_babaCode');  // 例: 31
-    return { raceDate, babaCode: babaCode ? Number(babaCode) : undefined };
-  } catch {
-    return {};
-  }
-}
-
-// -------- colspan 展開：行の td を 1..days にマッピング（先頭の会場名セルは除外）--------
-async function mapCellsByDay(rowEl, y, m) {
-  let tds = await rowEl.findElements(By.css('td'));
-  if (tds.length === 0) return [];
-  // 先頭の td は会場名（例: <td>門別</td>）なのでスキップ
-  tds = tds.slice(1);
-
-  const dmax = daysInMonth(y, m);
-  const byDay = new Array(dmax + 1).fill(null); // 1基点
-  let cur = 1;
-  for (const td of tds) {
-    const cs = parseInt(await td.getAttribute('colspan') || '1', 10);
-    for (let k = 0; k < cs && cur <= dmax; k++) {
-      if (!byDay[cur]) byDay[cur] = td;
-      cur++;
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          'User-Agent':      UA,
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control':   'no-cache',
+        },
+        timeout: HTTP_TIMEOUT_MS,
+        decompress: true,
+      });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      return res.data;
+    } catch (e) {
+      lastErr = e;
+      const status = e.response?.status;
+      // 429（レート制限）のときはリトライ待機を長めに
+      const wait = status === 429 ? RETRY_DELAY_MS * attempt * 2 : RETRY_DELAY_MS * attempt;
+      console.warn(`[WARN] attempt ${attempt}/${RETRY_MAX} failed (${status || e.code || e.message}). retry in ${wait}ms...`);
+      if (attempt < RETRY_MAX) await new Promise(r => setTimeout(r, wait));
     }
-    if (cur > dmax) break;
   }
-  return byDay;
+  throw lastErr;
 }
 
-// -------- 記号→開催/非開催 判定（img@alt 優先、テキストはフォールバック）--------
-async function judgeCell(cellEl) {
-  // return { holding: boolean, deltaOnly: boolean, anchorHref?: string }
-  const imgs = await cellEl.findElements(By.css('img'));
-  let sawHolding = false; // ●/☆/Ｄ
-  let sawDelta = false; // △
-  if (imgs.length) {
-    for (const img of imgs) {
-      const alt = (await img.getAttribute('alt')) || '';
-      if (/[●☆Ｄ]/.test(alt)) sawHolding = true;
-      if (/△/.test(alt)) sawDelta = true;
-    }
-  } else {
-    const text = (await cellEl.getText()).trim();
-    if (/[●☆Ｄ]/.test(text)) sawHolding = true;
-    if (/△/.test(text)) sawDelta = true;
-  }
-
-  // a の href を拾って公式日付/コードを優先利用
-  const anchors = await cellEl.findElements(By.css('a'));
-  let anchorHref = '';
-  if (anchors.length) {
-    let picked = null;
-    for (const a of anchors) {
-      const cls = (await a.getAttribute('class')) || '';
-      if (/\b(day|night)\b/.test(cls)) { picked = a; break; }
-      picked = picked || a;
-    }
-    anchorHref = picked ? (await picked.getAttribute('href')) : '';
-  }
-
-  return { holding: sawHolding, deltaOnly: sawDelta && !sawHolding, anchorHref };
-}
-
+// -------- HTMLパース --------
 /**
- * 1会場行を読む（会場名<td>で行を特定、colspan対応、href優先）
+ * table.schedule の tbody を解析してレース開催情報を返す。
+ *
+ * 返り値: Map<ymd:string, Array<{date:string, babaCode:number, venue:string}>>
+ *   ymd   … 'YYYYMMDD'
+ *   date  … 'YYYY-MM-DD'
  */
-async function readVenueOnce(venue) {
-  const results = {}; // {'yyyymmdd':'会場名', ...}
-  console.log('readVenueOnce ' + venue);
-  try {
-    const dmax = daysInMonth(year, month);
+function parseSchedule(html) {
+  const $ = cheerio.load(html);
+  /** @type {Map<string, Array<{date:string, babaCode:number, venue:string}>>} */
+  const raceDays = new Map();
 
-    // ✅ 会場行は<th>ではなく<td>：先頭セルが会場名
-    const rowXpath = `//*[@id="mainContainer"]//article[contains(@class,'monthlySchedule')]//table//tbody//tr[td[1][normalize-space()='${venue}']]`;
-    const rows = await driver.findElements(By.xpath(rowXpath));
-    if (!rows.length) {
-      console.warn(`[WARN] venue row not found: ${venue}`);
-      return results;
-    }
-    const row = rows[0];
+  $('table.schedule tbody tr').each((_, tr) => {
+    // <th> だけの行（日付ヘッダー行・曜日行）はスキップ
+    if (!$(tr).find('td').length) return;
 
-    // day→td
-    const byDay = await mapCellsByDay(row, year, month);
+    // レースリンク（k_raceDate と k_babaCode を持つ <a>）を走査
+    $(tr).find('a[href*="k_raceDate"]').each((_, a) => {
+      const href = $(a).attr('href') || '';
+      const dateMatch = href.match(/k_raceDate=([^&"]+)/);
+      const codeMatch = href.match(/k_babaCode=(\d+)/);
+      if (!dateMatch || !codeMatch) return;
 
-    for (let day = 1; day <= dmax; day++) {
-      const cell = byDay[day];
-      if (!cell) continue;
+      const babaCode = parseInt(codeMatch[1], 10);
+      // サラブレッド競馬場のみ対象（VENUE_NAME_MAPにないコードは除外）
+      const venueName = VENUE_NAME_MAP[babaCode];
+      if (!venueName) return;
 
-      const { holding, deltaOnly, anchorHref } = await judgeCell(cell);
-      if (deltaOnly || !holding) continue; // △のみ or マーク無しは不採用
+      // URLエンコードされた日付を復元: 2026%2F05%2F02 → ['2026','05','02']
+      const rawDate = decodeURIComponent(dateMatch[1]); // "2026/05/02"
+      const parts   = rawDate.split('/');
+      if (parts.length !== 3) return;
 
-      // 1) href があればそこから公式の date/code を使う（最優先）
-      let key = `${year}${pad2(month)}${pad2(day)}`;
-      // venucode は保存時にフォールバックで付与（results は venue名のみ保持）
-      if (anchorHref) {
-        const { raceDate } = extractParamsFromHref(anchorHref);
-        if (raceDate) {
-          const [yy, mm, dd] = raceDate.split('/').map(s => s.padStart(2, '0'));
-          key = `${yy}${mm}${dd}`;
-        }
+      const y   = parts[0];
+      const m   = parts[1].padStart(2, '0');
+      const d   = parts[2].padStart(2, '0');
+      const ymd = `${y}${m}${d}`;            // "20260502"
+      const iso = `${y}-${m}-${d}`;          // "2026-05-02"
+
+      if (!raceDays.has(ymd)) raceDays.set(ymd, []);
+      const list = raceDays.get(ymd);
+      // 同一日・同一場の重複排除
+      if (!list.some(r => r.babaCode === babaCode)) {
+        list.push({ date: iso, babaCode, venue: venueName });
       }
+    });
+  });
 
-      results[key] = venue;
-    }
-  } catch (e) {
-    console.error('[readVenueOnce]', venue, e.message);
-  }
-  return results;
+  return raceDays;
 }
 
-function mergeResults(list) {
-  const merged = new Map(); // key: yyyymmdd, value: Set(venueNames)
-  for (const r of list) {
-    for (const [d, v] of Object.entries(r)) {
-      if (!merged.has(d)) merged.set(d, new Set());
-      merged.get(d).add(v);
-    }
-  }
-  return merged;
-}
-
-async function saveAllToMysql(merged) {
+// -------- MySQL保存 --------
+async function saveToMysql(raceDays) {
   const config = require('../config/config.js');
   let conn;
   try {
     const rows = [];
-    for (const [key, venues] of merged) {
-      const d = toDate(key);
-      for (const v of venues) {
-        const venucode = fallbackMap.get(v) || 0;
-        if (!venucode) continue;
-        rows.push([d, venucode, v]);
+    for (const entries of raceDays.values()) {
+      for (const e of entries) {
+        rows.push([e.date, e.babaCode, e.venue]);
       }
     }
     if (rows.length === 0) {
-      console.log('[INFO] まとめ保存対象なし]');
+      console.log('[INFO] 保存対象なし（該当開催なし）');
       return;
     }
 
     conn = await mysql.createConnection({
-      host: config.mysql.host,
-      user: config.mysql.user,
+      host:     config.mysql.host,
+      user:     config.mysql.user,
       password: config.mysql.password,
       database: config.mysql.database,
-      port: config.mysql.port
+      port:     config.mysql.port,
+      charset:  'utf8mb4',
     });
     await conn.beginTransaction();
 
-    const chunkSize = 300;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      const chunk = rows.slice(i, i + chunkSize);
+    const CHUNK = 300;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
       const placeholders = chunk.map(() => '(?,?,?)').join(',');
       await conn.execute(
         `INSERT INTO calendar (race_date, venucode, venue)
          VALUES ${placeholders}
-         ON DUPLICATE KEY UPDATE venue=VALUES(venue)`,
+         ON DUPLICATE KEY UPDATE venue = VALUES(venue)`,
         chunk.flat()
       );
     }
 
     await conn.commit();
-    console.log(`[OK] Bulk saved ${rows.length} rows to MySQL!`);
+    console.log(`[OK] ${rows.length} rows saved to calendar`);
+
+    // 内訳ログ
+    for (const [ymd, entries] of [...raceDays.entries()].sort()) {
+      const names = entries.map(e => e.venue).join(', ');
+      console.log(`  ${ymd}: ${names}`);
+    }
   } catch (e) {
-    if (conn) { try { await conn.rollback(); } catch { } }
-    console.error('[ERROR] saveAllToMysql:', e.message);
+    if (conn) { try { await conn.rollback(); } catch { /* ignore */ } }
+    throw e;
   } finally {
-    if (conn) { try { await conn.end(); } catch { } }
+    if (conn) { try { await conn.end(); } catch { /* ignore */ } }
   }
 }
 
-// main
+// -------- エントリポイント --------
 (async () => {
+  const { year, month } = parseYearMonth(process.argv);
+  console.log(`[INFO] 取得対象: ${year}-${month}`);
+
   try {
-    console.log(`[INFO] 取得対象: ${year}-${month}`);
-    await openMonthlyPage();
-    const resultsList = await Promise.all(VENUES.map(v => readVenueOnce(v)));
-    resultsList.forEach(r => { if (Object.keys(r).length) console.log(r); });
-    await saveAllToMysql(mergeResults(resultsList));
+    const html    = await fetchPage(year, month);
+    const raceDays = parseSchedule(html);
+
+    let totalEntries = 0;
+    for (const list of raceDays.values()) totalEntries += list.length;
+    console.log(`[INFO] 開催日: ${raceDays.size}日、会場-日組み合わせ: ${totalEntries}件`);
+
+    if (totalEntries === 0) {
+      console.log('[INFO] 開催情報なし。終了。');
+      return;
+    }
+
+    await saveToMysql(raceDays);
+    console.log('[INFO] 完了');
   } catch (e) {
-    console.error('[FATAL]', e);
-  } finally {
-    try { await driver.quit(); } catch (_) { }
+    console.error('[FATAL]', e.message || e);
+    process.exit(1);
   }
 })();

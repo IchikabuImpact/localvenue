@@ -58,7 +58,7 @@ const htmlHead = (title, opts = {}) => `
 <body>
 <header>
   <div class="container">
-    <h1><a href="${opts.indexPath || 'index.html'}">LocalVenue</a> ${isoDate}</h1>
+    <h1><a href="${opts.indexPath || 'index.html'}"> けんちゃん☆馬券 ver2.0</a></h1>
     <nav>
       <a href="${opts.indexPath || 'index.html'}">一覧</a>
       <a href="${opts.recoveryPath || 'recovery.html'}">回収率</a>
@@ -72,7 +72,7 @@ const htmlFoot = () => `
 </main>
 <footer>
   <div class="container">
-    <p>&copy; 2026 IchikabuImpact</p>
+    <p>&copy; けんちゃん馬券☆WEB （地方競馬）2026</p>
   </div>
 </footer>
 </body>
@@ -100,16 +100,31 @@ function buildCutoffYmd(days = 30) {
   return `${y}${m}${d}`;
 }
 
-function purgeOldDailyDirs() {
-  const cutoff = buildCutoffYmd(30);
-  if (!fs.existsSync(DAILY_DIR)) return;
-  const dirs = fs.readdirSync(DAILY_DIR, { withFileTypes: true });
-  for (const dirent of dirs) {
-    if (!dirent.isDirectory()) continue;
-    if (!/^\d{8}$/.test(dirent.name)) continue;
-    if (dirent.name < cutoff) {
-      fs.rmSync(path.join(DAILY_DIR, dirent.name), { recursive: true, force: true });
-      console.log(`[CLEAN] removed daily/${dirent.name}`);
+function purgeOldFiles() {
+  const retentionDays = Number(config.htmlRetentionDays) || 30;
+  const cutoff = buildCutoffYmd(retentionDays);
+
+  // 1. daily/YYYYMMDD/ フォルダを削除
+  if (fs.existsSync(DAILY_DIR)) {
+    const dirs = fs.readdirSync(DAILY_DIR, { withFileTypes: true });
+    for (const dirent of dirs) {
+      if (!dirent.isDirectory()) continue;
+      if (!/^\d{8}$/.test(dirent.name)) continue;
+      if (dirent.name < cutoff) {
+        fs.rmSync(path.join(DAILY_DIR, dirent.name), { recursive: true, force: true });
+        console.log(`[CLEAN] removed daily/${dirent.name}/`);
+      }
+    }
+  }
+
+  // 2. public/ 直下の YYYYMMDDRRBB.html を削除
+  const files = fs.readdirSync(PUBLIC_DIR);
+  for (const file of files) {
+    if (!/^\d{12}\.html$/.test(file)) continue;
+    const fileYmd = file.slice(0, 8);
+    if (fileYmd < cutoff) {
+      fs.rmSync(path.join(PUBLIC_DIR, file), { force: true });
+      console.log(`[CLEAN] removed ${file}`);
     }
   }
 }
@@ -420,7 +435,7 @@ function purgeOldDailyDirs() {
     fs.writeFileSync(path.join(PUBLIC_DIR, 'recovery.html'), recHtml, 'utf8');
     fs.writeFileSync(path.join(currentDailyDir, 'recovery.html'), recHtmlDaily, 'utf8');
     console.log('[GEN] recovery.html');
-    purgeOldDailyDirs();
+    purgeOldFiles();
 
   } catch (e) {
     console.error('[FATAL]', e);

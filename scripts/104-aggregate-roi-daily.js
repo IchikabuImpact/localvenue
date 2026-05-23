@@ -76,8 +76,7 @@ const isoDate = `${targetYmd.slice(0, 4)}-${targetYmd.slice(4, 6)}-${targetYmd.s
           races = VALUES(races),
           invest_yen = VALUES(invest_yen),
           return_yen = VALUES(return_yen),
-          roi_percent = VALUES(roi_percent),
-          updated_at = CURRENT_TIMESTAMP
+          roi_percent = VALUES(roi_percent)
       `, [isoDate, r.model_version, r.strategy, r.races, r.invest_yen, r.return_yen, roi]);
         }
 

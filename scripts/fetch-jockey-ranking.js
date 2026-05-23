@@ -1,255 +1,197 @@
+#!/usr/bin/env node
 /**
+ * fetch-jockey-ranking.js
+ * JBIS のリーディングジョッキーランキング（地方）上位100件を取得し
+ * jockey_ranking テーブルへ UPSERT する。
+ * （axios+cheerio版 — Selenium不使用）
+ *
  * Usage:
- *   node fetch-jockey-ranking.js [--keep-dumps] [--division=<1|2|3>] [--year=YYYY]
- *   KEEP_DUMPS=1 node fetch-jockey-ranking.js
+ *   node fetch-jockey-ranking.js [--division=<1|2|3>] [--year=YYYY]
  *
- * 既定: division=3(地方), year=現在の西暦
+ * division: 1=総合, 2=中央, 3=地方（既定=3）
+ * year:     取得年度（既定=今年）
  *
- * 取得データ:
- *   上位100件の { 年度, 騎手名, スコア(=101-順位) } を DB(jockey_ranking) へUPSERT
- */
-/**
  * @copyright © 2026 IchikabuImpact
  * @license Commercial use prohibited without permission.
  */
 
-const fs = require('fs');
-const path = require('path');
-const mysql = require('mysql2/promise');
-const config = require('../config/config.js');
+'use strict';
 
-const webdriver = require('selenium-webdriver');
-const { By, until } = webdriver;
+const axios   = require('axios');
+const cheerio = require('cheerio');
+const mysql   = require('mysql2/promise');
+const config  = require('../config/config.js');
 
-const { buildDriver } = require('../lib/webdriver');
+// -------- 定数 --------
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+const HTTP_TIMEOUT_MS = 30000;
+const RETRY_MAX       = 3;
+const RETRY_DELAY_MS  = 3000;
 
-const dumpsDir = path.resolve(__dirname, '..', 'data', 'dumps');
-
-// ===== DB Pool =====
-const pool = mysql.createPool({
-  host: config.mysql.host,
-  user: config.mysql.user,
-  password: config.mysql.password,
-  database: config.mysql.database,
-  port: config.mysql.port,
-  waitForConnections: true,
-  connectionLimit: 8,
-});
-
-// ===== オプション =====
-const KEEP_DUMPS =
-  process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
-
-function getCliOpt(name, defVal) {
+// -------- CLI オプション --------
+function getOpt(name, defVal) {
   const hit = process.argv.find(a => a.startsWith(`--${name}=`));
-  if (!hit) return defVal;
-  return hit.split('=')[1];
+  return hit ? hit.split('=')[1] : defVal;
 }
 
-const division = Number(getCliOpt('division', '3')); // 1:総合 2:中央 3:地方
-const yearOpt = getCliOpt('year', '');
-const now = new Date();
-const theYear = Number(yearOpt) || now.getFullYear();
+const now      = new Date();
+const theYear  = Number(getOpt('year', '')) || now.getFullYear();
+const division = Number(getOpt('division', '3')); // 1:総合 2:中央 3:地方
 
-// ===== dump / cleanup =====
-const dumpedFiles = [];
-function safeUnlink(p) { try { fs.unlinkSync(p); } catch { } }
-function cleanupDumps() {
-  if (KEEP_DUMPS) {
-    console.log('[keep-dumps] オプション有効のため削除しません');
-    return;
-  }
-  if (!dumpedFiles.length) return;
-  console.log(`[cleanup] dumpファイル削除: ${dumpedFiles.length} 件`);
-  for (const p of dumpedFiles) safeUnlink(p);
-}
-
-// 早期終了でも後始末できるように
-let cleanupDone = false;
-async function finalizeAndExit(code = 0) {
-  if (!cleanupDone) {
-    cleanupDone = true;
-    try { await pool.end(); } catch { }
-    cleanupDumps();
-  }
-  process.exit(code);
-}
-process.on('SIGINT', () => finalizeAndExit(130));
-process.on('SIGTERM', () => finalizeAndExit(143));
-process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err?.message || err);
-  finalizeAndExit(1);
-});
-process.on('unhandledRejection', (err) => {
-  console.error('[unhandledRejection]', err?.message || err);
-  finalizeAndExit(1);
-});
-
-// ===== URL組み立て（リーディングジョッキー: ranking=8, items=100）=====
-function buildUrl(year, division) {
-  // JBISのリクエストは y1(年度) y2(出生年?) y3(年度) y_f/y_t(期間) を投げている
-  // 実運用: 今年のデータ1年分でOK
-  const yTo = year;
-  const yFrom = year; // 期間は同一年
-  const y2 = year - 2;
-
+// -------- URL 生成 --------
+function buildUrl(year, div) {
   const q = new URLSearchParams({
     sort: 'ranking', order: 'A', items: '100',
-    ranking: '8',                       // リーディングジョッキー
-    y1: yTo, y2: y2, y3: yTo,
-    kind: '1',                          // サラ系
-    division: String(division),         // 1:総合 2:中央 3:地方（既定=地方）
-    racetype1: '', racetype2: '',       // 総合/平地は画面側で既定
-    y_f: yFrom, y_t: yTo, hold: '0',    // 期間=同年, 開催=すべて
+    ranking: '8',
+    y1: year, y2: year - 2, y3: year,
+    kind: '1',
+    division: String(div),
+    racetype1: '', racetype2: '',
+    y_f: year, y_t: year, hold: '0',
     corse1: '', corse2: '', condition: '1',
     distance_f: '', distance_t: '',
     horse: '', seqno: '', match: 'prefix',
   });
-  return `https://www.jbis.or.jp/ranking/result/?${q.toString()}#`;
+  return `https://www.jbis.or.jp/ranking/result/?${q.toString()}`;
 }
 
-async function dump(driver, tag) {
-  const ts = Date.now();
-  fs.mkdirSync(dumpsDir, { recursive: true });
-  const base = path.join(dumpsDir, `dump_jockey_${theYear}_${tag}_${ts}`);
-  const htmlPath = `${base}.html`;
-  try {
-    const html = await driver.getPageSource();
-    fs.writeFileSync(htmlPath, html, 'utf8');
-    dumpedFiles.push(htmlPath);
-    console.log(`[dump:html] ${htmlPath}`);
-  } catch (e) {
-    console.warn('[dump:html] 作成に失敗:', e?.message || e);
-  }
-}
-
-async function acceptConsentIfAny(driver) {
-  for (const xp of [
-    "//button[contains(.,'同意') or contains(.,'OK')]",
-    "//a[contains(.,'同意')]",
-    "//button[contains(.,'許可')]",
-  ]) {
-    const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch { } break; }
-  }
-}
-
-// ===== 画面から上位100件抽出 =====
-// ページ構造（例）: .data-7__inner 内にヘッダー行 + データ行が <div> で並ぶ
-// 各データ行の第1セル=順位, 第2セル( .jc-left )に <a href="/horse/jockey/...">騎手名</a>
-async function scrapeTop100(driver) {
-  return await driver.executeScript(() => {
-    const container = document.querySelector('.data-7__inner');
-    if (!container) return [];
-
-    const rows = Array.from(container.querySelectorAll(':scope > div'));
-    const out = [];
-
-    for (const row of rows) {
-      // ヘッダー行は第1セルに「順位」リンクがあるので除外
-      const first = row.children && row.children[0];
-      if (!first) continue;
-      const firstTxt = (first.textContent || '').trim();
-      const rank = Number(firstTxt);
-      if (!Number.isFinite(rank) || rank < 1 || rank > 100) continue;
-
-      const a = row.querySelector('a[href*="/horse/jockey/"]');
-      if (!a) continue;
-      const name = (a.textContent || '').trim();
-      if (!name) continue;
-
-      out.push({ rank, jockeyName: name });
-      if (out.length >= 100) break;
+// -------- HTTP リトライ付き取得 --------
+async function fetchHtml(url) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          'User-Agent':      UA,
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer':         'https://www.jbis.or.jp/ranking/',
+        },
+        timeout: HTTP_TIMEOUT_MS,
+        decompress: true,
+      });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      return res.data;
+    } catch (e) {
+      lastErr = e;
+      const status = e.response?.status;
+      const wait = status === 429
+        ? RETRY_DELAY_MS * attempt * 2
+        : RETRY_DELAY_MS * attempt;
+      console.warn(`[WARN] attempt ${attempt}/${RETRY_MAX} failed (${status || e.code || e.message}), retry in ${wait}ms...`);
+      if (attempt < RETRY_MAX) await new Promise(r => setTimeout(r, wait));
     }
-    // 念のため順位で昇順に整える
-    out.sort((a, b) => a.rank - b.rank);
-    return out;
+  }
+  throw lastErr;
+}
+
+// -------- HTML パース --------
+/**
+ * .data-7__inner 内の div 行から順位・騎手名を抽出する。
+ * 構造:
+ *   <div class="data-7__inner ...">
+ *     <div>  ← ヘッダー行（スキップ）
+ *     <div>
+ *       <div>1</div>             ← 順位
+ *       <div class="jc-left">
+ *         <a href="/horse/jockey/031231/">笹川 翼</a>
+ *       </div>
+ *       ...
+ *     </div>
+ *     ...
+ *   </div>
+ *
+ * @returns {{ rank: number, jockeyName: string }[]}
+ */
+function parse(html) {
+  const $ = cheerio.load(html);
+  const results = [];
+
+  $('.data-7__inner > div').each((_, row) => {
+    const children = $(row).children('div');
+    if (!children.length) return;
+
+    // 1列目: 順位
+    const rankText = $(children[0]).text().trim();
+    const rank = parseInt(rankText, 10);
+    if (!Number.isFinite(rank) || rank < 1 || rank > 100) return;
+
+    // ジョッキー名: .jc-left a[href*="/horse/jockey/"]
+    const a = $(row).find('a[href*="/horse/jockey/"]').first();
+    if (!a.length) return;
+    const name = a.text().trim();
+    if (!name) return;
+
+    results.push({ rank, jockeyName: name });
+  });
+
+  // 順位でソートして重複排除
+  results.sort((a, b) => a.rank - b.rank);
+  const seen = new Set();
+  return results.filter(r => {
+    if (seen.has(r.rank)) return false;
+    seen.add(r.rank);
+    return true;
   });
 }
 
-async function saveRows(rows, year) {
+// -------- DB 保存 --------
+async function save(rows, year) {
   if (!rows.length) return 0;
-  const sql = `
-    INSERT INTO jockey_ranking (year, jockey_name, score)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      score = VALUES(score)
-  `;
-  const conn = await pool.getConnection();
+
+  const conn = await mysql.createConnection({
+    host:     config.mysql.host,
+    user:     config.mysql.user,
+    password: config.mysql.password,
+    database: config.mysql.database,
+    port:     config.mysql.port,
+    charset:  'utf8mb4',
+  });
+
   try {
     await conn.beginTransaction();
+    const sql = `
+      INSERT INTO jockey_ranking (year, jockey_name, score)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE score = VALUES(score)
+    `;
     for (const r of rows) {
       const score = 101 - r.rank; // 1位→100点, 100位→1点
       await conn.execute(sql, [year, r.jockeyName, score]);
     }
     await conn.commit();
+    return rows.length;
   } catch (e) {
     await conn.rollback();
     throw e;
   } finally {
-    conn.release();
+    await conn.end();
   }
-  return rows.length;
 }
 
-(async function main() {
+// -------- メイン --------
+(async () => {
   const url = buildUrl(theYear, division);
-  console.log('[year]', theYear, '[division]', division);
-  console.log('[url]', url);
-  const driver = await buildDriver({
-    // 並列実行(2本とか)があるなら、プロファイル共有は事故りやすいので分ける
-    userDataDir: path.resolve(`./.chrome-profile/jockey-${process.pid}`),
-    windowSize: { width: 1400, height: 1600 },
-    extraArgs: [
-      '--disable-blink-features=AutomationControlled',
-      '--lang=ja-JP,ja',
-      '--profile-directory=Default',
-    ],
-  });
+  console.log(`[INFO] year=${theYear} division=${division}`);
+  console.log(`[INFO] url=${url}`);
 
   try {
-    // 1) ランキングTOP → 同意処理 → dump
-    await driver.get('https://www.jbis.or.jp/ranking/');
-    await acceptConsentIfAny(driver);
-    try {
-      await driver.executeScript(
-        `Object.defineProperty(navigator,'webdriver',{get:()=>undefined});`
-      );
-    } catch { }
-    await dump(driver, 'step1_enter');
+    const html = await fetchHtml(url);
+    const rows = parse(html);
+    console.log(`[INFO] scraped ${rows.length} rows`);
 
-    // 2) 結果ページへ（Referer維持のため in-page <a> click）
-    await driver.executeScript((href) => {
-      const a = document.createElement('a');
-      a.href = href; a.rel = 'noopener'; a.textContent = 'go';
-      document.body.appendChild(a); a.click();
-    }, url);
+    if (!rows.length) throw new Error('0件しか取れませんでした（HTML構造変更の可能性）');
 
-    await driver.wait(until.urlContains('/ranking/result/'), 60000);
-    await driver.sleep(1500);
-    await dump(driver, 'step2_result');
-
-    // 3) ジョッキーリンクが出るまで待機
-    await driver.wait(async () => {
-      const cnt = await driver.executeScript(
-        `return document.querySelectorAll('.data-7__inner a[href*="/horse/jockey/"]').length;`
-      );
-      return cnt > 0;
-    }, 120000);
-    await dump(driver, 'step3_ready');
-
-    // 4) 1ページ（上位100件）抽出 → 保存
-    const rows = await scrapeTop100(driver);
-    console.log(`[info] scraped ${rows.length} rows`);
-    if (!rows.length) throw new Error('no rows parsed');
-
-    const n = await saveRows(rows, theYear);
+    const n = await save(rows, theYear);
     console.log(`[OK] year=${theYear} division=${division} → saved ${n} rows`);
+
+    // 上位5件をログ表示
+    rows.slice(0, 5).forEach(r =>
+      console.log(`  ${r.rank}位: ${r.jockeyName} (score=${101 - r.rank})`)
+    );
   } catch (e) {
-    console.error('[ERROR]', e && e.message ? e.message : e);
-    process.exitCode = 1;
-  } finally {
-    try { await driver.quit(); } catch { }
-    await finalizeAndExit(process.exitCode || 0);
+    console.error('[FATAL]', e.message || e);
+    process.exit(1);
   }
 })();

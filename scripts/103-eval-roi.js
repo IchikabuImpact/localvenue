@@ -180,7 +180,7 @@ async function upsertROI(conn, row) {
         strategy: 'ev_win',
         stake: Math.round(stakeSum),
         returned: Math.round(retSum),
-        roi_pct: stakeSum ? (retSum / stakeSum * 100) : 0
+        roi_pct: stakeSum ? Math.min(9999.99, retSum / stakeSum * 100) : 0
       });
     }
 
@@ -204,7 +204,7 @@ async function upsertROI(conn, row) {
         strategy: 'ev_place',
         stake: Math.round(stakeSum),
         returned: Math.round(retSum),
-        roi_pct: stakeSum ? (retSum / stakeSum * 100) : 0
+        roi_pct: stakeSum ? Math.min(9999.99, retSum / stakeSum * 100) : 0
       });
     }
   }

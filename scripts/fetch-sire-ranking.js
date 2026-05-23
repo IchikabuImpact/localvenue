@@ -1,247 +1,208 @@
+#!/usr/bin/env node
 /**
+ * fetch-sire-ranking.js
+ * JBIS の種牡馬ランキング（地方ダート平地）上位100件を取得し
+ * sire_ranking テーブルへ UPSERT する。
+ * （axios+cheerio版 — Selenium不使用）
+ *
  * Usage:
- *   node fetch-sire-ranking.js <distance_m> [--keep-dumps]
- *   KEEP_DUMPS=1 node fetch-sire-ranking.js <distance_m>
- * 例: node fetch-sire-ranking.js 1300
+ *   node fetch-sire-ranking.js <distance_m>
+ *   例: node fetch-sire-ranking.js 1300
+ *
+ * @copyright © 2026 IchikabuImpact
+ * @license Commercial use prohibited without permission.
  */
-const fs = require('fs');
-const path = require('path');
-const mysql = require('mysql2/promise');
-const config = require('../config/config.js');
 
-const webdriver = require('selenium-webdriver');
-const { By, until } = webdriver;
-const chrome = require('selenium-webdriver/chrome');
+'use strict';
 
-const dumpsDir = path.resolve(__dirname, '..', 'data', 'dumps');
+const axios   = require('axios');
+const cheerio = require('cheerio');
+const mysql   = require('mysql2/promise');
+const config  = require('../config/config.js');
 
-const pool = mysql.createPool({
-  host: config.mysql.host,
-  user: config.mysql.user,
-  password: config.mysql.password,
-  database: config.mysql.database,
-  port: config.mysql.port,
-  waitForConnections: true,
-  connectionLimit: 8,
-});
+// -------- 定数 --------
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+const HTTP_TIMEOUT_MS = 30000;
+const RETRY_MAX       = 3;
+const RETRY_DELAY_MS  = 3000;
 
-const dumpedFiles = [];
-const KEEP_DUMPS =
-  process.env.KEEP_DUMPS === '1' || process.argv.includes('--keep-dumps');
-
-function safeUnlink(p) {
-  try { fs.unlinkSync(p); } catch { }
-}
-function cleanupDumps() {
-  if (KEEP_DUMPS) {
-    console.log('[keep-dumps] オプション有効のため削除しません');
-    return;
-  }
-  if (!dumpedFiles.length) return;
-  console.log(`[cleanup] dumpファイル削除: ${dumpedFiles.length} 件`);
-  for (const p of dumpedFiles) safeUnlink(p);
+// -------- CLI 引数 --------
+const distance = Number(process.argv[2]);
+if (!Number.isFinite(distance) || distance <= 0) {
+  console.error('Usage: node fetch-sire-ranking.js <distance_m>');
+  console.error('Example: node fetch-sire-ranking.js 1300');
+  process.exit(1);
 }
 
-// 早期終了でも掃除できるようフックしておく
-let cleanupDone = false;
-async function finalizeAndExit(code = 0) {
-  if (!cleanupDone) {
-    cleanupDone = true;
-    try { await pool.end(); } catch { }
-    cleanupDumps(); // ★ 成功/失敗/中断でも必ず削除
-  }
-  process.exit(code);
-}
-process.on('SIGINT', () => finalizeAndExit(130));
-process.on('SIGTERM', () => finalizeAndExit(143));
-process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err?.message || err);
-  finalizeAndExit(1);
-});
-process.on('unhandledRejection', (err) => {
-  console.error('[unhandledRejection]', err?.message || err);
-  finalizeAndExit(1);
-});
-
-// ---- URL（距離だけ可変。直近1年のダート平地/総合） ----
-function buildUrl(distance) {
-  const now = new Date();
-  const yTo = now.getFullYear();
+// -------- URL 生成 --------
+function buildUrl(dist) {
+  const now  = new Date();
+  const yTo  = now.getFullYear();
   const yFrom = yTo - 1;
-  const y2 = yTo - 2;
+  const y2   = yTo - 2;
   const q = new URLSearchParams({
     sort: 'ranking', order: 'A', items: '100',
-    ranking: '7', y1: yTo, y2: y2, y3: yTo,
-    kind: '1', division: '3', racetype1: '3', racetype2: '2',
+    ranking: '7',
+    y1: yTo, y2: y2, y3: yTo,
+    kind: '1', division: '3',
+    racetype1: '3', racetype2: '2',   // ダート平地
     y_f: yFrom, y_t: yTo, hold: '0',
     corse1: '', corse2: '', condition: '1',
-    distance_f: distance, distance_t: distance,
+    distance_f: dist, distance_t: dist,
     horse: '', seqno: '', match: 'prefix',
   });
-  return `https://www.jbis.or.jp/ranking/result/?${q.toString()}#`;
+  return `https://www.jbis.or.jp/ranking/result/?${q.toString()}`;
 }
 
-async function dump(driver, distance, step) {
-  // PNGは作らない。HTMLのみ（最後に基本削除）
-  const ts = Date.now();
-  fs.mkdirSync(dumpsDir, { recursive: true });
-  const base = path.join(dumpsDir, `dump_rank_${distance}_${step}_${ts}`);
-  const htmlPath = `${base}.html`;
-
-  try {
-    const html = await driver.getPageSource();
-    fs.writeFileSync(htmlPath, html, 'utf8');
-    dumpedFiles.push(htmlPath);
-    console.log(`[dump:html] ${htmlPath}`);
-  } catch (e) {
-    console.warn('[dump:html] 作成に失敗:', e?.message || e);
-  }
-}
-
-async function acceptConsentIfAny(driver) {
-  for (const xp of [
-    "//button[contains(.,'同意') or contains(.,'OK')]",
-    "//a[contains(.,'同意')]",
-    "//button[contains(.,'許可')]",
-  ]) {
-    const els = await driver.findElements(By.xpath(xp));
-    if (els.length) { try { await els[0].click(); } catch { } break; }
-  }
-}
-
-// ---- 結果ページから上位100件を抽出（テーブル/グリッド両対応） ----
-async function scrapeTop100(driver) {
-  return await driver.executeScript(() => {
-    const getRankFromRow = (row) => {
-      if (!row) return null;
-      const firstCell = row.querySelector('td,div,span');
-      const txt = (firstCell?.textContent || row.textContent || '').trim();
-      const m = txt.match(/(^|\D)(\d{1,3})(?=\D|$)/);
-      const v = m ? Number(m[2]) : null;
-      return (v && v <= 100) ? v : null;
-    };
-
-    const links = Array.from(document.querySelectorAll('a[href*="/horse/"]'));
-    const items = [];
-    for (const a of links) {
-      const name = (a.textContent || '').trim();
-      if (!name) continue;
-      const href = a.getAttribute('href') || '';
-      const m = href.match(/\/horse\/(\d{7,})\//);
-      if (!m) continue;
-      const sireId = m[1];
-
-      const row = a.closest('tr') ||
-        a.closest('.data-row, .dataRow, .tbl-row, .table-row') ||
-        a.closest('li') || a.parentElement;
-
-      let rank = getRankFromRow(row);
-      if (!rank) {
-        let cur = row;
-        for (let k = 0; k < 3 && cur && !rank; k++) {
-          cur = cur.previousElementSibling;
-          rank = getRankFromRow(cur);
-        }
-      }
-      if (!rank) continue;
-
-      items.push({ rank, sireId, sireName: name });
+// -------- HTTP リトライ付き取得 --------
+async function fetchHtml(url) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
+    try {
+      const res = await axios.get(url, {
+        headers: {
+          'User-Agent':      UA,
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer':         'https://www.jbis.or.jp/ranking/',
+        },
+        timeout: HTTP_TIMEOUT_MS,
+        decompress: true,
+      });
+      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      return res.data;
+    } catch (e) {
+      lastErr = e;
+      const status = e.response?.status;
+      const wait = status === 429
+        ? RETRY_DELAY_MS * attempt * 2
+        : RETRY_DELAY_MS * attempt;
+      console.warn(`[WARN] attempt ${attempt}/${RETRY_MAX} failed (${status || e.code || e.message}), retry in ${wait}ms...`);
+      if (attempt < RETRY_MAX) await new Promise(r => setTimeout(r, wait));
     }
+  }
+  throw lastErr;
+}
 
-    items.sort((a, b) => a.rank - b.rank);
-    const uniq = [];
-    const seen = new Set();
-    for (const x of items) {
-      if (seen.has(x.sireId)) continue;
-      seen.add(x.sireId);
-      uniq.push(x);
-      if (uniq.length >= 100) break;
-    }
-    return uniq;
+// -------- HTML パース --------
+/**
+ * .data-7__inner 内の div 行から順位・種牡馬ID・種牡馬名を抽出する。
+ * 構造:
+ *   <div class="data-7__inner ...">
+ *     <div>  ← ヘッダー行（スキップ）
+ *     <div>
+ *       <div>1</div>                          ← 順位
+ *       <div class="jc-left">
+ *         <a href="/horse/0001240055/">ドレフォン(USA)</a>
+ *       </div>
+ *       ...
+ *     </div>
+ *     ...
+ *   </div>
+ *
+ * @returns {{ rank: number, sireId: string, sireName: string }[]}
+ */
+function parse(html) {
+  const $ = cheerio.load(html);
+  const results = [];
+
+  $('.data-7__inner > div').each((_, row) => {
+    const children = $(row).children('div');
+    if (!children.length) return;
+
+    // 1列目: 順位
+    const rankText = $(children[0]).text().trim();
+    const rank = parseInt(rankText, 10);
+    if (!Number.isFinite(rank) || rank < 1 || rank > 100) return;
+
+    // 種牡馬リンク: .jc-left a[href*="/horse/"]
+    // ジョッキーリンク (/horse/jockey/) を除外するため /horse/ + 数字のみ対象
+    const a = $(row).find('.jc-left a').filter((_, el) => {
+      const href = $(el).attr('href') || '';
+      return /\/horse\/\d+\//.test(href);
+    }).first();
+    if (!a.length) return;
+
+    const href = a.attr('href') || '';
+    const m = href.match(/\/horse\/(\d+)\//);
+    if (!m) return;
+
+    const sireId   = m[1];
+    const sireName = a.text().trim();
+    if (!sireName) return;
+
+    results.push({ rank, sireId, sireName });
+  });
+
+  // 順位でソートして重複排除（同一sireId）
+  results.sort((a, b) => a.rank - b.rank);
+  const seen = new Set();
+  return results.filter(r => {
+    if (seen.has(r.sireId)) return false;
+    seen.add(r.sireId);
+    return true;
   });
 }
 
-async function saveRows(rows, distance) {
+// -------- DB 保存 --------
+async function save(rows, dist) {
   if (!rows.length) return 0;
-  const sql = `
-    INSERT INTO sire_ranking (distance_m, sire_id, sire_name, score)
-    VALUES (?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      sire_name = VALUES(sire_name),
-      score     = VALUES(score)
-  `;
-  const conn = await pool.getConnection();
+
+  const conn = await mysql.createConnection({
+    host:     config.mysql.host,
+    user:     config.mysql.user,
+    password: config.mysql.password,
+    database: config.mysql.database,
+    port:     config.mysql.port,
+    charset:  'utf8mb4',
+  });
+
   try {
     await conn.beginTransaction();
+    const sql = `
+      INSERT INTO sire_ranking (distance_m, sire_id, sire_name, score)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        sire_name = VALUES(sire_name),
+        score     = VALUES(score)
+    `;
     for (const r of rows) {
-      await conn.execute(sql, [distance, r.sireId, r.sireName, 101 - r.rank]);
+      const score = 101 - r.rank; // 1位→100点, 100位→1点
+      await conn.execute(sql, [dist, r.sireId, r.sireName, score]);
     }
     await conn.commit();
+    return rows.length;
   } catch (e) {
     await conn.rollback();
     throw e;
   } finally {
-    conn.release();
+    await conn.end();
   }
-  return rows.length;
 }
 
-(async function main() {
-  const distance = Number(process.argv[2]);
-  if (!Number.isFinite(distance)) {
-    console.error('Usage: node fetch-sire-ranking.js <distance_m>');
-    return finalizeAndExit(1);
-  }
+// -------- メイン --------
+(async () => {
   const url = buildUrl(distance);
-  console.log('[url]', url);
-
-  const { buildDriver } = require('../lib/webdriver');
-  const driver = await buildDriver({
-    userDataDir: path.resolve('./.chrome-profile'),
-    windowSize: { width: 1400, height: 1600 },
-    extraArgs: [
-      '--lang=ja-JP,ja',
-      '--profile-directory=Default'
-    ]
-  });
+  console.log(`[INFO] distance=${distance}m`);
+  console.log(`[INFO] url=${url}`);
 
   try {
-    await driver.get('https://www.jbis.or.jp/ranking/');
-    await acceptConsentIfAny(driver);
-    try {
-      await driver.executeScript(`Object.defineProperty(navigator,'webdriver',{get:()=>undefined});`);
-    } catch { }
-    await dump(driver, distance, 'step1_enter');
+    const html = await fetchHtml(url);
+    const rows = parse(html);
+    console.log(`[INFO] scraped ${rows.length} rows`);
 
-    await driver.executeScript((href) => {
-      const a = document.createElement('a');
-      a.href = href; a.rel = 'noopener'; a.textContent = 'go';
-      document.body.appendChild(a); a.click();
-    }, url);
-    await driver.wait(until.urlContains('/ranking/result/'), 60000);
-    await driver.sleep(1500);
-    await dump(driver, distance, 'step2_result');
+    if (!rows.length) throw new Error('0件しか取れませんでした（HTML構造変更の可能性）');
 
-    await driver.wait(async () => {
-      const cnt = await driver.executeScript(
-        'return document.querySelectorAll(\'a[href*="/horse/"]\').length;'
-      );
-      return cnt > 0;
-    }, 120000);
-    await dump(driver, distance, 'step3_ready');
+    const n = await save(rows, distance);
+    console.log(`[OK] distance=${distance}m → saved ${n} rows`);
 
-    const rows = await scrapeTop100(driver);
-    console.log(`[info] scraped ${rows.length} rows`);
-    if (!rows.length) throw new Error('no rows parsed');
-
-    const n = await saveRows(rows, distance);
-    console.log(`[OK] distance=${distance} → saved ${n} rows`);
+    // 上位3件をログ表示
+    rows.slice(0, 3).forEach(r =>
+      console.log(`  ${r.rank}位: ${r.sireName} (id=${r.sireId}, score=${101 - r.rank})`)
+    );
   } catch (e) {
-    console.error('[ERROR]', e && e.message ? e.message : e);
-    process.exitCode = 1;
-  } finally {
-    try { await driver.quit(); } catch { }
-    // プールは finalizeAndExit() で閉じる（順序の都合）
-    await finalizeAndExit(process.exitCode || 0);
+    console.error('[FATAL]', e.message || e);
+    process.exit(1);
   }
 })();

@@ -22,8 +22,10 @@ const path = require('path');
 
 const NODE_BIN = process.env.NODE_BIN || 'node';
 const PARALLEL = Math.max(1, Number(process.env.PARALLEL || 2));
-const STAKE_WIN = Number(process.env.STAKE_WIN || 0);
-const STAKE_PLACE = Number(process.env.STAKE_PLACE || 0);
+// 単勝・複勝の賭け金（円）。0にするとprediction_roiへの書き込みが行われずROI集計が空になる。
+// 環境変数で上書き可能: STAKE_WIN=200 node daily-result-batch.js
+const STAKE_WIN   = Number(process.env.STAKE_WIN   ?? 100);
+const STAKE_PLACE = Number(process.env.STAKE_PLACE ?? 100);
 
 const BASE = __dirname;
 

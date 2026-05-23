@@ -27,10 +27,6 @@ const SCRIPTS = {
   listRaceIds: path.join(BASE, "003-list-race-ids.js"),
   racingForm: path.join(BASE, "004-racing-form-to-db.js"),
   predict: path.join(BASE, "005-predict-race.js"),
-  jockeyMonthlySh: path.join(BASE, "ops", "monthly-fetch-jockey-ranking.sh"),
-  jockeyMonthlyBat: path.join(BASE, "ops", "monthly-fetch-jockey-ranking.bat"),
-  sireMonthlySh: path.join(BASE, "ops", "monthly-fetch-sire-ranking.sh"),
-  sireMonthlyBat: path.join(BASE, "ops", "monthly-fetch-sire-ranking.bat"),
 };
 
 const ts = () => {
@@ -49,8 +45,6 @@ const exists = (p) => {
     return false;
   }
 };
-
-const isWin = () => process.platform === "win32";
 
 // JST 今日を YYYYMMDD で返す
 const jstTodayYmd = () => {
@@ -91,30 +85,6 @@ function runCaptureNode(absScript, args = []) {
     p.on("exit", (c) => {
       if (c === 0) return resolve(out);
       reject(new Error(`${path.basename(absScript)} exited with ${c}`));
-    });
-  });
-}
-
-async function runIfExists(shAbs, batAbs) {
-  const hasSh = exists(shAbs);
-  const hasBat = exists(batAbs);
-  if (!hasSh && !hasBat) {
-    log(`(info) ${path.basename(shAbs).replace(/\.sh$/, "")} スキップ（ファイル無し）`);
-    return;
-  }
-
-  await new Promise((res, rej) => {
-    const useBat = isWin() && hasBat;
-    const cmd = useBat ? batAbs : "bash";
-    const args = useBat ? [] : [shAbs];
-    const p = spawn(cmd, args, {
-      stdio: "inherit",
-      cwd: BASE,
-      shell: isWin(),
-    });
-    p.on("exit", (c) => {
-      if (c === 0) return res();
-      rej(new Error(`${useBat ? path.basename(batAbs) : path.basename(shAbs)} exited with ${c}`));
     });
   });
 }
@@ -163,24 +133,16 @@ async function eachLimit(items, limit, worker) {
   log(`[2] ${path.basename(SCRIPTS.saveCount)} ${ymd}`);
   await runNode(SCRIPTS.saveCount, [ymd]);
 
-  // [3] 騎手ランキング月次取得（スクリプトが存在する場合のみ）
-  log(`[3] monthly-fetch-jockey-ranking.*`);
-  await runIfExists(SCRIPTS.jockeyMonthlySh, SCRIPTS.jockeyMonthlyBat);
-
-  // [4] 種牡馬ランキング月次取得（スクリプトが存在する場合のみ）
-  log(`[4] monthly-fetch-sire-ranking.*`);
-  await runIfExists(SCRIPTS.sireMonthlySh, SCRIPTS.sireMonthlyBat);
-
-  // [5] 当日全レースの race_id を取得
-  log(`[5] ${path.basename(SCRIPTS.listRaceIds)} ${ymd}`);
+  // [3] 当日全レースの race_id を取得
+  log(`[3] ${path.basename(SCRIPTS.listRaceIds)} ${ymd}`);
   const raceIds = await listRaceIds(ymd);
-  log(`[5] 取得RACEID: ${raceIds.length}件`);
+  log(`[3] 取得RACEID: ${raceIds.length}件`);
   if (raceIds.length === 0) {
     log("本日レースなし。終了。");
     return;
   }
 
-  // [6] 各レースについて 出馬表取り込み → 予想生成 を並列実行
+  // [4] 各レースについて 出馬表取り込み → 予想生成 を並列実行
   await eachLimit(raceIds, PARALLEL, async (raceId) => {
     log(`[racing-form] ${raceId}`);
     await runNode(SCRIPTS.racingForm, [raceId]);
