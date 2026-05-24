@@ -351,8 +351,8 @@ function purgeOldFiles() {
       if (r.win_hit !== null) {
         const resultSection = `<section class="result-info"><h3>結果</h3>
            <dl>
-             <dt>単勝</dt><dd>${r.win_hit ? '<span class="win">的中🎯</span>' : '不的中'} (戻り: ${r.eval_win_return || 0})</dd>
-             <dt>複勝</dt><dd>${r.place_hit ? '<span class="win">的中🎯</span>' : '不的中'} (戻り: ${r.eval_place_return || 0})</dd>
+             <dt>単勝</dt><dd>${r.win_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${r.eval_win_return || 0} YEN)</dd>
+             <dt>複勝</dt><dd>${r.place_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${r.eval_place_return || 0} YEN)</dd>
            </dl>
          </section>`;
         detailHtml += resultSection;
