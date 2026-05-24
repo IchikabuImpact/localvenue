@@ -69,11 +69,11 @@ const htmlHead = (title, opts = {}) => `
 <body>
 <header>
   <div class="container">
-    <h1><a href="${opts.indexPath || 'index.html'}">けんちゃん馬券☆WEB（地方競馬）</a></h1>
+    <h1><a href="/index.html">けんちゃん馬券☆WEB（地方競馬）</a></h1>
     <p class="site-subtitle"> - 恥ずかしい馬券 - 矛盾にあふれる人間の発想とロジカルなAIがぶつかり合ったものです</p>
     <nav>
-      <a href="${opts.indexPath || 'index.html'}">一覧</a>
-      <a href="${opts.recoveryPath || 'recovery.html'}">回収率</a>
+      <a href="/index.html">一覧</a>
+      <a href="/recovery.html">回収率</a>
     </nav>
   </div>
 </header>
