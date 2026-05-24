@@ -5,6 +5,7 @@
  * @role    楽天競馬からレース結果（着順・タイム）と払戻金（単勝・複勝）を取得して DB へ保存。
  *          NAR の baba_code(2桁) → 楽天の8桁場コードへの変換を内部テーブルで行う。
  *          "確定" 文字列が HTML に見つからない場合は exit 2 を返してスキップを促す。
+ *          DB 保存は全て ON DUPLICATE KEY UPDATE で upsert。トランザクション不使用（デッドロック防止）。
  *
  * @input   keiba.rakuten.co.jp 結果ページ（HTML、SSR）
  * @output  DB: race_results（着順・タイム等）, race_payouts（WIN/PLACE払戻）
@@ -356,7 +357,6 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
       database: config.mysql.database || 'localkeiba',
       charset: 'utf8mb4',
     });
-    await conn.beginTransaction();
 
     // race_results
     const resultCols = [
@@ -386,14 +386,8 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
       'finish_time', 'margin', 'jockey_name', 'odds_final', 'prize', 'disqualified', 'notes'
     ]);
 
-    // race_payouts（WIN/PLACE のみ扱うので、対象 bet_type を事前削除してから再投入）
+    // race_payouts（WIN/PLACE）— ON DUPLICATE KEY UPDATE で直接 upsert（DELETE 不使用・デッドロック防止）
     if (payouts.length) {
-      const betTypes = [...new Set(payouts.map(p => p.bet_type))]; // 通常は ['WIN','PLACE']
-      const placeholdersBT = betTypes.map(() => '?').join(',');
-      await conn.execute(
-        `DELETE FROM race_payouts WHERE race_id = ? AND bet_type IN (${placeholdersBT})`,
-        [raceId, ...betTypes]
-      );
       const payoutCols = ['race_id', 'bet_type', 'horse_number', 'payout', 'popularity'];
       const payoutRows = payouts.map(p => ({
         race_id: raceId,
@@ -402,14 +396,12 @@ async function bulkInsertOrUpdate(conn, table, cols, rows, onDupCols) {
         payout: p.payout ?? null,
         popularity: p.popularity ?? null,
       }));
-      await bulkInsertOrUpdate(conn, 'race_payouts', payoutCols, payoutRows, ['payout', 'popularity', 'updated_at']);
+      await bulkInsertOrUpdate(conn, 'race_payouts', payoutCols, payoutRows, ['payout', 'popularity']);
       console.log(`[OK] race_id=${raceId} → upsert ${payouts.length} rows into race_payouts`);
     }
 
-    await conn.commit();
     console.log(`[OK] race_id=${raceId} → upsert ${rows.length} rows into race_results`);
   } catch (e) {
-    try { if (conn) await conn.rollback(); } catch { }
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {
