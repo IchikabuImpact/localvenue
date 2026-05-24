@@ -7,7 +7,7 @@
  *          同一 race_id への同時書き込みを GET_LOCK でシリアライズ（デッドロック対策）。
  *
  * @input   keiba.go.jp DebaTable（HTML、SSR）
- * @output  DB: racing_form（DELETE→INSERT でリフレッシュ、race_id 単位）
+ * @output  DB: racing_form（ON DUPLICATE KEY UPDATE で upsert、何度実行しても安全）
  * @calledby daily-yosou-batch.js [4] (並列実行)
  *
  * Usage:

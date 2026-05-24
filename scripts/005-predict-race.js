@@ -146,19 +146,18 @@ function customScore(horse) {
       generatedAt: new Date().toISOString(),
     };
 
-    await conn.beginTransaction();
-    // race_id で上書きしたいので、現行スキーマでは DELETE→INSERT
-    await conn.execute(`DELETE FROM prediction WHERE race_id = ?`, [raceId]);
+    // UNIQUE KEY (race_id, model_version) を利用してデッドロックなしで upsert
     await conn.execute(
       `INSERT INTO prediction (race_id, model_version, memo)
-       VALUES (?, ?, ?)`,
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         model_version = VALUES(model_version),
+         memo          = VALUES(memo)`,
       [raceId, MODEL_VERSION, JSON.stringify(memo)]
     );
-    await conn.commit();
 
     console.log(`[OK] race_id=${raceId} 推奨: 馬番${best.horse_number} (score=${best.score}) 内訳=${JSON.stringify(best.breakdown)}`);
   } catch (e) {
-    try { if (conn) await conn.rollback(); } catch { }
     console.error('[ERROR]', e && e.message ? e.message : e);
     process.exit(1);
   } finally {

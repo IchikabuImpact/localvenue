@@ -15,7 +15,8 @@
  *
  * Usage:
  *   node daily-yosou-batch.js           // JST 今日の開催分を対象
-//   node daily-yosou-batch.js 20251116  // 指定日の開催分を対象（YYYYMMDD）
+ *   node daily-yosou-batch.js 20251116  // 指定日の開催分を対象（YYYYMMDD）
+ */
 
 const { spawn } = require("child_process");
 const fs = require("fs");

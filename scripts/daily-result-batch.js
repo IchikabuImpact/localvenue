@@ -21,6 +21,7 @@
  * Usage:
  *   node daily-result-batch.js           // JST 今日
  *   node daily-result-batch.js 20260119  // 指定日
+ */
 
 const { spawn } = require('child_process');
 const fs = require('fs');
