@@ -3041,6 +3041,24 @@ Generated at: 2026-02-01T00:41:36.386Z
 
 ---
 
+## Table: trainer_ranking
+
+### Schema
+
+| Field | Type | Null | Key | Default | Extra |
+|---|---|---|---|---|---|
+| year | int | NO | PRI | null | |
+| trainer_name | varchar(255) | NO | PRI | null | |
+| score | int | NO | MUL | null | |
+
+### Notes
+
+- `score = 101 - rank`（1位→100点、100位→1点）
+- `fetch-trainer-ranking.js` で月次取得（JBIS リーディングトレーナー地方 上位100件）
+- `005-predict-race.js` の予想スコア計算に使用（jockey と同じ頭3文字前方一致）
+
+---
+
 ## Table: venue_master
 
 ### Schema

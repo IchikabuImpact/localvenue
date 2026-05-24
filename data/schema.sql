@@ -282,6 +282,23 @@ CREATE TABLE `sire_ranking` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `trainer_ranking`
+--
+
+DROP TABLE IF EXISTS `trainer_ranking`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `trainer_ranking` (
+  `year` int NOT NULL,
+  `trainer_name` varchar(255) NOT NULL,
+  `score` int NOT NULL,
+  PRIMARY KEY (`year`,`trainer_name`),
+  KEY `idx_trainer_ranking_year` (`year`),
+  KEY `idx_trainer_ranking_score` (`score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `venue_master`
 --
 

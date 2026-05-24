@@ -67,12 +67,13 @@ function customScore(horse) {
       charset: 'utf8mb4',
     });
 
-    // 1) 出馬表（列名をテーブルに合わせてASエイリアス）
+    // 1) 出馬表（trainer_name も取得）
     const [rfRows] = await conn.execute(
       `SELECT
          horse_number,
          horse_name,
-         jockey_name AS jockey,
+         jockey_name  AS jockey,
+         trainer_name AS trainer,
          sire,
          sex_age
        FROM racing_form
@@ -99,7 +100,24 @@ function customScore(horse) {
       return jrPrefixMax.get(key) || 0;
     };
 
-    // 3) サイアーランキング（年なし）→ 同名MAX、前方一致
+    // 3) トレーナーランキング（year あり）→ “頭3文字前方一致”インデックス
+    const [trRows] = await conn.execute(
+      `SELECT trainer_name, score FROM trainer_ranking WHERE year = ?`,
+      [year]
+    );
+    const trPrefixMax = new Map();
+    for (const r of trRows) {
+      const key = headN(norm(r.trainer_name), 3);
+      const val = (r.score >>> 0);
+      const cur = trPrefixMax.get(key) || 0;
+      if (val > cur) trPrefixMax.set(key, val);
+    }
+    const trainerScoreByName = (name) => {
+      const key = headN(norm(name), 3);
+      return trPrefixMax.get(key) || 0;
+    };
+
+    // 4) サイアーランキング（年なし）→ 同名MAX、前方一致
     const [srRowsRaw] = await conn.execute(
       `SELECT sire_name, MAX(score) AS score
          FROM sire_ranking
@@ -119,18 +137,19 @@ function customScore(horse) {
       return 0;
     };
 
-    // 4〜6) スコア計算 & ベスト選定
+    // 5〜7) スコア計算 & ベスト選定
     const calc = rfRows.map(row => {
       const jScore = jockeyScoreByName(row.jockey);
+      const tScore = trainerScoreByName(row.trainer);
       const sScore = sireScoreByText(row.sire) || 0;
       const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
-      let total = (jScore + sScore + cScore) >>> 0;
+      let total = (jScore + tScore + sScore + cScore) >>> 0;
       if (total === 0) total += row.horse_number; // 0点救済
       return {
         horse_number: row.horse_number,
         horse_name: row.horse_name,
         score: total,
-        breakdown: { jockey: jScore, sire: sScore, custom: cScore },
+        breakdown: { jockey: jScore, trainer: tScore, sire: sScore, custom: cScore },
       };
     });
 
