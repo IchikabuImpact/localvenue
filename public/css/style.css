@@ -284,14 +284,21 @@ header nav a { font-size: 0.9rem; color: var(--link); }
 
 /* Race List (Index) */
 .race-list ul { list-style: none; padding: 0; display: grid; gap: 8px; }
-.race-link { display: grid; grid-template-columns: 80px 1fr 60px; align-items: center; gap: 10px; padding: 12px; background: var(--elev-1); border: 1px solid var(--border); border-radius: 12px; transition: transform .1s; }
+.race-link { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 6px 10px; padding: 12px; background: var(--elev-1); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px; transition: transform .1s; }
 .race-link:hover { transform: translateY(-1px); border-color: var(--accent); text-decoration: none; }
 .race-link .venue { font-weight: 700; color: var(--text); }
 .race-link .pred { font-size: 0.95rem; color: var(--muted); }
-.race-link .status { font-size: 0.85rem; text-align: right; }
-.race-link.win .status { color: var(--ok); font-weight: bold; }
-.race-link.lose .status { color: var(--muted); }
-.race-link.pending .status { color: var(--warn); }
+/* 単勝・複勝バッジ: 2列分を使って下段に並べる */
+.race-link .result-badges { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.race-link .result-badge { padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; border: 1px solid var(--border); background: var(--chip); white-space: nowrap; }
+.race-link .result-badge.hit { color: var(--ok); font-weight: 700; background: color-mix(in oklab, var(--ok) 12%, var(--chip)); border-color: color-mix(in oklab, var(--ok) 35%, var(--border)); }
+.race-link .result-badge.miss { color: var(--muted); }
+.race-link .result-badge.pending { color: var(--warn); }
+/* 左ボーダーで全体の結果を一目で識別 */
+.race-link.win { border-left-color: var(--ok); }
+.race-link.place-hit { border-left-color: var(--accent); }
+.race-link.lose { border-left-color: var(--border); }
+.race-link.pending { border-left-color: var(--warn); }
 
 /* Detail Page */
 .breadcrumb { margin-bottom: 16px; }

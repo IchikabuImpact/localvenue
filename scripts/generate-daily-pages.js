@@ -257,16 +257,32 @@ function purgeOldFiles() {
       const bestName = memo?.best?.horse_name || '';
 
       let statusClass = 'pending';
-      let statusText = '未確定';
-      if (r.win_hit === 1) { statusClass = 'win'; statusText = '的中🎯'; }
-      else if (r.win_hit === 0) { statusClass = 'lose'; statusText = '不的中'; }
+      if (r.win_hit === 1) {
+        statusClass = 'win';
+      } else if (r.place_hit === 1) {
+        statusClass = 'place-hit'; // 複勝のみ的中
+      } else if (r.win_hit === 0) {
+        statusClass = 'lose'; // 結果確定・両外れ
+      }
+
+      const winBadge = r.win_hit === null
+        ? `<span class="result-badge pending">単勝: 未確定</span>`
+        : r.win_hit
+          ? `<span class="result-badge hit">単勝: 的中🎯 (利益: ${r.eval_win_return || 0} YEN)</span>`
+          : `<span class="result-badge miss">単勝: 不的中 (利益: 0 YEN)</span>`;
+
+      const placeBadge = r.place_hit === null
+        ? `<span class="result-badge pending">複勝: 未確定</span>`
+        : r.place_hit
+          ? `<span class="result-badge hit">複勝: 的中🎯 (利益: ${r.eval_place_return || 0} YEN)</span>`
+          : `<span class="result-badge miss">複勝: 不的中 (利益: 0 YEN)</span>`;
 
       const raceItem = `
         <li>
           <a href="${r.race_id}.html" class="race-link ${statusClass}">
             <span class="venue">${venueName} ${parseInt(rr)}R</span>
             <span class="pred">◎ ${best} ${bestName}</span>
-            <span class="status">${statusText}</span>
+            <span class="result-badges">${winBadge}${placeBadge}</span>
           </a>
         </li>
       `;
