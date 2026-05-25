@@ -23,6 +23,8 @@
 
 const axios   = require('axios');
 const cheerio = require('cheerio');
+const { spawn } = require('child_process');
+const path    = require('path');
 const mysql   = require('mysql2/promise');
 
 // -------- 定数 --------
@@ -240,7 +242,20 @@ async function saveToMysql(raceDays) {
     await saveToMysql(raceDays);
     console.log('[INFO] 完了');
   } catch (e) {
-    console.error('[FATAL]', e.message || e);
-    process.exit(1);
+    console.error('[ERROR] keiba.go.jp 取得失敗:', e.message || e);
+
+    // -------- フォールバック: 楽天競馬カレンダー --------
+    const fallbackScript = path.join(__dirname, '001-save-monthly-calendar-rakuten.js');
+    console.warn('[WARN] 楽天競馬カレンダーへフォールバックします...');
+
+    const fallback = spawn(process.execPath, [fallbackScript, ...process.argv.slice(2)], {
+      stdio: 'inherit',
+      cwd: __dirname,
+    });
+    fallback.on('exit', (code) => process.exit(code ?? 1));
+    fallback.on('error', (err) => {
+      console.error('[FATAL] フォールバック起動失敗:', err.message);
+      process.exit(1);
+    });
   }
 })();
