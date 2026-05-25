@@ -172,7 +172,9 @@ function buildEvalPredictionArgs(raceId) {
       return;
     }
     if (code !== 0) {
-      throw new Error(`${path.basename(SCRIPTS.saveResult)} exited with ${code}`);
+      // 1レース失敗してもバッチ全体を止めない（warningして次へ）
+      log(`[warn] 101 exit=${code}: ${raceId} → スキップして続行`);
+      return;
     }
 
     log(`[eval-pred ] ${raceId}`);
@@ -186,7 +188,8 @@ function buildEvalPredictionArgs(raceId) {
       return;
     }
     if (evalCode !== 0) {
-      throw new Error(`${path.basename(SCRIPTS.evalPrediction)} exited with ${evalCode}`);
+      log(`[warn] 102 exit=${evalCode}: ${raceId} → スキップして続行`);
+      return;
     }
   });
 
