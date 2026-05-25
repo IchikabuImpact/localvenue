@@ -86,7 +86,11 @@ const htmlFoot = () => `
 <footer>
   <div class="container">
     <p>&copy; けんちゃん馬券☆WEB （地方競馬）2026</p>
-    <p><a href="/terms.html">ご利用規約</a></p>
+    <p>
+      <a href="/terms.html">ご利用規約</a>
+      &nbsp;|&nbsp;
+      <a href="/privacy-policy.html">プライバシーポリシー</a>
+    </p>
   </div>
 </footer>
 </body>

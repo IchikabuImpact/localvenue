@@ -265,11 +265,14 @@ footer a { color: var(--muted); text-decoration: underline; }
 .footer-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .footer-links a { padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--chip); }
 
-/* Terms page */
+/* Terms / Privacy page */
 .terms-section { margin-bottom: 32px; padding: 20px; background: var(--elev-1); border: 1px solid var(--border); border-radius: 14px; }
 .terms-section h3 { margin: 0 0 12px; font-size: 1rem; color: var(--accent); }
 .terms-section p { margin: 0 0 10px; line-height: 1.8; color: var(--text); }
 .terms-section p:last-child { margin-bottom: 0; }
+.terms-list { margin: 0 0 10px 1.4em; padding: 0; line-height: 1.8; color: var(--text); }
+.terms-list li { margin-bottom: 2px; }
+.terms-date { font-size: 0.85rem; color: var(--muted); text-align: right; margin-top: 8px; }
 
 /* --- Static Pages: Header --- */
 header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 12px 0 8px; }
