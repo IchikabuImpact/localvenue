@@ -63,7 +63,7 @@ const jstTodayYmd = () => {
   return `${y}${m}${d}`;
 };
 
-function runNode(absScript, args = []) {
+function runNodeWithCode(absScript, args = []) {
   return new Promise((resolve, reject) => {
     if (!exists(absScript)) {
       return reject(new Error(`not found: ${absScript}`));
@@ -72,10 +72,15 @@ function runNode(absScript, args = []) {
       stdio: "inherit",
       cwd: BASE,
     });
-    p.on("exit", (code) => {
-      if (code === 0) return resolve();
-      reject(new Error(`${path.basename(absScript)} exited with ${code}`));
-    });
+    p.on("exit", (code) => resolve(code ?? 1));
+    p.on("error", reject);
+  });
+}
+
+function runNode(absScript, args = []) {
+  return runNodeWithCode(absScript, args).then((code) => {
+    if (code === 0) return;
+    throw new Error(`${path.basename(absScript)} exited with ${code}`);
   });
 }
 
@@ -153,10 +158,19 @@ async function eachLimit(items, limit, worker) {
   // [4] 各レースについて 出馬表取り込み → 予想生成 を並列実行
   await eachLimit(raceIds, PARALLEL, async (raceId) => {
     log(`[racing-form] ${raceId}`);
-    await runNode(SCRIPTS.racingForm, [raceId]);
+    const formCode = await runNodeWithCode(SCRIPTS.racingForm, [raceId]);
+    if (formCode !== 0) {
+      // 1レース失敗してもバッチ全体を止めない（warningして次へ）
+      log(`[warn] 004 exit=${formCode}: ${raceId} → スキップして続行`);
+      return;
+    }
 
     log(`[predict    ] ${raceId}`);
-    await runNode(SCRIPTS.predict, [raceId]);
+    const predCode = await runNodeWithCode(SCRIPTS.predict, [raceId]);
+    if (predCode !== 0) {
+      log(`[warn] 005 exit=${predCode}: ${raceId} → スキップして続行`);
+      return;
+    }
   });
 
   log(`=== デイリー予想バッチ完了: ${ymd} ===`);
