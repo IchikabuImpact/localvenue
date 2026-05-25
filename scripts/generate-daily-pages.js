@@ -74,6 +74,7 @@ const htmlHead = (title, opts = {}) => `
     <nav>
       <a href="/index.html">一覧</a>
       <a href="/recovery.html">回収率</a>
+      <a href="/terms.html">ご利用規約</a>
     </nav>
   </div>
 </header>
@@ -85,6 +86,7 @@ const htmlFoot = () => `
 <footer>
   <div class="container">
     <p>&copy; けんちゃん馬券☆WEB （地方競馬）2026</p>
+    <p><a href="/terms.html">ご利用規約</a></p>
   </div>
 </footer>
 </body>
