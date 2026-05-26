@@ -75,6 +75,7 @@ const htmlHead = (title, opts = {}) => `
       <a href="/index.html">一覧</a>
       <a href="/recovery.html">回収率</a>
       <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy-policy.html">プライバシーポリシー</a>
     </nav>
   </div>
 </header>
