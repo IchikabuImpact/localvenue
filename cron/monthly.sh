@@ -42,6 +42,30 @@ echo "[INFO] $(node --version) / nvm loaded"
 
 cd "$PROJECT/scripts"
 
+# [0] 先月以前の external_request_log を削除（当月分のみ保持）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [0] external_request_log クリーンアップ 開始"
+node -e "
+const mysql  = require('mysql2/promise');
+const config = require('../config/config.js');
+(async () => {
+  const conn = await mysql.createConnection({
+    host: config.mysql.host, user: config.mysql.user,
+    password: config.mysql.password, database: config.mysql.database,
+    port: config.mysql.port || 3306,
+  });
+  try {
+    const [r] = await conn.execute(
+      \`DELETE FROM external_request_log
+         WHERE requested_at < DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')\`
+    );
+    console.log('[cleanup] 削除件数:', r.affectedRows, '件');
+  } finally {
+    await conn.end();
+  }
+})().catch(e => { console.warn('[cleanup] 失敗（無視）:', e.message); });
+"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [0] external_request_log クリーンアップ 終了"
+
 # [1] 騎手ランキング（地方 division=3）
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1] 騎手ランキング取得 開始"
 node fetch-jockey-ranking.js --division=3
@@ -65,8 +89,7 @@ for DIST in $DISTANCES; do
     echo "[WARN] 距離 ${DIST}m の取得失敗。次の距離へ続行。"
     SIRE_ERRORS=$((SIRE_ERRORS + 1))
   fi
-  # JBIS への連続アクセスを避けるため少し待機
-  sleep 3
+  # ※ JBIS への待機は jbis-throttle.js が自動制御（7〜9秒）するため sleep 不要
 done
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 種牡馬ランキング取得 終了 (失敗距離: ${SIRE_ERRORS}件)"

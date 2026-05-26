@@ -299,6 +299,27 @@ CREATE TABLE `trainer_ranking` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `external_request_log`
+-- 外部サービスへのHTTPリクエスト履歴（レート制限の監査ログ）
+-- 月次バッチ冒頭で当月より古いレコードを削除するため肥大化しない
+--
+
+DROP TABLE IF EXISTS `external_request_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `external_request_log` (
+  `id`           INT          NOT NULL AUTO_INCREMENT,
+  `service`      VARCHAR(64)  NOT NULL COMMENT '外部サービス識別子 (例: jbis)',
+  `url`          TEXT         NOT NULL COMMENT 'リクエストURL',
+  `success`      TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '成功=1 / 失敗=0',
+  `requested_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_service_time` (`service`, `requested_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='外部APIリクエスト履歴。月次バッチで先月分以前を自動削除。';
+/*!40101 SET client_encoding = @saved_cs_client */;
+
+--
 -- Table structure for table `venue_master`
 --
 

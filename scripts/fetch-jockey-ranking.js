@@ -17,10 +17,11 @@
 
 'use strict';
 
-const axios   = require('axios');
-const cheerio = require('cheerio');
-const mysql   = require('mysql2/promise');
-const config  = require('../config/config.js');
+const axios    = require('axios');
+const cheerio  = require('cheerio');
+const mysql    = require('mysql2/promise');
+const config   = require('../config/config.js');
+const throttle = require('./lib/jbis-throttle');
 
 // -------- 定数 --------
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
@@ -177,7 +178,12 @@ async function save(rows, year) {
   console.log(`[INFO] url=${url}`);
 
   try {
+    // レート制限: 前回リクエストから十分な間隔を空ける
+    await throttle.waitForRateLimit();
+
     const html = await fetchHtml(url);
+    await throttle.logRequest(url, true);
+
     const rows = parse(html);
     console.log(`[INFO] scraped ${rows.length} rows`);
 
@@ -191,6 +197,7 @@ async function save(rows, year) {
       console.log(`  ${r.rank}位: ${r.jockeyName} (score=${101 - r.rank})`)
     );
   } catch (e) {
+    await throttle.logRequest(url, false).catch(() => {});
     console.error('[FATAL]', e.message || e);
     process.exit(1);
   }
