@@ -234,13 +234,24 @@ function parseWinRow($, $table, validNumbers) {
   const $row = $rows.filter((_, tr) => U.norm($(tr).children('th,td').first().text()) === '単勝').first();
   if (!$row.length) return [];
 
-  const num = U.toInt($row.find('td.number').first().text());
-  const money = U.toInt($row.find('td.money').first().text());
-  const pop = U.toInt(($row.find('td.rank').first().text().match(/(\d+)\s*番人気/) || [])[1]);
+  // ★ 同着1着に対応: <br> 区切りで複数頭が並ぶ場合を splitByBr で全頭取得
+  const nums   = U.splitByBr($row.find('td.number').first());
+  const moneys = U.splitByBr($row.find('td.money').first());
+  const ranks  = U.splitByBr($row.find('td.rank').first());
 
-  if (!U.inRangeHorse(num) || !Number.isFinite(money)) return [];
-  if (validNumbers.size && !validNumbers.has(num)) return [];
-  return [{ bet_type: 'WIN', horse_number: num, payout: money, popularity: Number.isFinite(pop) ? pop : null }];
+  const len = Math.max(nums.length, moneys.length);
+  if (len === 0) return [];
+
+  const out = [];
+  for (let i = 0; i < len; i++) {
+    const num   = U.toInt(nums[i]);
+    const money = U.toInt(moneys[i]);
+    const pop   = U.toInt(((ranks[i] || '').match(/(\d+)\s*番人気/) || [])[1]);
+    if (!U.inRangeHorse(num) || !Number.isFinite(money)) continue;
+    if (validNumbers.size && !validNumbers.has(num)) continue;
+    out.push({ bet_type: 'WIN', horse_number: num, payout: money, popularity: Number.isFinite(pop) ? pop : null });
+  }
+  return out;
 }
 
 function parsePlaceRow($, $table, validNumbers) {
