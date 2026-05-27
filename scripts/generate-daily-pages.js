@@ -98,6 +98,15 @@ const htmlFoot = () => `
     </p>
   </div>
 </footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
 </body>
 </html>
 `;
@@ -356,7 +365,7 @@ function purgeOldFiles() {
         recoveryPath: 'recovery.html'
       });
       const detailHeader = `
-        <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
+        <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
         <h2>${venueName} ${parseInt(rr)}R (${r.race_id})</h2>
         <p class="model-info">Model: ${r.model_version}</p>
       `;

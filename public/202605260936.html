@@ -23,7 +23,7 @@
 </header>
 <main class="container">
 
-        <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
+        <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
         <h2>門別 9R (202605260936)</h2>
         <p class="model-info">Model: yosou-v1</p>
       <section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody><tr><td>◎</td><td>6</td><td>コンバットベラ</td><td>160.0000</td></tr><tr><td>○</td><td>8</td><td>シャンノヴァ</td><td>149.0000</td></tr><tr><td>○</td><td>10</td><td>サクラゴールド</td><td>118.0000</td></tr><tr><td>○</td><td>5</td><td>スーパーパーリー</td><td>116.0000</td></tr><tr><td>○</td><td>4</td><td>トムワールド</td><td>80.0000</td></tr></tbody></table></section><section class="result-info"><h3>結果</h3>
@@ -43,5 +43,14 @@
     </p>
   </div>
 </footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
 </body>
 </html>

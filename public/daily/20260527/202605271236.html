@@ -18,12 +18,14 @@
       <a href="/recovery.html">回収率</a>
       <a href="/terms.html">ご利用規約</a>
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </nav>
   </div>
 </header>
 <main class="container">
 
-        <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
+        <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
         <h2>門別 12R (202605271236)</h2>
         <p class="model-info">Model: yosou-v1</p>
       <section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody><tr><td>◎</td><td>5</td><td>センゲントップ</td><td>175.0000</td></tr><tr><td>○</td><td>7</td><td>サヨナキドリ</td><td>165.0000</td></tr><tr><td>○</td><td>1</td><td>ラストボーン</td><td>124.0000</td></tr><tr><td>○</td><td>2</td><td>マノレア</td><td>121.0000</td></tr><tr><td>○</td><td>3</td><td>クーシフォン</td><td>121.0000</td></tr></tbody></table></section>
@@ -35,8 +37,19 @@
       <a href="/terms.html">ご利用規約</a>
       &nbsp;|&nbsp;
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </p>
   </div>
 </footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
 </body>
 </html>

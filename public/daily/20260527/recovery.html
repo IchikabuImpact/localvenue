@@ -18,6 +18,8 @@
       <a href="/recovery.html">回収率</a>
       <a href="/terms.html">ご利用規約</a>
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </nav>
   </div>
 </header>
@@ -54,7 +56,23 @@
           </div>
           <div class="label">05-25</div>
         </div>
+      
+        <div class="chart-bar-group">
+          <div class="bars">
+            <div class="bar single" style="height: 61.81%" title="単: 123.62%"></div>
+            <div class="bar place" style="height: 42.765%" title="複: 85.53%"></div>
+          </div>
+          <div class="label">05-26</div>
+        </div>
       </div><p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p><table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>合計ROI</th><th>投資合計</th></tr></thead><tbody>
+        <tr>
+          <td>2026-05-26</td>
+          <td class="win">123.62%</td>
+          <td class="">85.53%</td>
+          <td class="win">104.57%</td>
+          <td>9400円</td>
+        </tr>
+      
         <tr>
           <td>2026-05-25</td>
           <td class="">38.94%</td>
@@ -95,8 +113,19 @@
       <a href="/terms.html">ご利用規約</a>
       &nbsp;|&nbsp;
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </p>
   </div>
 </footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
 </body>
 </html>

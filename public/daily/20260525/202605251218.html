@@ -22,7 +22,7 @@
 </header>
 <main class="container">
 
-        <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
+        <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
         <h2>浦和 12R (202605251218)</h2>
         <p class="model-info">Model: yosou-v1</p>
       <section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody><tr><td>◎</td><td>5</td><td>ビリーヴィン</td><td>4294967226.0000</td></tr><tr><td>○</td><td>4</td><td>ウォーアンセム</td><td>200.0000</td></tr><tr><td>○</td><td>3</td><td>ロードアスタリスク</td><td>100.0000</td></tr><tr><td>○</td><td>1</td><td>セイノスケ</td><td>89.0000</td></tr><tr><td>○</td><td>2</td><td>ニキ</td><td>88.0000</td></tr></tbody></table></section><section class="result-info"><h3>結果</h3>
@@ -38,5 +38,14 @@
     <p><a href="/terms.html">ご利用規約</a></p>
   </div>
 </footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
 </body>
 </html>
