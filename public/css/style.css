@@ -338,3 +338,11 @@ header nav a { font-size: 0.9rem; color: var(--link); }
 .recovery-table th:first-child, .recovery-table td:first-child { text-align: left; }
 .recovery-table td.win { color: var(--ok); font-weight: bold; }
 
+
+
+/* Contact page */
+.contact-wrap { max-width: 920px; margin: 0 auto; }
+.contact-form-embed { width: 100%; min-height: 860px; border: 0; border-radius: 12px; background: var(--panel); }
+@media (min-width: 768px) {
+  .contact-form-embed { min-height: 780px; }
+}

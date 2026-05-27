@@ -76,6 +76,8 @@ const htmlHead = (title, opts = {}) => `
       <a href="/recovery.html">回収率</a>
       <a href="/terms.html">ご利用規約</a>
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </nav>
   </div>
 </header>
@@ -91,6 +93,8 @@ const htmlFoot = () => `
       <a href="/terms.html">ご利用規約</a>
       &nbsp;|&nbsp;
       <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
     </p>
   </div>
 </footer>
