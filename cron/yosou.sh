@@ -19,11 +19,19 @@ LOG=$PROJECT/logs/yosou.log
 export HOME=${HOME:-/home/ichikabu}
 export USER=${USER:-ichikabu}
 
+# exec より前のキャナリーログ（/tmp に書く → 失敗しても無音にならない）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] yosou.sh ENTRY HOME=$HOME PROJECT=$PROJECT" \
+  >> /tmp/yosou-canary.log 2>/dev/null
+
 # ログディレクトリを最初に確保（exec より前に必要）
-mkdir -p "$PROJECT/logs"
+mkdir -p "$PROJECT/logs" \
+  || { echo "[$(date '+%Y-%m-%d %H:%M:%S')] mkdir FAILED" >> /tmp/yosou-canary.log; exit 1; }
 
 # 以降の全 stdout/stderr をログへ集約（cron のメール通知を完全に抑止）
 exec >> "$LOG" 2>&1
+
+# exec 直後の確認ログ（ここが書けなければ exec redirect が失敗している）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] exec redirect OK"
 
 echo "========================================"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 朝バッチ 開始"
