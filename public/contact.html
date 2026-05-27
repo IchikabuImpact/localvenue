@@ -24,7 +24,24 @@
   <section class="contact-wrap">
     <h2>お問い合わせ</h2>
     <p>ご意見・ご質問は以下のフォームよりお送りください。</p>
-    <iframe class="contact-form-embed" src="https://docs.google.com/forms/d/e/1FAIpQLSfk0D6zy6AehvSKKVFz2nQE6AfA3ef8ul8sckSVPEvDSJW7pg/viewform?embedded=true" width="640" height="754" frameborder="0" marginheight="0" marginwidth="0">読み込んでいます…</iframe>
+
+    <p class="contact-fallback-note">
+      もし埋め込みフォームが表示されない場合は、
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfk0D6zy6AehvSKKVFz2nQE6AfA3ef8ul8sckSVPEvDSJW7pg/viewform" target="_blank" rel="noopener noreferrer">こちらからGoogleフォームを開いてください</a>。
+    </p>
+
+    <iframe
+      class="contact-form-embed"
+      src="https://docs.google.com/forms/d/e/1FAIpQLSfk0D6zy6AehvSKKVFz2nQE6AfA3ef8ul8sckSVPEvDSJW7pg/viewform?embedded=true"
+      width="640"
+      height="754"
+      frameborder="0"
+      marginheight="0"
+      marginwidth="0"
+      referrerpolicy="strict-origin-when-cross-origin"
+      loading="lazy"
+      title="お問い合わせフォーム"
+    >読み込んでいます…</iframe>
   </section>
 </main>
 <footer>
@@ -39,14 +56,5 @@
     </p>
   </div>
 </footer>
-<script>
-(function () {
-  var topUrl = new URL('/index.html', window.location.origin).toString();
-  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
-    a.setAttribute('href', topUrl);
-    a.setAttribute('data-top-link', '1');
-  });
-})();
-</script>
 </body>
 </html>
