@@ -356,7 +356,7 @@ function purgeOldFiles() {
         recoveryPath: 'recovery.html'
       });
       const detailHeader = `
-        <div class="breadcrumb"><a href="index.html">&lt; 一覧へ戻る</a></div>
+        <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
         <h2>${venueName} ${parseInt(rr)}R (${r.race_id})</h2>
         <p class="model-info">Model: ${r.model_version}</p>
       `;
