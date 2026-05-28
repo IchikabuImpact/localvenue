@@ -20,6 +20,9 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] autoupdate 開始" >> "$LOG"
 
 cd "$PROJECT"
 
+# リモートの変更を先に取り込む（VPS等から別途pushされた場合の競合を防ぐ）
+/usr/bin/git pull --rebase -X ours origin main >> "$LOG" 2>&1
+
 /usr/bin/git add .
 if /usr/bin/git diff --cached --quiet; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] git: 変更なし、push スキップ" >> "$LOG"
