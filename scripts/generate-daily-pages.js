@@ -111,6 +111,14 @@ const htmlFoot = () => `
 </html>
 `;
 
+
+function stripMergeConflictMarkers(html) {
+  return String(html)
+    .split('\n')
+    .filter(line => !/^<{7} .+|^={7}$|^>{7} .+/.test(line.trim()))
+    .join('\n');
+}
+
 function safeJSON(raw) {
   if (!raw) return null;
   if (typeof raw === 'string') { try { return JSON.parse(raw); } catch { return null; } }
@@ -343,8 +351,8 @@ function purgeOldFiles() {
 
     indexHtml += htmlFoot();
     indexHtmlDaily += htmlFoot();
-    fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), indexHtml, 'utf8');
-    fs.writeFileSync(path.join(currentDailyDir, 'index.html'), indexHtmlDaily, 'utf8');
+    fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), stripMergeConflictMarkers(indexHtml), 'utf8');
+    fs.writeFileSync(path.join(currentDailyDir, 'index.html'), stripMergeConflictMarkers(indexHtmlDaily), 'utf8');
     console.log('[GEN] index.html');
 
 
@@ -411,8 +419,8 @@ function purgeOldFiles() {
 
       detailHtml += htmlFoot();
       detailHtmlDaily += htmlFoot();
-      fs.writeFileSync(path.join(PUBLIC_DIR, `${r.race_id}.html`), detailHtml, 'utf8');
-      fs.writeFileSync(path.join(currentDailyDir, `${r.race_id}.html`), detailHtmlDaily, 'utf8');
+      fs.writeFileSync(path.join(PUBLIC_DIR, `${r.race_id}.html`), stripMergeConflictMarkers(detailHtml), 'utf8');
+      fs.writeFileSync(path.join(currentDailyDir, `${r.race_id}.html`), stripMergeConflictMarkers(detailHtmlDaily), 'utf8');
     }
     console.log(`[GEN] ${races.length} race pages`);
 
@@ -498,8 +506,8 @@ function purgeOldFiles() {
     recHtmlDaily += `</tbody></table>`;
     recHtml += htmlFoot();
     recHtmlDaily += htmlFoot();
-    fs.writeFileSync(path.join(PUBLIC_DIR, 'recovery.html'), recHtml, 'utf8');
-    fs.writeFileSync(path.join(currentDailyDir, 'recovery.html'), recHtmlDaily, 'utf8');
+    fs.writeFileSync(path.join(PUBLIC_DIR, 'recovery.html'), stripMergeConflictMarkers(recHtml), 'utf8');
+    fs.writeFileSync(path.join(currentDailyDir, 'recovery.html'), stripMergeConflictMarkers(recHtmlDaily), 'utf8');
     console.log('[GEN] recovery.html');
     purgeOldFiles();
 
