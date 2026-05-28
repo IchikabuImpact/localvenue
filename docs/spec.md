@@ -1,83 +1,101 @@
 # LocalVenue 現状仕様 (As-Is)
 
-最終更新: 2026-05-20
-
-この文書は「現状把握」を目的に、ソースコードから読み取れる運用フロー・責務・不足点を整理したものです。Claude などとの並行作業時は、本ドキュメントを起点にタスク分割してください。
+最終更新: 2026-05-28
 
 ---
 
 ## 1. システムの目的
 
-- NAR/楽天競馬由来のデータを取得し、MySQL に蓄積する。
-- 予想ロジックを実行し、予想データを保存する。
-- 保存済みデータから静的 HTML を生成し、`public/` に出力する。
+- NAR/楽天競馬由来のデータを取得し、MySQLに蓄積する
+- スコアリングロジックで予想を生成し、DBに保存する
+- 保存済みデータから静的HTMLを生成し、`public/` に出力する
+- git push → VPS git pull の仕組みで自動公開する
 
 ---
 
-## 2. 現在の主要バッチ
+## 2. バッチ構成
 
-### 2.1 予想系デイリーバッチ
-- エントリポイント: `scripts/daily-yosou-batch.js`
-- 概要:
-  1. 開催情報収集
-  2. レースID列挙
-  3. 出馬表保存
-  4. 予想作成
+### 2.1 予想バッチ（朝）
+- エントリポイント: `cron/yosou.sh` → `scripts/daily-yosou-batch.js`
+- 実行順: 001（カレンダー）→ 002（レース数）→ 003（race_id列挙）→ 004+005（出馬表+予想、並列2）
+- 完了後: `generate-daily-pages.js`（HTML生成）→ `autoupdate.sh`（push）
+- cron: 7:55 / 8:00 / 10:10〜20:40（30分おき）
 
-### 2.2 結果系バッチ
-- 単レース結果収集: `scripts/101-save-result-db.js`
-- 予想評価: `scripts/102-eval-prediction.js`
-- ROI評価: `scripts/103-eval-roi.js`
-- 日次一括ラッパー: `scripts/daily-result-batch.js`（結果取得→予想評価→日次ROI集計）。
+### 2.2 結果バッチ（夜）
+- エントリポイント: `cron/result.sh` → `scripts/daily-result-batch.js`
+- 実行順: 003 → 101（結果）→ 102（評価）→ 103（ROI）→ 104（日次集計）→ HTML生成
+- 完了後: `autoupdate.sh`（push）
+- cron: 10:30〜21:00（30分おき、予想バッチの20分後）
+- 101 exit 2（未確定）/ 102 exit 2（予想なし）/ exit 3（結果なし）はスキップして続行
 
-### 2.3 静的ページ生成バッチ
+### 2.3 月次バッチ
+- エントリポイント: `cron/monthly.sh`
+- 実行内容: external_request_logクリーンアップ → 騎手ランキング → 種牡馬ランキング（距離別）
+- cron: 毎月1日 3:00
+
+### 2.4 静的ページ生成
 - エントリポイント: `scripts/generate-daily-pages.js`
-- 出力先: `public/`
-- 補助:
-  - `scripts/server.js` でローカルプレビュー可能
+- 出力: `public/index.html` / `public/recovery.html` / `public/YYYYMMDDRRBB.html` / `public/daily/YYYYMMDD/`
+- 保持期間: `config.htmlRetentionDays`（デフォルト30日）を超えた日付のファイルを自動削除
 
 ---
 
-## 3. 次ステップ（運用方針）
+## 3. 予想ロジック（yosou-v1）
 
-次フェーズでは、以下を標準運用にする。
+`scripts/005-predict-race.js` によるスコアリング。Claude等の外部AIは不使用。
 
-1. **毎日バッチを実行して静的 HTML を生成**する。
-2. 生成物を **VPS (Rocky Linux) 側へ rsync/scp 配備**する。
-3. VPS はアプリ実行基盤ではなく、原則 **静的配信基盤**として扱う。
+| 要素 | 内容 |
+|------|------|
+| 騎手スコア | jockey_ranking と頭3文字前方一致 |
+| 調教師スコア | trainer_ranking と前方一致 |
+| 種牡馬スコア | sire_ranking と前方一致 |
+| 偶数馬番ボーナス | 馬番の値をそのまま加算 |
+| 年齢ボーナス | 2歳+40 / 3歳+30 / 4歳+20 |
 
-これにより、VPS 側の可動部を減らし、障害切り分けを「バッチ生成」か「配信」へ単純化する。
-
----
-
-## 4. 並行開発向けの作業分割例
-
-- A担当（データ取得）:
-  - `scripts/001`〜`005`, `daily-yosou-batch.js`
-- B担当（結果・評価）:
-  - `scripts/101`〜`104`
-- C担当（Web生成/配信）:
-  - `scripts/generate-daily-pages.js`, `public/`, デプロイスクリプト
-- D担当（DB/運用ドキュメント）:
-  - `data/schema.sql`, `data/seed-master.sql`, `docs/`
+- 最高得点1頭を `best`（◎）に選出
+- 全頭スコアを `prediction.memo.items` JSON に格納
+- 上位5頭を `○` として表示
 
 ---
 
-## 5. 現状ギャップ
+## 4. 評価・ROI集計
 
-- 「予想 → 結果 → 評価 → HTML生成」を1コマンドで日次実行する統合ジョブがない。
-- 本番配備手順が README に十分整理されていなかった（今回追記対象）。
-- 障害時の再実行単位（当日分のみ、特定会場のみ等）の運用ルールが文書化不足。
+- `prediction_eval`: race_idごとの単勝・複勝的中フラグと払戻額
+- `prediction_roi`: strategy（single/place）別の累積ROI
+- `prediction_roi_daily`: 日次ROI（ymd × strategy）
+
+現在の評価対象: **単勝（single）・複勝（place）の2種**
 
 ---
 
-## 6. 推奨ドキュメント運用
+## 5. デプロイ構成
 
-- 本書 (`docs/spec.md`): 現状仕様（As-Is）
-- `README.md`: セットアップ/運用手順（How-To）
-- `docs/DB_CONTEXT.md`: DBのスナップショット（参照専用）
-- `docs/VENUE_CODES.md`: コード体系の定義
+```
+AK1PLUS（バッチ機） → GitHub（main）← git push
+VPS（公開機）       → GitHub（main）→ git pull（cron 30分おき）
+```
 
-更新ルール:
-- スクリプト追加・リネーム時は README と本書の両方を更新する。
-- 日次運用変更（cron, systemd, rsync先変更）時は README の運用章を更新する。
+- `autoupdate.sh` は push 前に `git pull --rebase -X ours` を実行
+- VPS側から手動バッチを実行してpushした場合も、次回AK1PLUSのautoupdate時に自動吸収
+
+---
+
+## 6. JBIS スロットル制御
+
+- `scripts/lib/jbis-throttle.js` が JBIS へのリクエスト間隔を制御
+- 最低間隔: 7秒 + ランダムジッター 0〜2秒（WAF対策）
+- リクエスト履歴を `external_request_log` テーブルに記録
+- monthly.sh が毎月1日に当月以前のログを削除
+
+---
+
+## 7. 今後の拡張予定
+
+### 馬複5頭ボックス予想（次セッション）
+- `prediction.memo.items` 上位5頭で馬複ボックス10点購入を想定
+- 追加が必要なもの:
+  - `102-eval-prediction.js`: 馬複的中判定ロジック
+  - `prediction_roi` の strategy: `quinella` を追加
+  - `104-aggregate-roi-daily.js`: quinella集計
+  - `generate-daily-pages.js`: 馬複結果表示
+  - `prediction_eval`: 馬複用カラム追加（schema変更）
