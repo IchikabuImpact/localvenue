@@ -439,7 +439,10 @@ function purgeOldFiles() {
     // 日付ごとのまとめ
     const dateStats = new Map();
     for (const s of stats) {
-      const dStr = s.ymd instanceof Date ? s.ymd.toISOString().slice(0, 10) : String(s.ymd);
+      // JST offset +9h を加算してからスライス（toISOString はUTC返しのため1日ずれる）
+      const dStr = s.ymd instanceof Date
+        ? new Date(s.ymd.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+        : String(s.ymd).slice(0, 10);
       if (!dateStats.has(dStr)) dateStats.set(dStr, {});
       dateStats.get(dStr)[s.strategy] = s;
     }
