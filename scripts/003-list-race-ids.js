@@ -17,61 +17,32 @@
  * @license Commercial use prohibited without permission.
  */
 
-const mysql = require("mysql2/promise");
+'use strict';
+
+const config = require('../config/config.js');
+const { parseYmdArg } = require('./lib/race-id/validate-ymd');
+const { MySqlRaceIdRepository } = require('./lib/race-id/mysql-race-id-repository');
+const { ListRaceIdsUseCase } = require('./lib/race-id/list-race-ids-use-case');
 
 (async () => {
-  const ymd = process.argv[2];
-
-  if (!/^\d{8}$/.test(ymd || "")) {
-    console.error("Usage: node 003-list-race-ids.js YYYYMMDD");
+  let ymd;
+  try {
+    ymd = parseYmdArg(process.argv);
+  } catch (e) {
+    console.error(e.message);
     process.exit(1);
   }
 
-  const config = require("../config/config.js");
-  let conn;
+  const useCase = new ListRaceIdsUseCase({
+    raceIdRepository: new MySqlRaceIdRepository({ mysqlConfig: config.mysql }),
+    output: raceId => console.log(raceId),
+    logger: console,
+  });
 
   try {
-    conn = await mysql.createConnection({
-      host: config.mysql.host,
-      user: config.mysql.user,
-      password: config.mysql.password,
-      database: config.mysql.database,
-      port: config.mysql.port,
-    });
-
-    // race_count_by_date から対象日の会場別レース数を取得
-    const [rows] = await conn.execute(
-      `
-      SELECT venue_code, total_races
-      FROM race_count_by_date
-      WHERE ymd = ?
-      ORDER BY venue_code
-      `,
-      [ymd]
-    );
-
-    if (rows.length === 0) {
-      console.error(`(warn) race_count_by_date に ${ymd} のデータがありません。`);
-      // ここで終了しても daily-yosou-batch 側は「0件」で止まるので問題なし
-      return;
-    }
-
-    // race_id 生成: YYYYMMDD + RR(2桁) + venue_code(2桁)
-    for (const row of rows) {
-      const vc = String(row.venue_code).padStart(2, "0");
-      const maxR = Number(row.total_races) || 0;
-      for (let rr = 1; rr <= maxR; rr++) {
-        const rr2 = String(rr).padStart(2, "0");
-        const raceId = `${ymd}${rr2}${vc}`;
-        console.log(raceId);
-      }
-    }
+    await useCase.execute({ ymd });
   } catch (e) {
-    console.error("[fatal] 003-list-race-ids:", e.message || e);
+    console.error('[fatal] 003-list-race-ids:', e.message || e);
     process.exit(1);
-  } finally {
-    if (conn) {
-      try { await conn.end(); } catch { }
-    }
   }
 })();
