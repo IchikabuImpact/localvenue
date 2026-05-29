@@ -41,7 +41,21 @@ function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order 
   });
 }
 
-function buildSireRankingUrl(distance, now = new Date()) {
+// 馬場状態コード（JBIS の condition パラメータ値 → ラベル）
+const TRACK_CONDITION_MAP = {
+  1: 'all',  // 総合（全馬場）
+  2: '良',
+  3: '稍重',
+  4: '重',
+  5: '不良',
+};
+
+// ラベル→コードの逆引き
+const TRACK_CONDITION_CODES = Object.fromEntries(
+  Object.entries(TRACK_CONDITION_MAP).map(([k, v]) => [v, Number(k)])
+);
+
+function buildSireRankingUrl(distance, conditionCode = 1, now = new Date()) {
   const yTo = now.getFullYear();
   const yFrom = yTo - 1;
   const y2 = yTo - 2;
@@ -62,7 +76,7 @@ function buildSireRankingUrl(distance, now = new Date()) {
     hold: '0',
     corse1: '',
     corse2: '',
-    condition: '1',
+    condition: String(conditionCode),
     distance_f: String(distance),
     distance_t: String(distance),
     horse: '',
@@ -190,20 +204,20 @@ async function savePeopleRanking(rows, { year, table, nameColumn, nameKey, mysql
   }
 }
 
-async function saveSireRanking(rows, { distance, mysqlClient = mysql, appConfig }) {
+async function saveSireRanking(rows, { distance, trackCondition = 'all', mysqlClient = mysql, appConfig }) {
   if (!rows.length) return 0;
   const conn = await createRankingConnection(mysqlClient, appConfig);
   try {
     await conn.beginTransaction();
     const sql = `
-      INSERT INTO sire_ranking (distance_m, sire_id, sire_name, score)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO sire_ranking (distance_m, sire_id, sire_name, score, track_condition)
+      VALUES (?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
-        sire_name = VALUES(sire_name),
-        score     = VALUES(score)
+        sire_name       = VALUES(sire_name),
+        score           = VALUES(score)
     `;
     for (const row of rows) {
-      await conn.execute(sql, [distance, row.sireId, row.sireName, scoreFromRank(row.rank)]);
+      await conn.execute(sql, [distance, row.sireId, row.sireName, scoreFromRank(row.rank), trackCondition]);
     }
     await conn.commit();
     return rows.length;
@@ -216,6 +230,8 @@ async function saveSireRanking(rows, { distance, mysqlClient = mysql, appConfig 
 }
 
 module.exports = {
+  TRACK_CONDITION_MAP,
+  TRACK_CONDITION_CODES,
   buildPeopleRankingUrl,
   buildRankingUrl,
   buildSireRankingUrl,

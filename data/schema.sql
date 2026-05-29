@@ -279,7 +279,8 @@ CREATE TABLE `sire_ranking` (
   `sire_id` bigint NOT NULL,
   `sire_name` varchar(255) NOT NULL,
   `score` int NOT NULL,
-  PRIMARY KEY (`distance_m`,`sire_id`)
+  `track_condition` varchar(10) NOT NULL DEFAULT 'all',
+  PRIMARY KEY (`distance_m`,`sire_id`,`track_condition`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
