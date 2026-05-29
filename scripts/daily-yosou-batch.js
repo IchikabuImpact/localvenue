@@ -18,9 +18,9 @@
  *   node daily-yosou-batch.js 20251116  // 指定日の開催分を対象（YYYYMMDD）
  */
 
-const { spawn } = require("child_process");
-const fs = require("fs");
 const path = require("path");
+const { createBatchLogger, createNodeRunner, eachLimit, listRaceIds } = require('./lib/batch/batch-utils');
+const { parseYmdOrToday } = require('./lib/shared/date-utils');
 
 const NODE_BIN = process.env.NODE_BIN || "node";
 const PARALLEL = Math.max(1, Number(process.env.PARALLEL || 2));
@@ -37,104 +37,16 @@ const SCRIPTS = {
   predict: path.join(BASE, "005-predict-race.js"),
 };
 
-const ts = () => {
-  const d = new Date();
-  const pad = (n, z = 2) => String(n).padStart(z, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
-
-const log = (m) => console.log(`[${ts()}] ${m}`);
-
-const exists = (p) => {
-  try {
-    fs.accessSync(p, fs.constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// JST 今日を YYYYMMDD で返す
-const jstTodayYmd = () => {
-  const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  const y = jst.getUTCFullYear();
-  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(jst.getUTCDate()).padStart(2, "0");
-  return `${y}${m}${d}`;
-};
-
-function runNodeWithCode(absScript, args = []) {
-  return new Promise((resolve, reject) => {
-    if (!exists(absScript)) {
-      return reject(new Error(`not found: ${absScript}`));
-    }
-    const p = spawn(NODE_BIN, [absScript, ...args], {
-      stdio: "inherit",
-      cwd: BASE,
-    });
-    p.on("exit", (code) => resolve(code ?? 1));
-    p.on("error", reject);
-  });
-}
-
-function runNode(absScript, args = []) {
-  return runNodeWithCode(absScript, args).then((code) => {
-    if (code === 0) return;
-    throw new Error(`${path.basename(absScript)} exited with ${code}`);
-  });
-}
-
-function runCaptureNode(absScript, args = []) {
-  return new Promise((resolve, reject) => {
-    if (!exists(absScript)) {
-      return reject(new Error(`not found: ${absScript}`));
-    }
-    const p = spawn(NODE_BIN, [absScript, ...args], {
-      stdio: ["ignore", "pipe", "inherit"],
-      cwd: BASE,
-    });
-    let out = "";
-    p.stdout.on("data", (b) => (out += b.toString()));
-    p.on("exit", (c) => {
-      if (c === 0) return resolve(out);
-      reject(new Error(`${path.basename(absScript)} exited with ${c}`));
-    });
-  });
-}
-
-async function listRaceIds(ymd) {
-  const out = await runCaptureNode(SCRIPTS.listRaceIds, [ymd]);
-  return out
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-async function eachLimit(items, limit, worker) {
-  let i = 0;
-  let active = 0;
-  return new Promise((resolve, reject) => {
-    const next = () => {
-      if (i >= items.length && active === 0) return resolve();
-      while (active < limit && i < items.length) {
-        const idx = i++;
-        active++;
-        Promise.resolve(worker(items[idx], idx))
-          .then(() => {
-            active--;
-            next();
-          })
-          .catch(reject);
-      }
-    };
-    next();
-  });
-}
+const log = createBatchLogger();
+const { runCaptureNode, runNode, runNodeWithCode } = createNodeRunner({
+  nodeBin: NODE_BIN,
+  cwd: BASE,
+});
 
 (async () => {
   // 引数に YYYYMMDD が来ていればそれを使い、なければ JST 今日
   const ymdArg = process.argv[2] || "";
-  const ymd = /^\d{8}$/.test(ymdArg) ? ymdArg : jstTodayYmd();
+  const ymd = parseYmdOrToday(ymdArg);
 
   log(`=== デイリー予想バッチ開始: ${ymd} (並列: ${PARALLEL}) ===`);
 
@@ -148,7 +60,7 @@ async function eachLimit(items, limit, worker) {
 
   // [3] 当日全レースの race_id を取得
   log(`[3] ${path.basename(SCRIPTS.listRaceIds)} ${ymd}`);
-  const raceIds = await listRaceIds(ymd);
+  const raceIds = await listRaceIds(runCaptureNode, SCRIPTS.listRaceIds, ymd);
   log(`[3] 取得RACEID: ${raceIds.length}件`);
   if (raceIds.length === 0) {
     log("本日レースなし。終了。");

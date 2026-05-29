@@ -30,14 +30,8 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const config = require('../config/config.js');
-
-const jstTodayYmd = () => {
-  const jst = new Date(Date.now() + 9 * 3600 * 1000);
-  const y = jst.getUTCFullYear();
-  const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(jst.getUTCDate()).padStart(2, '0');
-  return `${y}${m}${d}`;
-};
+const { jstTodayYmd } = require('./lib/shared/date-utils');
+const { buildCutoffYmdFromBaseYmd, safeJSON, stripMergeConflictMarkers } = require('./lib/pagegen/page-utils');
 
 const ymdArg = process.argv[2] || jstTodayYmd();
 const modelArg = process.argv[3] || null;
@@ -112,32 +106,8 @@ const htmlFoot = () => `
 `;
 
 
-function stripMergeConflictMarkers(html) {
-  return String(html)
-    .split('\n')
-    .filter(line => !/^<{7} .+|^={7}$|^>{7} .+/.test(line.trim()))
-    .join('\n');
-}
-
-function safeJSON(raw) {
-  if (!raw) return null;
-  if (typeof raw === 'string') { try { return JSON.parse(raw); } catch { return null; } }
-  if (Buffer.isBuffer(raw)) { try { return JSON.parse(raw.toString('utf8')); } catch { return null; } }
-  return raw;
-}
-
 function buildCutoffYmd(days = 30) {
-  const base = new Date(Date.UTC(
-    Number(ymdArg.slice(0, 4)),
-    Number(ymdArg.slice(4, 6)) - 1,
-    Number(ymdArg.slice(6, 8)),
-    0, 0, 0
-  ));
-  base.setUTCDate(base.getUTCDate() - days);
-  const y = base.getUTCFullYear();
-  const m = String(base.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(base.getUTCDate()).padStart(2, '0');
-  return `${y}${m}${d}`;
+  return buildCutoffYmdFromBaseYmd(ymdArg, days);
 }
 
 function purgeOldFiles() {
