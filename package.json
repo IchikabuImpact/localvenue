@@ -18,7 +18,8 @@
     "db:dump": "node scripts/dump-db-context.js",
     "serve": "node scripts/server.js",
     "result": "node scripts/daily-result-batch.js",
-    "result:date": "node scripts/daily-result-batch.js"
+    "result:date": "node scripts/daily-result-batch.js",
+    "test:unit": "node --test tests/unit/**/*.test.js"
   },
   "dependencies": {
     "axios": "^1.10.0",
