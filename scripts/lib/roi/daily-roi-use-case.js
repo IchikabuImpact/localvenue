@@ -21,8 +21,9 @@ class AggregateDailyRoiUseCase {
           const entry = dailyRows.filter(d => d.model_version === ver);
           this.logger.log(`[Model: ${ver}]`);
           entry.forEach(d => this.logger.log(`  - ${d.strategy.padEnd(6)}: ${d.races} races, invest ${d.invest_yen}, return ${d.return_yen}, ROI ${d.roi_percent}%`));
-          if (!entry.some(d => d.strategy === 'single')) this.logger.warn(`  [WARN] Missing 'single' strategy for ${ver}`);
-          if (!entry.some(d => d.strategy === 'place')) this.logger.warn(`  [WARN] Missing 'place' strategy for ${ver}`);
+          if (!entry.some(d => d.strategy === 'single'))   this.logger.warn(`  [WARN] Missing 'single' strategy for ${ver}`);
+          if (!entry.some(d => d.strategy === 'place'))    this.logger.warn(`  [WARN] Missing 'place' strategy for ${ver}`);
+          if (!entry.some(d => d.strategy === 'quinella')) this.logger.warn(`  [WARN] Missing 'quinella' strategy for ${ver}`);
         }
       }
       this.logger.log('[OK] Aggregation completed.');

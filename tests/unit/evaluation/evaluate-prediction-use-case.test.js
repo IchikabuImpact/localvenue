@@ -103,3 +103,39 @@ test('stake未指定の場合はROI行が空', async () => {
   await useCase.execute({ raceId: '202605230131' }); // stakeWin・stakePlace省略 → 0
   assert.equal(roiSaved.length, 0);
 });
+
+// ── 馬複 stakeQuinella ────────────────────────────────────────────
+test('stakeQuinella指定時にquinella ROI行が保存される', async () => {
+  const roiSaved = [];
+  const useCase = new EvaluatePredictionUseCase({
+    logger: silentLogger(),
+    evaluationRepository: makeRepo({
+      findLatestPrediction: async () => ({
+        model_version: 'yosou-v1',
+        created_at: new Date('2026-05-29T00:00:00Z'),
+        memo: {
+          best: { horse_number: 1 },
+          items: [
+            { horse_number: 1, score: 100 }, { horse_number: 3, score: 90 },
+            { horse_number: 5, score: 80 },  { horse_number: 7, score: 70 },
+          ],
+        },
+      }),
+      findResultRows: async () => [
+        { horse_number: 1, horse_name: 'A', official_finish_position: 1 },
+        { horse_number: 3, horse_name: 'B', official_finish_position: 2 },
+      ],
+      findPayoutRows: async () => [
+        { bet_type: 'WIN',      horse_number: 1,   payout: 200 },
+        { bet_type: 'QUINELLA', horse_number: 103,  payout: 800 }, // 1と3
+      ],
+      upsertPredictionROI: async row => roiSaved.push(row),
+    }),
+  });
+
+  await useCase.execute({ raceId: '202605230131', stakeQuinella: 100 });
+  const qRow = roiSaved.find(r => r.strategy === 'quinella');
+  assert.ok(qRow, 'quinella ROI行が存在する');
+  assert.equal(qRow.stake, 600);    // 6票 × 100円
+  assert.equal(qRow.returned, 800); // 的中 = payout × 100/100
+});

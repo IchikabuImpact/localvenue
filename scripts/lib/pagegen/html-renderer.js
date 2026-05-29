@@ -62,12 +62,19 @@ function htmlFoot() {
 
 function renderRoiCards(dailyRoi) {
   if (!dailyRoi.length) return `<p>集計データなし</p>`;
-  const single = dailyRoi.find(d => d.strategy === 'single') || {};
-  const place  = dailyRoi.find(d => d.strategy === 'place')  || {};
-  const totalInvest = (Number(single.invest_yen) || 0) + (Number(place.invest_yen) || 0);
-  const totalReturn = (Number(single.return_yen) || 0) + (Number(place.return_yen) || 0);
+  const single   = dailyRoi.find(d => d.strategy === 'single')   || {};
+  const place    = dailyRoi.find(d => d.strategy === 'place')    || {};
+  const quinella = dailyRoi.find(d => d.strategy === 'quinella') || {};
+  const totalInvest = (Number(single.invest_yen) || 0) + (Number(place.invest_yen) || 0) + (Number(quinella.invest_yen) || 0);
+  const totalReturn = (Number(single.return_yen) || 0) + (Number(place.return_yen) || 0) + (Number(quinella.return_yen) || 0);
   const totalRoi    = totalInvest > 0 ? Math.round(totalReturn / totalInvest * 10000) / 100 : null;
   const totalRoiStr = totalRoi !== null ? totalRoi.toFixed(2) : '---';
+  const quinellaCard = quinella.races
+    ? `<div class="card ${Number(quinella.roi_percent) >= 100 ? 'good' : ''}">
+        <h3>馬複4頭</h3>
+        <p class="roi-val">${quinella.roi_percent || '---'}%</p>
+        <p class="roi-detail">${quinella.return_yen || 0} / ${quinella.invest_yen || 0}円 (${quinella.races || 0}R)</p>
+      </div>` : '';
   return `
     <div class="card ${Number(single.roi_percent) >= 100 ? 'good' : ''}">
       <h3>単勝</h3>
@@ -79,10 +86,11 @@ function renderRoiCards(dailyRoi) {
       <p class="roi-val">${place.roi_percent || '---'}%</p>
       <p class="roi-detail">${place.return_yen || 0} / ${place.invest_yen || 0}円 (${place.races || 0}R)</p>
     </div>
+    ${quinellaCard}
     <div class="card total ${totalRoi !== null && totalRoi >= 100 ? 'good' : ''}">
       <h3>合計</h3>
       <p class="roi-val">${totalRoiStr}%</p>
-      <p class="roi-detail">${totalReturn} / ${totalInvest}円 (${single.races || 0}R)</p>
+      <p class="roi-detail">${totalReturn} / ${totalInvest}円</p>
     </div>
   `;
 }
@@ -112,12 +120,18 @@ function renderRaceListItem(race, venueMap) {
       ? `<span class="result-badge hit">複勝: 的中🎯 (利益: ${race.eval_place_return || 0} YEN)</span>`
       : `<span class="result-badge miss">複勝: 不的中 (利益: 0 YEN)</span>`;
 
+  const quinellaBadge = race.quinella_hit === null || race.quinella_hit === undefined
+    ? ''
+    : race.quinella_hit
+      ? `<span class="result-badge hit">馬複: 的中🎯 (利益: ${race.eval_quinella_return || 0} YEN)</span>`
+      : `<span class="result-badge miss">馬複: 不的中</span>`;
+
   return `
     <li>
       <a href="${race.race_id}.html" class="race-link ${statusClass}">
         <span class="venue">${venueName} ${parseInt(rr)}R</span>
         <span class="pred">◎ ${best} ${bestName}</span>
-        <span class="result-badges">${winBadge}${placeBadge}</span>
+        <span class="result-badges">${winBadge}${placeBadge}${quinellaBadge}</span>
       </a>
     </li>
   `;
@@ -170,10 +184,18 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
   }
   html += `</tbody></table></section>`;
   if (race.win_hit !== null) {
+    // 馬複top4の表示（memo.itemsから上位4頭を取得）
+    const top4 = items.length >= 2
+      ? [...items].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 4).map(i => i.horse_number)
+      : [];
+    const quinellaRow = top4.length >= 2
+      ? `<dt>馬複4頭</dt><dd>対象: ${top4.join('・')}番 ${race.quinella_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${race.eval_quinella_return || 0} YEN)</dd>`
+      : '';
     html += `<section class="result-info"><h3>結果</h3>
       <dl>
         <dt>単勝</dt><dd>${race.win_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${race.eval_win_return || 0} YEN)</dd>
         <dt>複勝</dt><dd>${race.place_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${race.eval_place_return || 0} YEN)</dd>
+        ${quinellaRow}
       </dl>
     </section>`;
   }
@@ -198,18 +220,19 @@ function renderRecoveryPage({ isoDate, dateStats, cssPath = 'css/style.css' }) {
     `;
   }
   html += `</div><p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p>`;
-  html += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>合計ROI</th><th>投資合計</th></tr></thead><tbody>`;
+  html += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>馬複4頭ROI</th><th>合計ROI</th><th>投資合計</th></tr></thead><tbody>`;
   for (const d of Array.from(dateStats.keys()).sort().reverse()) {
     const st = dateStats.get(d);
-    const s = st['single'], p = st['place'];
-    const tInvest = (Number(s?.invest_yen) || 0) + (Number(p?.invest_yen) || 0);
-    const tReturn = (Number(s?.return_yen) || 0) + (Number(p?.return_yen) || 0);
+    const s = st['single'], p = st['place'], q = st['quinella'];
+    const tInvest = (Number(s?.invest_yen) || 0) + (Number(p?.invest_yen) || 0) + (Number(q?.invest_yen) || 0);
+    const tReturn = (Number(s?.return_yen) || 0) + (Number(p?.return_yen) || 0) + (Number(q?.return_yen) || 0);
     const tRoi    = tInvest > 0 ? (Math.round(tReturn / tInvest * 10000) / 100).toFixed(2) : '-';
     html += `
       <tr>
         <td>${d}</td>
         <td class="${(Number(s?.roi_percent) || 0) >= 100 ? 'win' : ''}">${s?.roi_percent || '-'}%</td>
         <td class="${(Number(p?.roi_percent) || 0) >= 100 ? 'win' : ''}">${p?.roi_percent || '-'}%</td>
+        <td class="${(Number(q?.roi_percent) || 0) >= 100 ? 'win' : ''}">${q?.roi_percent || '-'}%</td>
         <td class="${tInvest > 0 && Number(tRoi) >= 100 ? 'win' : ''}">${tRoi}%</td>
         <td>${tInvest || 0}円</td>
       </tr>

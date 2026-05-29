@@ -96,6 +96,8 @@ CREATE TABLE `prediction_eval` (
   `win_payout` int DEFAULT NULL,
   `place_hit` tinyint(1) NOT NULL DEFAULT '0',
   `place_payout` int DEFAULT NULL,
+  `quinella_hit` tinyint(1) NOT NULL DEFAULT '0',
+  `quinella_payout` int DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`race_id`,`model_version`),
@@ -183,7 +185,7 @@ DROP TABLE IF EXISTS `race_payouts`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `race_payouts` (
   `race_id` bigint NOT NULL,
-  `bet_type` enum('WIN','PLACE') NOT NULL,
+  `bet_type` enum('WIN','PLACE','QUINELLA') NOT NULL,
   `horse_number` int NOT NULL,
   `payout` int DEFAULT NULL,
   `popularity` int DEFAULT NULL,

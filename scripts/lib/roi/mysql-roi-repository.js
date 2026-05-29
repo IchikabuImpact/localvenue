@@ -58,7 +58,7 @@ class MySqlRoiRepository {
               COALESCE(SUM(returned), 0) AS return_yen,
               ROUND((SUM(returned) / NULLIF(SUM(stake), 0)) * 100, 2) AS roi_percent
        FROM prediction_roi
-       WHERE LEFT(race_id, 8) = ? AND strategy IN ('single', 'place')
+       WHERE LEFT(race_id, 8) = ? AND strategy IN ('single', 'place', 'quinella')
        GROUP BY ymd_str, model_version, strategy`,
       [targetYmd]
     );

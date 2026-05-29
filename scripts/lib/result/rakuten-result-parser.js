@@ -127,10 +127,43 @@ function parsePlaceRow($, $table, validNumbers) {
   }
   return out;
 }
+function parseQuinellaRow($, $table, validNumbers) {
+  const $$table = ($table && typeof $table.find === 'function') ? $table : $($table);
+  if (!$$table || !$$table.length) return [];
+  const $rows = $$table.find('tbody.repay > tr').length ? $$table.find('tbody.repay > tr') : $$table.find('tr');
+  const $row = $rows.filter((_, tr) => U.norm($(tr).children('th,td').first().text()) === '馬複').first();
+  if (!$row.length) return [];
+  const nums = U.splitByBr($row.find('td.number').first());
+  const moneys = U.splitByBr($row.find('td.money').first());
+  const ranks = U.splitByBr($row.find('td.rank').first());
+  const out = [];
+  for (let i = 0; i < Math.max(nums.length, moneys.length); i++) {
+    const pairStr = nums[i] || '';
+    const money = U.toInt(moneys[i]);
+    const pop = U.toInt((ranks[i] || '').match(/(\d+)\s*番人気/)?.[1]);
+    if (!Number.isFinite(money)) continue;
+    // 馬複の馬番は "A - B" 形式（例: "3 - 5"）
+    const parts = pairStr.split(/\s*[-－]\s*/);
+    if (parts.length !== 2) continue;
+    const h1 = U.toInt(parts[0]);
+    const h2 = U.toInt(parts[1]);
+    if (!U.inRangeHorse(h1) || !U.inRangeHorse(h2) || h1 === h2) continue;
+    if (validNumbers.size && (!validNumbers.has(h1) || !validNumbers.has(h2))) continue;
+    // lo * 100 + hi でペアをエンコード（例: 3と5 → 305）
+    const lo = Math.min(h1, h2), hi = Math.max(h1, h2);
+    out.push({ bet_type: 'QUINELLA', horse_number: lo * 100 + hi, payout: money, popularity: Number.isFinite(pop) ? pop : null });
+  }
+  return out;
+}
+
 function parsePayouts($, validNumbers = new Set()) {
   const $table = findPayoutTable($);
   if (!$table || !$table.length) return [];
-  return [...parseWinRow($, $table, validNumbers), ...parsePlaceRow($, $table, validNumbers)].filter(p => p.bet_type === 'WIN' || p.bet_type === 'PLACE');
+  return [
+    ...parseWinRow($, $table, validNumbers),
+    ...parsePlaceRow($, $table, validNumbers),
+    ...parseQuinellaRow($, $table, validNumbers),
+  ].filter(p => ['WIN','PLACE','QUINELLA'].includes(p.bet_type));
 }
 function finalizeResultRows(rows) {
   let maxPos = Math.max(0, ...rows.map(r => r.official_finish_position || 0));
@@ -153,4 +186,4 @@ function parseRakutenResultHtml(html) {
   return { rows, payouts, $, isNotReady: isNotReadyText($('body').text()) };
 }
 
-module.exports = { U, isNotReadyText, pickResultTable, parseResultRows, parsePayouts, finalizeResultRows, parseRakutenResultHtml };
+module.exports = { U, isNotReadyText, pickResultTable, parseResultRows, parsePayouts, parseQuinellaRow, finalizeResultRows, parseRakutenResultHtml };

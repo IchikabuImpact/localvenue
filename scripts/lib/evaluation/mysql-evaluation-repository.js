@@ -28,7 +28,7 @@ class MySqlEvaluationRepository {
 
   async findPayoutRows(raceId) {
     const [rows] = await this._pool.execute(
-      `SELECT bet_type, horse_number, payout FROM race_payouts WHERE race_id = ? AND bet_type IN ('WIN','PLACE')`,
+      `SELECT bet_type, horse_number, payout FROM race_payouts WHERE race_id = ? AND bet_type IN ('WIN','PLACE','QUINELLA')`,
       [raceId]
     );
     return rows;
@@ -36,17 +36,22 @@ class MySqlEvaluationRepository {
 
   async upsertPredictionEval(row) {
     await this._pool.execute(
-      `INSERT INTO prediction_eval (race_id, model_version, predicted_horse_number, win_hit, win_payout, place_hit, place_payout)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO prediction_eval
+         (race_id, model_version, predicted_horse_number, win_hit, win_payout, place_hit, place_payout, quinella_hit, quinella_payout)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          predicted_horse_number = VALUES(predicted_horse_number),
-         win_hit    = VALUES(win_hit),
-         win_payout = VALUES(win_payout),
-         place_hit  = VALUES(place_hit),
-         place_payout = VALUES(place_payout),
-         updated_at = CURRENT_TIMESTAMP`,
+         win_hit       = VALUES(win_hit),
+         win_payout    = VALUES(win_payout),
+         place_hit     = VALUES(place_hit),
+         place_payout  = VALUES(place_payout),
+         quinella_hit  = VALUES(quinella_hit),
+         quinella_payout = VALUES(quinella_payout),
+         updated_at    = CURRENT_TIMESTAMP`,
       [row.race_id, row.model_version, row.predicted_horse_number ?? null,
-       row.win_hit ? 1 : 0, row.win_payout ?? null, row.place_hit ? 1 : 0, row.place_payout ?? null]
+       row.win_hit ? 1 : 0, row.win_payout ?? null,
+       row.place_hit ? 1 : 0, row.place_payout ?? null,
+       row.quinella_hit ? 1 : 0, row.quinella_payout ?? null]
     );
   }
 

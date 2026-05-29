@@ -24,10 +24,11 @@ async function loadRaces(pool, ymdArg, modelArg) {
       CAST(p.race_id AS CHAR) as race_id, p.model_version, p.memo, p.created_at,
       r.official_finish_position, r.horse_number as win_horse_number, r.win_payout,
       eval.win_hit, eval.win_payout as eval_win_return,
-      eval.place_hit, eval.place_payout as eval_place_return
+      eval.place_hit, eval.place_payout as eval_place_return,
+      eval.quinella_hit, eval.quinella_payout as eval_quinella_return
     FROM prediction p
     LEFT JOIN (
-      SELECT race_id, model_version, win_hit, win_payout, place_hit, place_payout
+      SELECT race_id, model_version, win_hit, win_payout, place_hit, place_payout, quinella_hit, quinella_payout
       FROM prediction_eval
     ) eval ON p.race_id = eval.race_id AND p.model_version = eval.model_version
     LEFT JOIN (

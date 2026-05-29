@@ -14,8 +14,9 @@
  *   [5] generate-daily-pages.js        — 静的HTML生成 + 古ファイル削除
  *
  * @env  PARALLEL=2       並列実行数（デフォルト2）
- *       STAKE_WIN=100    単勝賭け金（デフォルト100円）
- *       STAKE_PLACE=100  複勝賭け金（デフォルト100円）
+ *       STAKE_WIN=100       単勝賭け金（デフォルト100円）
+ *       STAKE_PLACE=100     複勝賭け金（デフォルト100円）
+ *       STAKE_QUINELLA=100  馬複1票当たり賭け金（4頭ボックス6票=600円/R、デフォルト100円）
  *       NODE_BIN         使用する node のパス
  *
  * Usage:
@@ -31,8 +32,9 @@ const NODE_BIN = process.env.NODE_BIN || 'node';
 const PARALLEL = Math.max(1, Number(process.env.PARALLEL || 2));
 // 単勝・複勝の賭け金（円）。0にするとprediction_roiへの書き込みが行われずROI集計が空になる。
 // 環境変数で上書き可能: STAKE_WIN=200 node daily-result-batch.js
-const STAKE_WIN   = Number(process.env.STAKE_WIN   ?? 100);
-const STAKE_PLACE = Number(process.env.STAKE_PLACE ?? 100);
+const STAKE_WIN      = Number(process.env.STAKE_WIN      ?? 100);
+const STAKE_PLACE    = Number(process.env.STAKE_PLACE    ?? 100);
+const STAKE_QUINELLA = Number(process.env.STAKE_QUINELLA ?? 100);
 
 const BASE = __dirname;
 
@@ -53,8 +55,9 @@ const { runCaptureNode, runNode, runNodeWithCode } = createNodeRunner({
 
 function buildEvalPredictionArgs(raceId) {
   const args = [raceId];
-  if (STAKE_WIN > 0) args.push('--stake-win', String(STAKE_WIN));
-  if (STAKE_PLACE > 0) args.push('--stake-place', String(STAKE_PLACE));
+  if (STAKE_WIN      > 0) args.push('--stake-win',      String(STAKE_WIN));
+  if (STAKE_PLACE    > 0) args.push('--stake-place',    String(STAKE_PLACE));
+  if (STAKE_QUINELLA > 0) args.push('--stake-quinella', String(STAKE_QUINELLA));
   return args;
 }
 
