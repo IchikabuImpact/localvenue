@@ -1,14 +1,21 @@
 'use strict';
 const mysql = require('mysql2/promise');
-const { createPool } = require('../db/pool-factory');
+const { resolvePool } = require('../db/pool-factory');
 const { raceDaysToRows, logRaceDays } = require('./race-days');
 
 class MySqlCalendarRepository {
   constructor({ pool, mysqlConfig, mysqlClient = mysql, logger = console, useTransaction = true, successSuffix = '' }) {
-    this._pool = pool ?? createPool(mysqlConfig, mysqlClient);
+    const resolved = resolvePool({ pool, mysqlConfig, mysqlClient });
+    this._pool = resolved.pool;
+    this._ownsPool = resolved.ownsPool;
     this.logger = logger;
     this.useTransaction = useTransaction;
     this.successSuffix = successSuffix;
+  }
+
+  async connect() {}
+  async close() {
+    if (this._ownsPool && this._pool) await this._pool.end().catch(() => {});
   }
 
   async saveRaceDays(raceDays) {

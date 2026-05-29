@@ -1,6 +1,6 @@
 'use strict';
 const mysql = require('mysql2/promise');
-const { createPool } = require('../db/pool-factory');
+const { resolvePool } = require('../db/pool-factory');
 const { isDeadlock } = require('./deadlock');
 
 const RACING_FORM_COLUMNS = [
@@ -54,15 +54,18 @@ function buildRacingFormParams({ raceId, rows }) {
 
 class MySqlRacingFormRepository {
   constructor({ pool, mysqlConfig, mysqlClient = mysql, logger = console, sleep = ms => new Promise(r => setTimeout(r, ms)) }) {
-    this._pool = pool ?? createPool(mysqlConfig, mysqlClient);
+    const resolved = resolvePool({ pool, mysqlConfig, mysqlClient });
+    this._pool = resolved.pool;
+    this._ownsPool = resolved.ownsPool;
     this.logger = logger;
     this.sleep = sleep;
   }
 
   async connect() {}
-  async close() {}
+  async close() {
+    if (this._ownsPool && this._pool) await this._pool.end().catch(() => {});
+  }
 
-  // 出馬表データ読み取り（予想ドメインで使用）
   async findByRaceId(raceId) {
     const [rows] = await this._pool.execute(
       `SELECT horse_number, horse_name,

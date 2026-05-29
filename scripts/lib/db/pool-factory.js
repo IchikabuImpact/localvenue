@@ -18,4 +18,12 @@ function createPool(mysqlConfig, client = mysql) {
   return client.createPool(connectionConfig(mysqlConfig));
 }
 
-module.exports = { createPool, connectionConfig };
+// リポジトリのコンストラクタ共通パターン
+// pool が外部から渡された場合は所有しない（呼び出し側が管理）
+// mysqlConfig から内部生成した場合は自分で所有し、close() 時に終了する
+function resolvePool({ pool, mysqlConfig, mysqlClient = mysql }) {
+  if (pool) return { pool, ownsPool: false };
+  return { pool: createPool(mysqlConfig, mysqlClient), ownsPool: true };
+}
+
+module.exports = { createPool, connectionConfig, resolvePool };

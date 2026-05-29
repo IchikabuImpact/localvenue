@@ -1,14 +1,18 @@
 'use strict';
 const mysql = require('mysql2/promise');
-const { createPool } = require('../db/pool-factory');
+const { resolvePool } = require('../db/pool-factory');
 
 class MySqlRoiRepository {
-  constructor({ pool, mysqlConfig, mysqlClient = mysql }) {
-    this._pool = pool ?? createPool(mysqlConfig, mysqlClient);
+  constructor(opts) {
+    const { pool, ownsPool } = resolvePool(opts);
+    this._pool = pool;
+    this._ownsPool = ownsPool;
   }
 
   async connect() {}
-  async close() {}
+  async close() {
+    if (this._ownsPool && this._pool) await this._pool.end().catch(() => {});
+  }
 
   async findTargetRaces({ from, to, model }) {
     const where = [], params = [];

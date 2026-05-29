@@ -1,14 +1,15 @@
 'use strict';
 const mysql = require('mysql2/promise');
-const { createPool } = require('../db/pool-factory');
+const { resolvePool } = require('../db/pool-factory');
 
 class MySqlRaceCountRepository {
-  constructor({ pool, mysqlConfig, mysqlClient = mysql }) {
-    this._pool = pool ?? createPool(mysqlConfig, mysqlClient);
+  constructor(opts) {
+    const { pool, ownsPool } = resolvePool(opts);
+    this._pool = pool;
+    this._ownsPool = ownsPool;
     this._conn = null;
   }
 
-  // connect/close は poolからconnectionを借用する（トランザクション管理のため保持）
   async connect() {
     this._conn = await this._pool.getConnection();
   }
@@ -19,6 +20,7 @@ class MySqlRaceCountRepository {
 
   async close() {
     if (this._conn) { this._conn.release(); this._conn = null; }
+    if (this._ownsPool && this._pool) await this._pool.end().catch(() => {});
   }
 
   async findVenueCodesByDate(dateISO) {
