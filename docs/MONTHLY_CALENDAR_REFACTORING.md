@@ -105,6 +105,17 @@ DBや実HTTPを使わずに、以下を `node:test` で固定した。
   - 開催情報ありの場合に repository へ保存する
   - 開催情報なしの場合に保存しない
 
+## schema.sql との照合結果
+
+今回の `MySqlCalendarRepository` は `calendar (race_date, venucode, venue)` に対して upsert する。`data/schema.sql` の `calendar` テーブルは以下の定義であり、列名・型・主キーは repository の保存対象と整合している。
+
+- `race_date` は `date NOT NULL`
+- `venucode` は `int NOT NULL`
+- `venue` は `varchar(255) DEFAULT NULL`
+- 主キーは `(race_date, venucode)`
+
+この確認は `tests/unit/calendar/mysql-calendar-repository.test.js` にも追加し、実DBがない環境でも schema 定義と保存SQLの基本的なずれを検知できるようにした。
+
 ## まだ Unit Test にしないもの
 
 以下は Unit Test ではなく、今後 Integration / Smoke Test として扱う。
