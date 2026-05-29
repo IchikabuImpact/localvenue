@@ -1,12 +1,11 @@
 'use strict';
-
 const mysql = require('mysql2/promise');
+const { createPool } = require('../db/pool-factory');
 const { raceDaysToRows, logRaceDays } = require('./race-days');
 
 class MySqlCalendarRepository {
-  constructor({ mysqlConfig, mysqlClient = mysql, logger = console, useTransaction = true, successSuffix = '' }) {
-    this.mysqlConfig = mysqlConfig;
-    this.mysqlClient = mysqlClient;
+  constructor({ pool, mysqlConfig, mysqlClient = mysql, logger = console, useTransaction = true, successSuffix = '' }) {
+    this._pool = pool ?? createPool(mysqlConfig, mysqlClient);
     this.logger = logger;
     this.useTransaction = useTransaction;
     this.successSuffix = successSuffix;
@@ -19,17 +18,8 @@ class MySqlCalendarRepository {
       return 0;
     }
 
-    let conn;
+    const conn = await this._pool.getConnection();
     try {
-      conn = await this.mysqlClient.createConnection({
-        host:     this.mysqlConfig.host,
-        user:     this.mysqlConfig.user,
-        password: this.mysqlConfig.password,
-        database: this.mysqlConfig.database,
-        port:     this.mysqlConfig.port,
-        charset:  'utf8mb4',
-      });
-
       if (this.useTransaction) await conn.beginTransaction();
 
       const CHUNK = 300;
@@ -37,25 +27,20 @@ class MySqlCalendarRepository {
         const chunk = rows.slice(i, i + CHUNK);
         const placeholders = chunk.map(() => '(?,?,?)').join(',');
         await conn.execute(
-          `INSERT INTO calendar (race_date, venucode, venue)
-           VALUES ${placeholders}
-           ON DUPLICATE KEY UPDATE venue = VALUES(venue)`,
+          `INSERT INTO calendar (race_date, venucode, venue) VALUES ${placeholders} ON DUPLICATE KEY UPDATE venue = VALUES(venue)`,
           chunk.flat()
         );
       }
 
       if (this.useTransaction) await conn.commit();
-
       this.logger.log(`[OK] ${rows.length} rows saved to calendar${this.successSuffix}`);
       logRaceDays(raceDays, this.logger);
       return rows.length;
     } catch (e) {
-      if (conn && this.useTransaction) {
-        try { await conn.rollback(); } catch { /* ignore */ }
-      }
+      if (this.useTransaction) await conn.rollback().catch(() => {});
       throw e;
     } finally {
-      if (conn) { try { await conn.end(); } catch { /* ignore */ } }
+      conn.release();
     }
   }
 }

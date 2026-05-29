@@ -10,27 +10,4 @@
 #   cron/result.sh （結果バッチ完了後）
 # =============================================================
 
-PROJECT=/home/ichikabu/projects/localvenue
-LOG=$PROJECT/logs/autoupdate.log
-
-mkdir -p "$PROJECT/logs"
-
-echo "----------------------------------------" >> "$LOG"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] autoupdate 開始" >> "$LOG"
-
-cd "$PROJECT"
-
-# リモートの変更を先に取り込む（VPS等から別途pushされた場合の競合を防ぐ）
-/usr/bin/git pull --rebase -X ours origin main >> "$LOG" 2>&1
-
-/usr/bin/git add .
-if /usr/bin/git diff --cached --quiet; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] git: 変更なし、push スキップ" >> "$LOG"
-else
-  /usr/bin/git commit -a --message="data update $(date '+%Y%m%d-%H%M')" >> "$LOG" 2>&1
-  /usr/bin/git push >> "$LOG" 2>&1
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] git push 完了" >> "$LOG"
-fi
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] autoupdate 完了" >> "$LOG"
-exit 0
+exec bash ~/bin/git-autoupdate.sh /home/ichikabu/projects/localvenue

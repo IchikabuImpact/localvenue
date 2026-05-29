@@ -2,21 +2,18 @@
 /**
  * @file    005-predict-race.js
  * @pipeline [5/5 朝バッチ] スコアリング → 予想生成 → DB保存
- * @role    racing_form・jockey_ranking・sire_ranking を組み合わせてスコアを計算し、
- *          最高スコアの1頭を推奨馬として `prediction` テーブルへ保存する。
  *
  * Usage:
  *   node 005-predict-race.js YYYYMMDDRRBB  (例: 202510130110)
- *
- * @copyright © 2026 IchikabuImpact
- * @license Commercial use prohibited without permission.
  */
-
 'use strict';
 
 const config = require('../config/config.js');
 const { parsePredictionRaceIdArg } = require('./lib/prediction/race-id');
+const { createPool } = require('./lib/db/pool-factory');
 const { MySqlPredictionRepository } = require('./lib/prediction/mysql-prediction-repository');
+const { MySqlRacingFormRepository } = require('./lib/racing-form/mysql-racing-form-repository');
+const { MySqlRankingRepository } = require('./lib/prediction/mysql-ranking-repository');
 const { PredictRaceUseCase } = require('./lib/prediction/predict-race-use-case');
 
 let race;
@@ -27,12 +24,18 @@ try {
   process.exit(1);
 }
 
+const pool = createPool(config.mysql);
+
 const useCase = new PredictRaceUseCase({
-  predictionRepository: new MySqlPredictionRepository({ mysqlConfig: config.mysql }),
+  predictionRepository: new MySqlPredictionRepository({ pool }),
+  racingFormRepository: new MySqlRacingFormRepository({ pool }),
+  rankingRepository:    new MySqlRankingRepository({ pool }),
   logger: console,
 });
 
-useCase.execute(race).catch(e => {
-  console.error('[ERROR]', e && e.message ? e.message : e);
-  process.exit(1);
-});
+useCase.execute(race)
+  .then(() => pool.end())
+  .catch(e => {
+    console.error('[ERROR]', e && e.message ? e.message : e);
+    pool.end().catch(() => {}).then(() => process.exit(1));
+  });
