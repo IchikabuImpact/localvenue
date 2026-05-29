@@ -430,15 +430,16 @@ function purgeOldFiles() {
     recHtml += `<div class="chart-container">`;
     recHtmlDaily += `<div class="chart-container">`;
     for (const [d, st] of dateStats) {
-      const sVal = st['single'] ? Math.min(200, Number(st['single'].roi_percent)) : 0; // 最大200%でキャップ表示
-      const pVal = st['place'] ? Math.min(200, Number(st['place'].roi_percent)) : 0;
+      // 200px の bars コンテナに合わせてピクセル直値で高さを指定（%だとflex内で解決不安定）
+      const sVal = Math.round(Math.min(200, st['single'] ? Number(st['single'].roi_percent) : 0));
+      const pVal = Math.round(Math.min(200, st['place']  ? Number(st['place'].roi_percent)  : 0));
       const label = d.slice(5); // MM-DD
 
       const bar = `
         <div class="chart-bar-group">
           <div class="bars">
-            <div class="bar single" style="height: ${sVal / 2}%" title="単: ${st['single']?.roi_percent}%"></div>
-            <div class="bar place" style="height: ${pVal / 2}%" title="複: ${st['place']?.roi_percent}%"></div>
+            <div class="bar single" style="height: ${sVal}px" title="単: ${st['single']?.roi_percent}%"></div>
+            <div class="bar place" style="height: ${pVal}px" title="複: ${st['place']?.roi_percent}%"></div>
           </div>
           <div class="label">${label}</div>
         </div>

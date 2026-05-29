@@ -328,7 +328,7 @@ header nav a { font-size: 0.9rem; color: var(--link); }
 .chart-container { display: flex; align-items: flex-end; gap: 8px; height: 300px; padding: 20px 0; overflow-x: auto; margin-bottom: 24px; }
 .chart-bar-group { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 32px; flex: 1; }
 .chart-bar-group .bars { display: flex; gap: 2px; align-items: flex-end; height: 200px; width: 100%; justify-content: center; }
-.chart-bar-group .bar { width: 12px; border-radius: 2px 2px 0 0; min-height: 1px; }
+.chart-bar-group .bar { display: block; width: 16px; border-radius: 2px 2px 0 0; min-height: 2px; }
 .chart-bar-group .bar.single { background: var(--accent); }
 .chart-bar-group .bar.place { background: var(--ok); }
 .chart-bar-group .label { font-size: 0.7rem; color: var(--muted); transform: rotate(-45deg); white-space: nowrap; margin-top: 8px; }
