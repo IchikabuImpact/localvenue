@@ -27,7 +27,8 @@ class SaveResultUseCase {
     if (!html) throw new Error(`failed to fetch any Rakuten page. tried=${candIds.join(', ')} last=${lastErr?.message || lastErr}`);
     this.logger.log(`[info] Rakuten RACEID=${usedRid} ← ${usedUrl}`);
     const { rows, payouts } = parseRakutenResultHtml(html);
-    if (!rows.length) throw new Error('no result rows parsed');
+    // 結果行が0＝テーブル構造はあるがデータ未反映（Rakutenページの過渡状態）→ 未確定扱いでスキップ
+    if (!rows.length) throw new ResultNotReadyError(`Result table empty (no rows): ${usedUrl}`);
     if (!payouts.length) this.logger.warn('[WARN] 払戻テーブルが見つかりませんでした（未発表 or DOM差異の可能性）');
     await this.resultRepository.connect();
     try {
