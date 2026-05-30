@@ -45,3 +45,36 @@ test('開催情報が空の場合は保存しない', async () => {
   assert.equal(result.savedRows, 0);
   assert.equal(saved, false);
 });
+
+test('処理完了後にrepositoryをcloseする', async () => {
+  let closed = false;
+  const raceDays = new Map([
+    ['20260502', [{ date: '2026-05-02', babaCode: 31, venue: '高知' }]],
+  ]);
+  const useCase = new SaveMonthlyCalendarUseCase({
+    calendarClient: { fetchMonthlyCalendar: async () => '<html></html>' },
+    calendarParser: { parse: () => raceDays },
+    calendarRepository: {
+      saveRaceDays: async () => 1,
+      close: async () => { closed = true; },
+    },
+    logger: silentLogger(),
+  });
+
+  await useCase.execute({ year: '2026', month: '05' });
+
+  assert.equal(closed, true);
+});
+
+test('エラー時もrepositoryをcloseする', async () => {
+  let closed = false;
+  const useCase = new SaveMonthlyCalendarUseCase({
+    calendarClient: { fetchMonthlyCalendar: async () => { throw new Error('network down'); } },
+    calendarParser: { parse: () => new Map() },
+    calendarRepository: { close: async () => { closed = true; } },
+    logger: silentLogger(),
+  });
+
+  await assert.rejects(() => useCase.execute({ year: '2026', month: '05' }), /network down/);
+  assert.equal(closed, true);
+});
