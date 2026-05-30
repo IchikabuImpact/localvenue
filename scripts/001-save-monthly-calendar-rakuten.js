@@ -29,6 +29,13 @@ const { RakutenCalendarParser } = require('./lib/calendar/rakuten-calendar-parse
 const { MySqlCalendarRepository } = require('./lib/calendar/mysql-calendar-repository');
 const { SaveMonthlyCalendarUseCase } = require('./lib/calendar/save-monthly-calendar-use-case');
 
+function exitAfterLogs(code) {
+  process.exitCode = code;
+  process.stdout.write('', () => {
+    process.stderr.write('', () => process.exit(code));
+  });
+}
+
 (async () => {
   const { year, month } = parseYearMonth(process.argv);
   console.log(`[INFO] 取得対象: ${year}-${month}（楽天競馬フォールバック）`);
@@ -46,7 +53,8 @@ const { SaveMonthlyCalendarUseCase } = require('./lib/calendar/save-monthly-cale
 
   await useCase.execute({ year, month });
   console.log('[INFO] 完了（楽天競馬フォールバック）');
+  exitAfterLogs(0);
 })().catch((e) => {
   console.error('[FATAL]', e.message || e);
-  process.exit(1);
+  exitAfterLogs(1);
 });

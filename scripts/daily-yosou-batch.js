@@ -53,10 +53,12 @@ const { runCaptureNode, runNode, runNodeWithCode } = createNodeRunner({
   // [1] 月間開催情報を更新（引数は YYYYMMDD だが、001-save-monthly-calendar.js 側で年月に解釈）
   log(`[1] ${path.basename(SCRIPTS.kaisai)} ${ymd}`);
   await runNode(SCRIPTS.kaisai, [ymd]);
+  log('[1] 月間開催情報 更新完了');
 
   // [2] 当日分の会場ごとのレース数を取得・保存
   log(`[2] ${path.basename(SCRIPTS.saveCount)} ${ymd}`);
   await runNode(SCRIPTS.saveCount, [ymd]);
+  log('[2] レース数 更新完了');
 
   // [3] 当日全レースの race_id を取得
   log(`[3] ${path.basename(SCRIPTS.listRaceIds)} ${ymd}`);
