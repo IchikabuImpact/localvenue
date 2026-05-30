@@ -323,6 +323,27 @@ CREATE TABLE `external_request_log` (
 /*!40101 SET client_encoding = @saved_cs_client */;
 
 --
+-- Table structure for table `race_info`
+-- keiba.go.jp RaceList から取得する1レース単位の情報（天候・馬場状態・距離等）
+--
+
+DROP TABLE IF EXISTS `race_info`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `race_info` (
+  `race_id` char(12) NOT NULL,
+  `weather` varchar(8) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '天候: 晴/曇/雨/雪 等',
+  `track_condition` varchar(8) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '馬場状態: 良/稍重/重/不良',
+  `race_title` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `distance_m` int DEFAULT NULL,
+  `race_start_time` varchar(8) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`race_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='keiba.go.jp RaceList から取得するレース単位情報。002バッチで更新。';
+/*!40101 SET client_charset = @saved_cs_client */;
+
+--
 -- Table structure for table `venue_master`
 --
 

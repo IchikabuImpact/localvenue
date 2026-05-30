@@ -10,6 +10,8 @@ module.exports = {
     database: 'YOUR_DB',
     port: 3306
   },
+  // true: 予想を常に上書き（開発用）/ false: 予想が既にあればスキップ（運用モード）
+  debug: false,
   // 生成済み静的HTMLの保持日数（この日数より古いものをバッチ実行時に自動削除）
   htmlRetentionDays: 30
 };
