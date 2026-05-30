@@ -11,19 +11,25 @@ class SaveMonthlyCalendarUseCase {
   }
 
   async execute({ year, month }) {
-    const html = await this.calendarClient.fetchMonthlyCalendar({ year, month });
-    const raceDays = this.calendarParser.parse(html, { year, month });
-    const totalEntries = countRaceDayEntries(raceDays);
+    try {
+      const html = await this.calendarClient.fetchMonthlyCalendar({ year, month });
+      const raceDays = this.calendarParser.parse(html, { year, month });
+      const totalEntries = countRaceDayEntries(raceDays);
 
-    this.logger.log(`[INFO] 開催日: ${raceDays.size}日、会場-日組み合わせ: ${totalEntries}件`);
+      this.logger.log(`[INFO] 開催日: ${raceDays.size}日、会場-日組み合わせ: ${totalEntries}件`);
 
-    if (totalEntries === 0) {
-      this.logger.log('[INFO] 開催情報なし。終了。');
-      return { raceDays, totalEntries, savedRows: 0 };
+      if (totalEntries === 0) {
+        this.logger.log('[INFO] 開催情報なし。終了。');
+        return { raceDays, totalEntries, savedRows: 0 };
+      }
+
+      const savedRows = await this.calendarRepository.saveRaceDays(raceDays);
+      return { raceDays, totalEntries, savedRows };
+    } finally {
+      if (typeof this.calendarRepository.close === 'function') {
+        await this.calendarRepository.close().catch(() => {});
+      }
     }
-
-    const savedRows = await this.calendarRepository.saveRaceDays(raceDays);
-    return { raceDays, totalEntries, savedRows };
   }
 }
 
