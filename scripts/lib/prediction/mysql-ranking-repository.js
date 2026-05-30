@@ -30,7 +30,23 @@ class MySqlRankingRepository {
     return rows;
   }
 
-  async findSireScores() {
+  // trackCondition が指定された場合、条件別スコアを優先して取得する。
+  // 条件別データがなければ 'all' にフォールバックするため、現状は動作変化なし。
+  async findSireScores(trackCondition = null) {
+    if (trackCondition) {
+      const [rows] = await this._pool.execute(
+        `SELECT sire_name,
+           COALESCE(
+             MAX(CASE WHEN track_condition = ? THEN score END),
+             MAX(CASE WHEN track_condition = 'all' THEN score END),
+             MAX(score)
+           ) AS score
+         FROM sire_ranking
+         GROUP BY sire_name`,
+        [trackCondition]
+      );
+      return rows;
+    }
     const [rows] = await this._pool.execute(
       `SELECT sire_name, MAX(score) AS score FROM sire_ranking GROUP BY sire_name`
     );

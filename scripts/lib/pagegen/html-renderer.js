@@ -126,10 +126,14 @@ function renderRaceListItem(race, venueMap) {
       ? `<span class="result-badge hit">馬複: 的中🎯 (利益: ${race.eval_quinella_return || 0} YEN)</span>`
       : `<span class="result-badge miss">馬複: 不的中</span>`;
 
+  const distStr = race.distance_m ? `${race.distance_m}m` : '';
+  const condStr = [race.weather, race.track_condition].filter(Boolean).join(' ');
+  const condBadge = condStr ? `<span class="baba-cond">${condStr}</span>` : '';
+
   return `
     <li>
       <a href="${race.race_id}.html" class="race-link ${statusClass}">
-        <span class="venue">${venueName} ${parseInt(rr)}R</span>
+        <span class="venue">${venueName} ${parseInt(rr)}R${distStr ? ' ' + distStr : ''}${condBadge}</span>
         <span class="pred">◎ ${best} ${bestName}</span>
         <span class="result-badges">${winBadge}${placeBadge}${quinellaBadge}</span>
       </a>
@@ -164,10 +168,19 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
   const rr        = race.race_id.slice(8, 10);
   const venueName = venueMap.get(venueCode) || `Venue${venueCode}`;
 
+  const distStr = race.distance_m ? `${race.distance_m}m ` : '';
+  const wxStr   = race.weather        ? `天候: ${race.weather}` : '';
+  const tcStr   = race.track_condition ? `馬場: ${race.track_condition}` : '';
+  const condParts = [wxStr, tcStr].filter(Boolean);
+  const condLine = condParts.length
+    ? `<p class="baba-info">${condParts.join(' / ')}</p>`
+    : '';
+
   let html = htmlHead(`${venueName}${parseInt(rr)}R 詳細`, { cssPath });
   html += `
     <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
-    <h2>${venueName} ${parseInt(rr)}R (${race.race_id})</h2>
+    <h2>${venueName} ${parseInt(rr)}R ${distStr}(${race.race_id})</h2>
+    ${condLine}
     <p class="model-info">Model: ${race.model_version}</p>
   `;
   html += `<section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody>`;

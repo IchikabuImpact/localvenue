@@ -46,7 +46,16 @@ function findSireScore(sireRows, sireText) {
   return 0;
 }
 
-function calculatePrediction({ raceId, racingFormRows, jockeyRows, trainerRows, sireRows, generatedAt = new Date().toISOString() }) {
+function calculatePrediction({
+  raceId,
+  racingFormRows,
+  jockeyRows,
+  trainerRows,
+  sireRows,
+  weather = null,
+  trackCondition = null,
+  generatedAt = new Date().toISOString(),
+}) {
   const jrPrefixMax = buildPrefixMaxScore(jockeyRows, 'jockey_name');
   const trPrefixMax = buildPrefixMaxScore(trainerRows, 'trainer_name');
   const normalizedSireRows = buildSireRows(sireRows);
@@ -74,6 +83,8 @@ function calculatePrediction({ raceId, racingFormRows, jockeyRows, trainerRows, 
     race_id: raceId,
     items: calc,
     best,
+    weather,
+    trackCondition,
     generatedAt,
   };
 }

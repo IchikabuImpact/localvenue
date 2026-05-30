@@ -42,6 +42,30 @@ class MySqlRaceCountRepository {
       [ymd, String(venueCode), totalRaces]
     );
   }
+
+  // race_info を一括 upsert する（トランザクション外で呼ぶこと）
+  async saveRaceInfoBatch(raceInfoList) {
+    for (const info of raceInfoList) {
+      await this._pool.execute(
+        `INSERT INTO race_info (race_id, weather, track_condition, race_title, distance_m, race_start_time)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           weather = VALUES(weather),
+           track_condition = VALUES(track_condition),
+           race_title = VALUES(race_title),
+           distance_m = VALUES(distance_m),
+           race_start_time = VALUES(race_start_time)`,
+        [
+          info.raceId,
+          info.weather        ?? null,
+          info.trackCondition ?? null,
+          info.title          ?? null,
+          info.distanceM      ?? null,
+          info.startTime      ?? null,
+        ]
+      );
+    }
+  }
 }
 
 module.exports = { MySqlRaceCountRepository };

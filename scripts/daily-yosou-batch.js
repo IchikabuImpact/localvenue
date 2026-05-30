@@ -81,6 +81,10 @@ const { runCaptureNode, runNode, runNodeWithCode } = createNodeRunner({
 
     log(`[predict    ] ${raceId}`);
     const predCode = await runNodeWithCode(SCRIPTS.predict, [raceId]);
+    if (predCode === 4) {
+      log(`[skip] 005 予想済みのためスキップ: ${raceId}`);
+      return;
+    }
     if (predCode !== 0) {
       log(`[warn] 005 exit=${predCode}: ${raceId} → スキップして続行`);
       return;

@@ -52,6 +52,18 @@ class SaveRaceCountByDateUseCase {
 
           this.logger.log(`[OK] ${code}: ${cnt}R`);
           ok++;
+
+          // race_info（天候・馬場状態・距離等）を保存（失敗しても続行）
+          try {
+            const raceInfoList = this.raceCountParser.parseRaceInfo(html, code, ymd);
+            if (raceInfoList.length > 0) {
+              await this.raceCountRepository.saveRaceInfoBatch(raceInfoList);
+              const knownConditions = raceInfoList.filter(r => r.trackCondition).length;
+              this.logger.log(`[INFO] race_info saved: ${code} ${raceInfoList.length}R (馬場状態確定: ${knownConditions}R)`);
+            }
+          } catch (e2) {
+            this.logger.warn(`[WARN] race_info save failed (babaCode=${code}): ${e2.message || e2}`);
+          }
         } catch (e) {
           this.logger.error(`[NG] ${code}: ${e.message || e}`);
           ng++;

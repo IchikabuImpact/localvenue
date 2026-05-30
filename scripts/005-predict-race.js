@@ -5,6 +5,11 @@
  *
  * Usage:
  *   node 005-predict-race.js YYYYMMDDRRBB  (例: 202510130110)
+ *
+ * exit codes:
+ *   0  正常
+ *   1  異常終了
+ *   4  予想が既に存在するためスキップ（運用モード: config.debug = false）
  */
 'use strict';
 
@@ -31,11 +36,17 @@ const useCase = new PredictRaceUseCase({
   racingFormRepository: new MySqlRacingFormRepository({ pool }),
   rankingRepository:    new MySqlRankingRepository({ pool }),
   logger: console,
+  debug: config.debug || false,
 });
 
 useCase.execute(race)
   .then(() => pool.end())
   .catch(e => {
+    if (e.exitCode === 4) {
+      console.log(`[SKIP] ${race.raceId}: ${e.message}`);
+      pool.end().catch(() => {}).then(() => process.exit(4));
+      return;
+    }
     console.error('[ERROR]', e && e.message ? e.message : e);
     pool.end().catch(() => {}).then(() => process.exit(1));
   });

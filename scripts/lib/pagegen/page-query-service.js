@@ -25,7 +25,8 @@ async function loadRaces(pool, ymdArg, modelArg) {
       r.official_finish_position, r.horse_number as win_horse_number, r.win_payout,
       eval.win_hit, eval.win_payout as eval_win_return,
       eval.place_hit, eval.place_payout as eval_place_return,
-      eval.quinella_hit, eval.quinella_payout as eval_quinella_return
+      eval.quinella_hit, eval.quinella_payout as eval_quinella_return,
+      ri.weather, ri.track_condition, ri.distance_m, ri.race_start_time, ri.race_title
     FROM prediction p
     LEFT JOIN (
       SELECT race_id, model_version, win_hit, win_payout, place_hit, place_payout, quinella_hit, quinella_payout
@@ -35,6 +36,7 @@ async function loadRaces(pool, ymdArg, modelArg) {
       SELECT race_id, horse_number, official_finish_position, odds_final as win_payout
       FROM race_results WHERE official_finish_position = 1 LIMIT 1
     ) r ON p.race_id = r.race_id
+    LEFT JOIN race_info ri ON CAST(p.race_id AS CHAR) = ri.race_id
     WHERE LEFT(p.race_id, 8) = ?
     ORDER BY p.race_id ASC
   `, [ymdArg]);
