@@ -30,6 +30,13 @@ const { KeibaGoJpCalendarParser } = require('./lib/calendar/keiba-go-jp-calendar
 const { MySqlCalendarRepository } = require('./lib/calendar/mysql-calendar-repository');
 const { SaveMonthlyCalendarUseCase } = require('./lib/calendar/save-monthly-calendar-use-case');
 
+function exitAfterLogs(code) {
+  process.exitCode = code;
+  process.stdout.write('', () => {
+    process.stderr.write('', () => process.exit(code));
+  });
+}
+
 function runRakutenFallback() {
   const fallbackScript = path.join(__dirname, '001-save-monthly-calendar-rakuten.js');
   console.warn('[WARN] 楽天競馬カレンダーへフォールバックします...');
@@ -38,10 +45,10 @@ function runRakutenFallback() {
     stdio: 'inherit',
     cwd: __dirname,
   });
-  fallback.on('exit', code => process.exit(code ?? 1));
+  fallback.on('exit', code => exitAfterLogs(code ?? 1));
   fallback.on('error', err => {
     console.error('[FATAL] フォールバック起動失敗:', err.message);
-    process.exit(1);
+    exitAfterLogs(1);
   });
 }
 
@@ -59,6 +66,7 @@ function runRakutenFallback() {
   try {
     await useCase.execute({ year, month });
     console.log('[INFO] 完了');
+    exitAfterLogs(0);
   } catch (e) {
     console.error('[ERROR] keiba.go.jp 取得失敗:', e.message || e);
     runRakutenFallback();
