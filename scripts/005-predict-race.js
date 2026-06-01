@@ -9,7 +9,7 @@
  * exit codes:
  *   0  正常
  *   1  異常終了
- *   4  予想が既に存在するためスキップ（運用モード: config.debug = false）
+ *   4  スキップ（debug:false かつ締め切り済み）
  */
 'use strict';
 
@@ -43,7 +43,7 @@ useCase.execute(race)
   .then(() => pool.end())
   .catch(e => {
     if (e.exitCode === 4) {
-      console.log(`[SKIP] ${race.raceId}: ${e.message}`);
+      console.log(`[SKIP] ${e.message}`);
       pool.end().catch(() => {}).then(() => process.exit(4));
       return;
     }
