@@ -229,23 +229,93 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
   return html;
 }
 
+function renderLineChart(dateStats) {
+  const entries = Array.from(dateStats.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const n = entries.length;
+  if (n === 0) return '<p>データなし</p>';
+
+  const svgW = 800, svgH = 280;
+  const mTop = 30, mRight = 30, mBottom = 45, mLeft = 55;
+  const plotW = svgW - mLeft - mRight;
+  const plotH = svgH - mTop - mBottom;
+  const maxY  = 200;
+
+  const xPos = i  => mLeft + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yPos = v  => mTop + plotH - Math.min(maxY, Math.max(0, Number(v) || 0)) / maxY * plotH;
+
+  function makePath(values, color, dash = '') {
+    let d = '', prev = true;
+    values.forEach((v, i) => {
+      if (v === null) { prev = true; return; }
+      const x = xPos(i).toFixed(1), y = yPos(v).toFixed(1);
+      d += prev ? `M${x},${y}` : `L${x},${y}`;
+      prev = false;
+    });
+    if (!d) return '';
+    const da = dash ? `stroke-dasharray="${dash}"` : '';
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" ${da}/>`;
+  }
+
+  function makeCircles(values, color) {
+    return values.map((v, i) => v === null ? '' :
+      `<circle cx="${xPos(i).toFixed(1)}" cy="${yPos(v).toFixed(1)}" r="3.5" fill="${color}" stroke="white" stroke-width="1.5"><title>${entries[i][0]}: ${Number(v).toFixed(2)}%</title></circle>`
+    ).join('');
+  }
+
+  // グリッド線・Y軸ラベル
+  let grids = '';
+  [0, 50, 100, 150, 200].forEach(y => {
+    const yp = yPos(y).toFixed(1);
+    const is100 = y === 100;
+    grids += `<line x1="${mLeft}" y1="${yp}" x2="${svgW - mRight}" y2="${yp}" stroke="${is100 ? '#e74c3c' : '#e0e0e0'}" stroke-width="${is100 ? 1.5 : 1}" stroke-dasharray="${is100 ? '5,3' : '3,3'}"/>`;
+    grids += `<text x="${mLeft - 8}" y="${(Number(yp) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${is100 ? '#e74c3c' : '#888'}">${y}%</text>`;
+  });
+
+  // X軸ラベル（多い場合は間引く）
+  const step = Math.ceil(n / 12);
+  let xlabels = '';
+  entries.forEach(([d], i) => {
+    if (i % step === 0 || i === n - 1) {
+      xlabels += `<text x="${xPos(i).toFixed(1)}" y="${svgH - mBottom + 18}" text-anchor="middle" font-size="10" fill="#666">${d.slice(5)}</text>`;
+    }
+  });
+
+  // 凡例
+  const legend = [
+    { color: '#3498db', label: '単勝', dash: '' },
+    { color: '#27ae60', label: '複勝', dash: '' },
+    { color: '#e67e22', label: '馬複4頭', dash: '5,3' },
+  ].map((l, i) => {
+    const lx = mLeft + i * 80;
+    const da = l.dash ? `stroke-dasharray="${l.dash}"` : '';
+    return `<line x1="${lx}" y1="14" x2="${lx + 20}" y2="14" stroke="${l.color}" stroke-width="2.5" ${da}/>` +
+           `<circle cx="${lx + 10}" cy="14" r="3" fill="${l.color}"/>` +
+           `<text x="${lx + 25}" y="18" font-size="11" fill="#333">${l.label}</text>`;
+  }).join('');
+
+  const singles   = entries.map(([, st]) => st['single']?.roi_percent   ?? null);
+  const places    = entries.map(([, st]) => st['place']?.roi_percent    ?? null);
+  const quinellas = entries.map(([, st]) => st['quinella']?.roi_percent ?? null);
+
+  return `<svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:320px;display:block;overflow:visible;">
+    ${grids}
+    <line x1="${mLeft}" y1="${mTop}" x2="${mLeft}" y2="${mTop + plotH}" stroke="#ccc" stroke-width="1"/>
+    ${makePath(singles,   '#3498db')}
+    ${makePath(places,    '#27ae60')}
+    ${makePath(quinellas, '#e67e22', '5,3')}
+    ${makeCircles(singles,   '#3498db')}
+    ${makeCircles(places,    '#27ae60')}
+    ${makeCircles(quinellas, '#e67e22')}
+    ${xlabels}
+    <g transform="translate(${mLeft},0)">${legend}</g>
+  </svg>`;
+}
+
 function renderRecoveryPage({ isoDate, dateStats, cssPath = 'css/style.css' }) {
   let html = htmlHead(`回収率推移`, { cssPath });
-  html += `<h2>直近30日の回収率推移</h2><div class="chart-container">`;
-  for (const [d, st] of dateStats) {
-    const sVal = Math.round(Math.min(200, st['single'] ? Number(st['single'].roi_percent) : 0));
-    const pVal = Math.round(Math.min(200, st['place']  ? Number(st['place'].roi_percent)  : 0));
-    html += `
-      <div class="chart-bar-group">
-        <div class="bars">
-          <div class="bar single" style="height: ${sVal}px" title="単: ${st['single']?.roi_percent}%"></div>
-          <div class="bar place" style="height: ${pVal}px" title="複: ${st['place']?.roi_percent}%"></div>
-        </div>
-        <div class="label">${d.slice(5)}</div>
-      </div>
-    `;
-  }
-  html += `</div><p style="font-size:0.8em; text-align:right;">※グラフは最大200%で表示</p>`;
+  html += `<h2>直近30日の回収率推移</h2>`;
+  html += renderLineChart(dateStats);
+  html += `<p style="font-size:0.8em;text-align:right;color:#888;">─ 100%ライン（赤破線）以上が黒字</p>`;
   html += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>馬複4頭ROI</th><th>合計ROI</th><th>投資合計</th></tr></thead><tbody>`;
   for (const d of Array.from(dateStats.keys()).sort().reverse()) {
     const st = dateStats.get(d);
