@@ -1,6 +1,15 @@
 'use strict';
 const { safeJSON } = require('./page-utils');
 
+// ISO文字列をJST "yyyy/mm/dd hh:mm" に変換
+function fmtJst(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const j = new Date(d.getTime() + 9 * 3600 * 1000);
+  return `${j.getUTCFullYear()}/${String(j.getUTCMonth()+1).padStart(2,'0')}/${String(j.getUTCDate()).padStart(2,'0')} ${String(j.getUTCHours()).padStart(2,'0')}:${String(j.getUTCMinutes()).padStart(2,'0')}`;
+}
+
 function htmlHead(title, opts = {}) {
   return `
 <!DOCTYPE html>
@@ -126,15 +135,17 @@ function renderRaceListItem(race, venueMap) {
       ? `<span class="result-badge hit">馬複: 的中🎯 (利益: ${race.eval_quinella_return || 0} YEN)</span>`
       : `<span class="result-badge miss">馬複: 不的中</span>`;
 
-  const distStr = race.distance_m ? `${race.distance_m}m` : '';
-  const condStr = [race.weather, race.track_condition].filter(Boolean).join(' ');
+  const distStr   = race.distance_m ? `${race.distance_m}m` : '';
+  const condStr   = [race.weather, race.track_condition].filter(Boolean).join(' ');
   const condBadge = condStr ? `<span class="baba-cond">${condStr}</span>` : '';
+  const updatedAt = fmtJst(memo?.generatedAt);
+  const updBadge  = updatedAt ? `<span class="updated-at">更新 ${updatedAt}</span>` : '';
 
   return `
     <li>
       <a href="${race.race_id}.html" class="race-link ${statusClass}">
         <span class="venue">${venueName} ${parseInt(rr)}R${distStr ? ' ' + distStr : ''}${condBadge}</span>
-        <span class="pred">◎ ${best} ${bestName}</span>
+        <span class="pred">◎ ${best} ${bestName}${updBadge}</span>
         <span class="result-badges">${winBadge}${placeBadge}${quinellaBadge}</span>
       </a>
     </li>
@@ -183,7 +194,9 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
     ${condLine}
     <p class="model-info">Model: ${race.model_version}</p>
   `;
-  html += `<section class="prediction-table"><h3>AI予想</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody>`;
+  const predUpdatedAt = fmtJst(memo?.generatedAt);
+  const predTitle = predUpdatedAt ? `AI予想(更新日 ${predUpdatedAt})` : 'AI予想';
+  html += `<section class="prediction-table"><h3>${predTitle}</h3><table><thead><tr><th>印</th><th>馬番</th><th>馬名</th><th>Score</th></tr></thead><tbody>`;
   if (items.length > 0) {
     items.sort((a, b) => (b.score || 0) - (a.score || 0));
     for (let i = 0; i < Math.min(5, items.length); i++) {
