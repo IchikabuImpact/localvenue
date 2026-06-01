@@ -219,12 +219,13 @@ CRON_TZ=Asia/Tokyo
 55 7 * * * /home/ichikabu/projects/localvenue/cron/yosou.sh
 0  8 * * * /home/ichikabu/projects/localvenue/cron/yosou.sh
 
-# 予想バッチ: 10:10〜20:40（30分おき）
-10,40 10-20 * * * /home/ichikabu/projects/localvenue/cron/yosou.sh
+# 予想バッチ: 10:00〜20:40（20分おき）
+# ※ 馬場状態は1レース直前に発表・天候変化にも追従するため20分間隔に短縮（2026-06-01〜）
+0,20,40 10-20 * * * /home/ichikabu/projects/localvenue/cron/yosou.sh
 
-# 集計バッチ: 予想バッチの20分後、10:30〜21:00（30分おき）
-30 10-20 * * * /home/ichikabu/projects/localvenue/cron/result.sh
-0  11-21 * * * /home/ichikabu/projects/localvenue/cron/result.sh
+# 集計バッチ: 予想バッチの10分後、10:10〜21:00（20分おき）
+10,30,50 10-20 * * * /home/ichikabu/projects/localvenue/cron/result.sh
+0 21 * * * /home/ichikabu/projects/localvenue/cron/result.sh
 
 # 月次マスターデータ更新（毎月1日 3:00）
 0 3 1 * * /home/ichikabu/projects/localvenue/cron/monthly.sh
@@ -235,9 +236,9 @@ CRON_TZ=Asia/Tokyo
 ```cron
 CRON_TZ=Asia/Tokyo
 
-# git pull: 10:00〜21:00（30分おき）
-0,30 10-20 * * * cd /var/www/localvenue && /usr/bin/git pull origin main >> /var/www/localvenue/logs/git-pull.log 2>&1
-0    21    * * * cd /var/www/localvenue && /usr/bin/git pull origin main >> /var/www/localvenue/logs/git-pull.log 2>&1
+# git pull: 10:20〜21:00（20分おき、予想バッチの20分後に合わせる）
+20,40 10-20 * * * cd /var/www/localvenue && /usr/bin/git pull origin main >> /var/www/localvenue/logs/git-pull.log 2>&1
+0     21    * * * cd /var/www/localvenue && /usr/bin/git pull origin main >> /var/www/localvenue/logs/git-pull.log 2>&1
 ```
 
 ---
