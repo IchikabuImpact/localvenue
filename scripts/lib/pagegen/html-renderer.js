@@ -268,7 +268,7 @@ function renderLineChart(dateStats) {
     const yp = yPos(y).toFixed(1);
     const is100 = y === 100;
     grids += `<line x1="${mLeft}" y1="${yp}" x2="${svgW - mRight}" y2="${yp}" stroke="${is100 ? '#e74c3c' : '#e0e0e0'}" stroke-width="${is100 ? 1.5 : 1}" stroke-dasharray="${is100 ? '5,3' : '3,3'}"/>`;
-    grids += `<text x="${mLeft - 8}" y="${(Number(yp) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${is100 ? '#e74c3c' : '#888'}">${y}%</text>`;
+    grids += `<text x="${mLeft - 8}" y="${(Number(yp) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${is100 ? '#ff9999' : 'white'}">${y}%</text>`;
   });
 
   // X軸ラベル（多い場合は間引く）
@@ -276,7 +276,7 @@ function renderLineChart(dateStats) {
   let xlabels = '';
   entries.forEach(([d], i) => {
     if (i % step === 0 || i === n - 1) {
-      xlabels += `<text x="${xPos(i).toFixed(1)}" y="${svgH - mBottom + 18}" text-anchor="middle" font-size="10" fill="#666">${d.slice(5)}</text>`;
+      xlabels += `<text x="${xPos(i).toFixed(1)}" y="${svgH - mBottom + 18}" text-anchor="middle" font-size="10" fill="white">${d.slice(5)}</text>`;
     }
   });
 
@@ -290,7 +290,7 @@ function renderLineChart(dateStats) {
     const da = l.dash ? `stroke-dasharray="${l.dash}"` : '';
     return `<line x1="${lx}" y1="14" x2="${lx + 20}" y2="14" stroke="${l.color}" stroke-width="2.5" ${da}/>` +
            `<circle cx="${lx + 10}" cy="14" r="3" fill="${l.color}"/>` +
-           `<text x="${lx + 25}" y="18" font-size="11" fill="#333">${l.label}</text>`;
+           `<text x="${lx + 25}" y="18" font-size="11" fill="white">${l.label}</text>`;
   }).join('');
 
   const singles   = entries.map(([, st]) => st['single']?.roi_percent   ?? null);
