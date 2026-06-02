@@ -9,7 +9,7 @@
 - NAR/楽天競馬由来のデータを取得し、MySQLに蓄積する
 - スコアリングロジックで予想を生成し、DBに保存する
 - 保存済みデータから静的HTMLを生成し、`public/` に出力する
-- git push → VPS git pull の仕組みで自動公開する
+- 生成済みの静的HTMLを公開環境へ反映する
 
 ---
 
@@ -71,12 +71,11 @@
 ## 5. デプロイ構成
 
 ```
-AK1PLUS（バッチ機） → GitHub（main）← git push
-VPS（公開機）       → GitHub（main）→ git pull（cron 30分おき）
+バッチ実行環境 → GitHub（main）→ 公開環境
 ```
 
 - `autoupdate.sh` は push 前に `git pull --rebase -X ours` を実行
-- VPS側から手動バッチを実行してpushした場合も、次回AK1PLUSのautoupdate時に自動吸収
+- 公開環境の具体的なホスト名・ユーザー名・絶対パスは、公開ドキュメントに含めない
 
 ---
 

@@ -136,7 +136,7 @@ graph TD
 
 ### 1. リポジトリのクローン
 ```bash
-git clone https://github.com/kenchanbaken/localvenue.git
+git clone <repository-url>
 cd localvenue
 npm install
 ```
@@ -167,26 +167,49 @@ npm run serve   # http://localhost:8131
 
 ---
 
-## 🌐 VPS（静的HTML配信）デプロイ
+## 🌐 静的HTML配信
 
-方針：**バッチはWSLで実行し、VPSは静的ファイル配信のみ**
+方針：**バッチ実行環境で `public/` を生成し、公開サーバーは静的ファイル配信のみ**。
+
+公開先のホスト名、ユーザー名、絶対パスなどの運用情報はリポジトリに書かず、各環境の手順書またはシークレット管理に分離してください。
 
 ### Nginx 設定例
-`/etc/nginx/conf.d/localvenue.conf`
 ```nginx
 server {
     listen 80;
-    server_name _;
-    root /var/www/localvenue;
+    server_name example.com;
+    root /path/to/localvenue/public;
     index index.html;
     location / { try_files $uri $uri/ =404; }
 }
 ```
 
-### 日次デプロイ
+### 日次デプロイ例
 ```bash
-rsync -avz --delete ./public/ user@your-vps:/var/www/localvenue/
+rsync -avz --delete ./public/ deploy@example.com:/path/to/public/
 ```
+
+---
+
+## 🔐 Public Repository Notes（公開リポジトリ向け注意）
+
+- `config/config.js`、`.env*`、DBダンプ、ログ、ローカル実行環境の絶対パス、公開サーバーの具体的な接続情報はコミットしないでください。
+- DBダンプは `data/dumps/` 配下に置く場合でもローカル専用です。スキーマ共有には `data/schema.sql` を使ってください。
+- ドキュメントには、実ドメイン・メールアドレス・サーバー名・ユーザー名・パスワードを直接書かず、`example.com` や `<repository-url>` のようなプレースホルダーを使ってください。
+
+---
+
+## 🛡️ 脆弱性診断メモ（2026-05-27 簡易診断）
+
+以前実施した外部ブラックボックス簡易診断の要約です。対象URLなど公開運用に紐づく詳細は、公開リポジトリ上では伏せています。
+
+- **重大な露出は未検出**: `.git/HEAD`、`.env`、`phpinfo.php`、`server-status`、`wp-admin/`、`api/` など代表的な漏えいパスは 404 応答。
+- **セキュリティヘッダは良好**: `Content-Security-Policy`、`Strict-Transport-Security`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy` を確認。
+- **入力値起点の典型脆弱性は観測されず**: 静的HTML中心の公開面で、簡易的な反射型XSS・SQLi・パストラバーサルの混入は確認されませんでした。
+- **HTTPメソッド**: `OPTIONS` 応答で `OPTIONS, HEAD, GET, POST` が許可されていました。静的配信のみなら、不要な `POST` を閉じる運用を検討してください。
+- **推奨アクション**: アクセスログ監視、`/.well-known/security.txt` の設置、不要HTTPメソッドの最小化、月次のヘッダ・露出ファイル・依存更新チェック。
+
+> 注意: この診断は非破壊・外部からの限定的な簡易確認です。サーバー内部設定、認証領域、CI/CD、依存ライブラリ、クラウド権限などは別途確認してください。
 
 ---
 
