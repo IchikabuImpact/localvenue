@@ -37,6 +37,3 @@ The following table lists the venues managed in `venue_master` and their corresp
 *   **`venue_master` table**: A mapping table specifically for Rakuten Keiba integration. It links the NAR `baba_code` to the Rakuten-specific 8-digit code.
 
 For complete data initialization, please refer to `seed-master.sql`.
-
----
-© 2026 IchikabuImpact
