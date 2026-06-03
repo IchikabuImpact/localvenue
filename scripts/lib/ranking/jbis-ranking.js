@@ -14,7 +14,7 @@ function buildRankingUrl(params) {
   return `https://www.jbis.or.jp/ranking/result/?${q.toString()}`;
 }
 
-function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order = 'D' }) {
+function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order = 'D', seqno = '' }) {
   return buildRankingUrl({
     sort,
     order,
@@ -36,7 +36,7 @@ function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order 
     distance_f: '',
     distance_t: '',
     horse: '',
-    seqno: '',
+    seqno: seqno ? String(seqno) : '',
     match: 'prefix',
   });
 }
