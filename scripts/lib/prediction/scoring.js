@@ -40,6 +40,21 @@ function trainerFallbackScore(raceClassLevel) {
   return SCORES[level] ?? 10;
 }
 
+/**
+ * クラス別の調教師スコア乗数を返す。
+ * 上位クラス（重賞/A/B1）は評価そのまま。
+ * 下級クラスほど調教師のJBISランキングと実際の勝率の相関が薄れるため抑える。
+ *   Lv5/4 → 1.0（そのまま）
+ *   Lv3   → 0.8（B2/B3）
+ *   Lv2   → 0.6（C1/C2）
+ *   Lv1   → 0.4（C3/C4/新馬）
+ *   不明  → 0.7
+ */
+function trainerClassMultiplier(raceClassLevel) {
+  const TABLE = { 5: 1.0, 4: 1.0, 3: 0.8, 2: 0.6, 1: 0.4 };
+  return TABLE[raceClassLevel] ?? 0.7;
+}
+
 function customScore(horse) {
   let bonus = 0;
   if (horse.horse_number % 2 === 0) bonus += horse.horse_number;
