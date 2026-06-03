@@ -27,7 +27,7 @@ class MySqlPredictionRepository {
   // race_info から天候・馬場状態を取得
   async findRaceInfo(raceId) {
     const [rows] = await this._pool.execute(
-      `SELECT weather, track_condition, distance_m, race_start_time FROM race_info WHERE race_id = ?`,
+      `SELECT weather, track_condition, distance_m, race_start_time, race_title FROM race_info WHERE race_id = ?`,
       [raceId]
     );
     return rows[0] ?? null;

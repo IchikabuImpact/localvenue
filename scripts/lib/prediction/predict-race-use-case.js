@@ -41,6 +41,7 @@ class PredictRaceUseCase {
       const trackCondition = raceInfo?.track_condition || '良';
       const weather        = raceInfo?.weather         ?? null;
       const startTimeStr   = raceInfo?.race_start_time ?? null;
+      const raceTitle      = raceInfo?.race_title       ?? null;
 
       // 上書き制御（debug: false の場合のみ）
       if (!this.debug) {
@@ -69,6 +70,7 @@ class PredictRaceUseCase {
         sireRows,
         weather,
         trackCondition,
+        raceTitle,
         generatedAt: this.now().toISOString(),
       });
 

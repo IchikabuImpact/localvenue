@@ -2,8 +2,43 @@
 
 const MODEL_VERSION = 'yosou-v1';
 
-const norm = s => (s || '').replace(/\s+/g, ' ').replace(/[ 　\t]/g, '').trim();
+const norm  = s => (s || '').replace(/\s+/g, ' ').replace(/[ 　\t]/g, '').trim();
 const headN = (s, n) => Array.from(s || '').slice(0, n).join('');
+
+// 全角英数字→半角変換
+const toHalf = s => (s || '').replace(/[Ａ-Ｚａ-ｚ０-９]/g, c =>
+  String.fromCharCode(c.charCodeAt(0) - 0xFEE0)
+);
+
+/**
+ * レース名からクラスレベル(1〜5)を抽出する。
+ * 重賞/特別=5, A/B1=4, B2/B3=3, C1/C2=2, C3/C4/新馬=1, 不明=null
+ */
+function parseRaceClassLevel(title) {
+  if (!title) return null;
+  const t = toHalf(title);
+  if (/重賞|グランプリ|ダービー|オークス|Jpn[I1]|GI/.test(t)) return 5;
+  if (/B1[^0-9]|B1$/.test(t))  return 4;
+  if (/A[1-4]?/.test(t))        return 4;
+  if (/B[23]/.test(t))          return 3;
+  if (/C[12]/.test(t))          return 2;
+  if (/C[34]/.test(t) || /新馬|未格付|2歳|3歳新/.test(t)) return 1;
+  if (/\bA\b/.test(t))          return 4;
+  if (/\bB\b/.test(t))          return 3;
+  if (/\bC\b/.test(t))          return 2;
+  return null;
+}
+
+/**
+ * レースクラスレベルから JBIS未登録調教師のフォールバックスコアを計算する。
+ * 「クラスレベル -1 段階」として扱う（上位クラスでも未登録=一段落ちる）。
+ *   Lv5→60, Lv4→40, Lv3→20, Lv2→10, Lv1/不明→10
+ */
+function trainerFallbackScore(raceClassLevel) {
+  const SCORES = { 5: 60, 4: 40, 3: 20, 2: 10, 1: 10 };
+  const level = Math.max(1, (raceClassLevel || 2) - 1);
+  return SCORES[level] ?? 10;
+}
 
 function customScore(horse) {
   let bonus = 0;
@@ -53,26 +88,33 @@ function calculatePrediction({
   jockeyRows,
   trainerRows,
   sireRows,
-  weather = null,
+  weather       = null,
   trackCondition = null,
-  generatedAt = new Date().toISOString(),
+  raceTitle     = null,
+  generatedAt   = new Date().toISOString(),
 }) {
   const jrPrefixMax = buildPrefixMaxScore(jockeyRows, 'jockey_name');
   const trPrefixMax = buildPrefixMaxScore(trainerRows, 'trainer_name');
   const normalizedSireRows = buildSireRows(sireRows);
 
+  // JBISに未登録の調教師のフォールバックスコア（レースクラスから推定・1段階下）
+  const classLevel = parseRaceClassLevel(raceTitle);
+  const trFallback = trainerFallbackScore(classLevel);
+
   const calc = racingFormRows.map(row => {
-    const jScore = jrPrefixMax.get(headN(norm(row.jockey), 3)) || 0;
-    const tScore = trPrefixMax.get(headN(norm(row.trainer), 3)) || 0;
+    const jScore = jrPrefixMax.get(headN(norm(row.jockey),  3)) || 0;
+    const tJbis  = trPrefixMax.get(headN(norm(row.trainer), 3)) || 0;
+    // JBIS登録あり→そのスコア、未登録→レースクラスから推定したフォールバック
+    const tScore = tJbis > 0 ? tJbis : trFallback;
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
     let total = (jScore + tScore + sScore + cScore) >>> 0;
     if (total === 0) total += row.horse_number;
     return {
       horse_number: row.horse_number,
-      horse_name: row.horse_name,
+      horse_name:   row.horse_name,
       score: total,
-      breakdown: { jockey: jScore, trainer: tScore, sire: sScore, custom: cScore },
+      breakdown: { jockey: jScore, trainer: tScore, trainerJbis: tJbis, sire: sScore, custom: cScore },
     };
   });
 
@@ -86,6 +128,7 @@ function calculatePrediction({
     best,
     weather,
     trackCondition,
+    raceClass: classLevel,
     generatedAt,
   };
 }
@@ -94,6 +137,9 @@ module.exports = {
   MODEL_VERSION,
   norm,
   headN,
+  toHalf,
+  parseRaceClassLevel,
+  trainerFallbackScore,
   customScore,
   buildPrefixMaxScore,
   buildSireRows,
