@@ -44,7 +44,7 @@ function parse(html) {
   return parsePeopleRanking(html, {
     hrefContains: '/horse/trainer/',
     nameKey: 'trainerName',
-    maxRank: 999,
+    maxRank: 9999,
   });
 }
 

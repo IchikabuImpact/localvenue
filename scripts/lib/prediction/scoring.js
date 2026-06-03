@@ -22,7 +22,8 @@ function buildPrefixMaxScore(rows, nameKey) {
   const prefixMax = new Map();
   for (const r of rows) {
     const key = headN(norm(r[nameKey]), 3);
-    const val = r.score >>> 0;
+    // >>> 0 は負の数を巨大な正整数に変換するバグがあるため Math.max を使う
+    const val = Math.max(0, Number(r.score) || 0);
     const cur = prefixMax.get(key) || 0;
     if (val > cur) prefixMax.set(key, val);
   }

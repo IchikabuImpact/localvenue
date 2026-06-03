@@ -162,8 +162,16 @@ function parseSireRanking(html) {
   return uniqueSortedBy(rows, (row) => row.sireId);
 }
 
+// JBIS上の実際のrank番号からスコアを計算（地方調教師は rank300+ になりうるため負になることがある）
+// 通常は scoreFromPosition を使うこと
 function scoreFromRank(rank) {
-  return 101 - rank;
+  return Math.max(0, 101 - rank);
+}
+
+// 取得リスト内の0始まり順位からスコアを計算（実際のrank番号に依存しない）
+// 0位→100点、99位→1点、100位以降→1点（"データなし"より常に高い）
+function scoreFromPosition(position) {
+  return Math.max(1, 100 - position);
 }
 
 function getAppConfig() {
@@ -191,8 +199,9 @@ async function savePeopleRanking(rows, { year, table, nameColumn, nameKey, mysql
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE score = VALUES(score)
     `;
-    for (const row of rows) {
-      await conn.execute(sql, [year, row[nameKey], scoreFromRank(row.rank)]);
+    // rank番号に依存しない順位ベーススコア（地方は rank300+ になりうるため）
+    for (let i = 0; i < rows.length; i++) {
+      await conn.execute(sql, [year, rows[i][nameKey], scoreFromPosition(i)]);
     }
     await conn.commit();
     return rows.length;
@@ -241,4 +250,5 @@ module.exports = {
   savePeopleRanking,
   saveSireRanking,
   scoreFromRank,
+  scoreFromPosition,
 };
