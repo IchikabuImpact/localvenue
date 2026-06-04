@@ -112,15 +112,17 @@ function calculatePrediction({
   const trPrefixMax = buildPrefixMaxScore(trainerRows, 'trainer_name');
   const normalizedSireRows = buildSireRows(sireRows);
 
-  // JBISに未登録の調教師のフォールバックスコア（レースクラスから推定・1段階下）
-  const classLevel = parseRaceClassLevel(raceTitle);
-  const trFallback = trainerFallbackScore(classLevel);
+  // レースクラスから調教師スコア補正値を計算
+  const classLevel  = parseRaceClassLevel(raceTitle);
+  const trFallback  = trainerFallbackScore(classLevel);
+  const trMultiplier = trainerClassMultiplier(classLevel);
 
   const calc = racingFormRows.map(row => {
     const jScore = jrPrefixMax.get(headN(norm(row.jockey),  3)) || 0;
     const tJbis  = trPrefixMax.get(headN(norm(row.trainer), 3)) || 0;
-    // JBIS登録あり→そのスコア、未登録→レースクラスから推定したフォールバック
-    const tScore = tJbis > 0 ? tJbis : trFallback;
+    // JBIS登録あり→そのスコア、未登録→クラスフォールバック。その後クラス乗数を適用
+    const tRaw   = tJbis > 0 ? tJbis : trFallback;
+    const tScore = Math.round(tRaw * trMultiplier);
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
     let total = (jScore + tScore + sScore + cScore) >>> 0;
@@ -129,7 +131,11 @@ function calculatePrediction({
       horse_number: row.horse_number,
       horse_name:   row.horse_name,
       score: total,
-      breakdown: { jockey: jScore, trainer: tScore, trainerJbis: tJbis, sire: sScore, custom: cScore },
+      breakdown: {
+        jockey: jScore, trainer: tScore,
+        trainerJbis: tJbis, trainerMultiplier: trMultiplier,
+        sire: sScore, custom: cScore,
+      },
     };
   });
 
@@ -155,6 +161,7 @@ module.exports = {
   toHalf,
   parseRaceClassLevel,
   trainerFallbackScore,
+  trainerClassMultiplier,
   customScore,
   buildPrefixMaxScore,
   buildSireRows,
