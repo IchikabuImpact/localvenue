@@ -143,16 +143,16 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 - **注意**: GET_LOCK/RELEASE_LOCK でデッドロック対策済み
 
 #### `005-predict-race.js`
-- **役割**: `racing_form` + `jockey_ranking` + `sire_ranking` からスコアリングして予想生成
-- **入力**: `racing_form`, `jockey_ranking`, `sire_ranking` テーブル
+- **役割**: `racing_form` + ランキング3本 + サテライトファクターからスコアリングして予想生成
+- **入力**: `racing_form`, `jockey_ranking`, `trainer_ranking`, `sire_ranking`, `race_results`
 - **出力**: `prediction`（best horse_number + 全頭スコアのJSON memo）
 - **引数**: `YYYYMMDDRRBB`（必須）
 - **モデル名**: `yosou-v1`（`MODEL_VERSION` 定数）
-- **スコアロジック**:
-  - 騎手スコア（jockey_ranking を頭3文字前方一致）
-  - 種牡馬スコア（sire_ranking を前方一致）
-  - 偶数馬番ボーナス（馬番値そのまま加算）
-  - 年齢ボーナス（2歳+40, 3歳+30, 4歳+20）
+- **スコアロジック詳細**: → `docs/PREDICTION_SCORING.md` 参照
+- **概要**:
+  - コア4本: 騎手・調教師（クラス乗数あり）・種牡馬（馬場状態別）・カスタム（馬番+年齢）
+  - サテライト（プラグイン）: `satellites/improvement-factor.js` → 前走着順改善 +10
+  - 全頭スコアを `prediction.memo.items` JSON に格納、最高得点を `best`（◎）に選出
 
 ---
 
