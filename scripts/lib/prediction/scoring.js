@@ -82,7 +82,7 @@ function buildPrefixMaxScore(rows, nameKey) {
 
 function buildSireRows(rows) {
   return rows
-    .map(r => ({ sire_name: norm(r.sire_name), score: r.score >>> 0 }))
+    .map(r => ({ sire_name: norm(r.sire_name), score: Math.max(0, Number(r.score) || 0) }))
     .filter(r => r.sire_name.length > 0)
     .sort((a, b) => b.sire_name.length - a.sire_name.length);
 }

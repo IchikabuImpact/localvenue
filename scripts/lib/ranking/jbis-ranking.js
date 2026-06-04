@@ -55,7 +55,7 @@ const TRACK_CONDITION_CODES = Object.fromEntries(
   Object.entries(TRACK_CONDITION_MAP).map(([k, v]) => [v, Number(k)])
 );
 
-function buildSireRankingUrl(distance, conditionCode = 1, now = new Date()) {
+function buildSireRankingUrl(distance, conditionCode = 1, now = new Date(), seqno = '') {
   const yTo = now.getFullYear();
   const yFrom = yTo - 1;
   const y2 = yTo - 2;
@@ -80,7 +80,7 @@ function buildSireRankingUrl(distance, conditionCode = 1, now = new Date()) {
     distance_f: String(distance),
     distance_t: String(distance),
     horse: '',
-    seqno: '',
+    seqno: seqno ? String(seqno) : '',
     match: 'prefix',
   });
 }
@@ -225,8 +225,8 @@ async function saveSireRanking(rows, { distance, trackCondition = 'all', mysqlCl
         sire_name       = VALUES(sire_name),
         score           = VALUES(score)
     `;
-    for (const row of rows) {
-      await conn.execute(sql, [distance, row.sireId, row.sireName, scoreFromRank(row.rank), trackCondition]);
+    for (let i = 0; i < rows.length; i++) {
+      await conn.execute(sql, [distance, rows[i].sireId, rows[i].sireName, scoreFromPosition(i), trackCondition]);
     }
     await conn.commit();
     return rows.length;
