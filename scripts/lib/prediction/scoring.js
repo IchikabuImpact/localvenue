@@ -97,6 +97,12 @@ function findSireScore(sireRows, sireText) {
   return 0;
 }
 
+/**
+ * satellites: プラグイン型サテライトファクターの配列。
+ * 各要素は { name: string, bonuses: Map<horse_number, number> }。
+ * calculatePrediction はコアスコアにボーナスを加算するだけで、
+ * ファクターのロジック自体は各satellites/**ファイルに閉じている。
+ */
 function calculatePrediction({
   raceId,
   racingFormRows,
@@ -106,6 +112,7 @@ function calculatePrediction({
   weather       = null,
   trackCondition = null,
   raceTitle     = null,
+  satellites    = [],
   generatedAt   = new Date().toISOString(),
 }) {
   const jrPrefixMax = buildPrefixMaxScore(jockeyRows, 'jockey_name');
@@ -125,7 +132,9 @@ function calculatePrediction({
     const tScore = Math.round(tRaw * trMultiplier);
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
-    let total = (jScore + tScore + sScore + cScore) >>> 0;
+    const satelliteBonus = satellites.reduce((sum, s) => sum + (s.bonuses.get(row.horse_number) || 0), 0);
+    const satelliteBreakdown = Object.fromEntries(satellites.map(s => [s.name, s.bonuses.get(row.horse_number) || 0]));
+    let total = (jScore + tScore + sScore + cScore + satelliteBonus) >>> 0;
     if (total === 0) total += row.horse_number;
     return {
       horse_number: row.horse_number,
@@ -135,6 +144,7 @@ function calculatePrediction({
         jockey: jScore, trainer: tScore,
         trainerJbis: tJbis, trainerMultiplier: trMultiplier,
         sire: sScore, custom: cScore,
+        ...satelliteBreakdown,
       },
     };
   });

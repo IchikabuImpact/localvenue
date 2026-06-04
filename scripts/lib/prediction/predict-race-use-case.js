@@ -1,5 +1,6 @@
 'use strict';
 const { MODEL_VERSION, calculatePrediction } = require('./scoring');
+const { computeImprovementBonuses } = require('./satellites/improvement-factor');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -62,6 +63,13 @@ class PredictRaceUseCase {
 
       if (!racingFormRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
 
+      const improvementBonuses = await computeImprovementBonuses(
+        racingFormRows,
+        raceId,
+        (horseName, beforeRaceId) => this.predictionRepository.findRecentResultsByHorseName(horseName, beforeRaceId)
+      );
+      const satellites = [{ name: 'improvement', bonuses: improvementBonuses }];
+
       const memo = calculatePrediction({
         raceId,
         racingFormRows,
@@ -71,6 +79,7 @@ class PredictRaceUseCase {
         weather,
         trackCondition,
         raceTitle,
+        satellites,
         generatedAt: this.now().toISOString(),
       });
 

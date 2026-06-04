@@ -10,6 +10,8 @@ function makeRepos(overrides = {}) {
     predictionRepository: {
       connect: async () => {}, close: async () => {},
       savePrediction: async () => {},
+      findRaceInfo: async () => null,
+      findRecentResultsByHorseName: async () => [],
       ...overrides.prediction,
     },
     racingFormRepository: {
@@ -30,7 +32,7 @@ function makeRepos(overrides = {}) {
 test('予想に必要なデータを取得してpredictionを保存する', async () => {
   const saved = [];
   const repos = makeRepos({ prediction: { savePrediction: async payload => saved.push(payload) } });
-  const useCase = new PredictRaceUseCase({ ...repos, logger: silentLogger(), now: () => 'fixed' });
+  const useCase = new PredictRaceUseCase({ ...repos, logger: silentLogger(), now: () => new Date('2026-05-29T00:00:00Z') });
 
   const memo = await useCase.execute({ raceId: '202605230131', year: 2026 });
 

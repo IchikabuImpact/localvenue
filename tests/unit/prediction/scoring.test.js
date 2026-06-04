@@ -29,7 +29,11 @@ test('calculatePredictionはスコア順でbestとitemsを作る', () => {
 
   assert.equal(memo.model, 'yosou-v1');
   assert.equal(memo.best.horse_number, 1);
-  assert.deepEqual(memo.best.breakdown, { jockey: 50, trainer: 30, sire: 40, custom: 30 });
+  // raceTitle 未指定 → classLevel=null → multiplier=0.7 → trainer=Math.round(30*0.7)=21
+  assert.deepEqual(memo.best.breakdown, {
+    jockey: 50, trainer: 21, trainerJbis: 30, trainerMultiplier: 0.7,
+    sire: 40, custom: 30,
+  });
   assert.equal(memo.items.length, 2);
 });
 
