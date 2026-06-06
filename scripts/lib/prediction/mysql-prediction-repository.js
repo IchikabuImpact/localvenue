@@ -33,6 +33,21 @@ class MySqlPredictionRepository {
     return rows[0] ?? null;
   }
 
+  // 指定レースより前の同名馬の過去結果を距離付きで返す（DistanceFactor用）
+  async findResultsWithDistanceByHorseName(horseName, beforeRaceId) {
+    const [rows] = await this._pool.execute(
+      `SELECT rr.official_finish_position, ri.distance_m
+         FROM race_results rr
+         JOIN race_info ri ON ri.race_id = rr.race_id
+        WHERE rr.horse_name = ?
+          AND rr.race_id < ?
+          AND rr.disqualified = 0
+        ORDER BY rr.race_id DESC`,
+      [horseName, beforeRaceId]
+    );
+    return rows;
+  }
+
   // 指定レースより前の同名馬の直近2走結果を返す（ImprovementFactor用）
   async findRecentResultsByHorseName(horseName, beforeRaceId) {
     const [rows] = await this._pool.execute(

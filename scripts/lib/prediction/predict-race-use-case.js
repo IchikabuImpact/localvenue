@@ -2,6 +2,7 @@
 const { MODEL_VERSION, calculatePrediction } = require('./scoring');
 const { computeImprovementBonuses } = require('./satellites/improvement-factor');
 const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
+const { computeDistanceBonuses } = require('./satellites/distance-factor');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -67,17 +68,25 @@ class PredictRaceUseCase {
 
       if (!racingFormRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
 
-      const [improvementBonuses, wetTrack] = await Promise.all([
+      const distanceM = raceInfo?.distance_m ?? null;
+      const [improvementBonuses, wetTrack, distanceFactor] = await Promise.all([
         computeImprovementBonuses(
           racingFormRows,
           raceId,
           (horseName, beforeRaceId) => this.predictionRepository.findRecentResultsByHorseName(horseName, beforeRaceId)
         ),
         Promise.resolve(computeWetTrackBonuses(racingFormRows, trackCondition, condSireRows, allSireRows)),
+        computeDistanceBonuses(
+          racingFormRows,
+          distanceM,
+          (horseName, beforeRaceId) => this.predictionRepository.findResultsWithDistanceByHorseName(horseName, beforeRaceId),
+          raceId
+        ),
       ]);
       const satellites = [
         { name: 'improvement', bonuses: improvementBonuses },
-        { name: 'wettrack',    bonuses: wetTrack.bonuses, capPct: wetTrack.capPct },
+        { name: 'wettrack',    bonuses: wetTrack.bonuses,       capPct: wetTrack.capPct },
+        { name: 'distance',    bonuses: distanceFactor.bonuses, capPct: distanceFactor.capPct },
       ];
 
       const memo = calculatePrediction({
