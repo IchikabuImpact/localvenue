@@ -21,9 +21,10 @@ function makeRepos(overrides = {}) {
     },
     rankingRepository: {
       connect: async () => {}, close: async () => {},
-      findJockeyScores:  async () => [],
-      findTrainerScores: async () => [],
-      findSireScores:    async () => [],
+      findJockeyScores:   async () => [],
+      findTrainerScores:  async () => [],
+      findSireScores:     async () => [],
+      findSireRawScores:  async () => [],
       ...overrides.ranking,
     },
   };

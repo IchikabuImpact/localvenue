@@ -30,6 +30,18 @@ class MySqlRankingRepository {
     return rows;
   }
 
+  // 指定した馬場状態のスコアのみ返す（フォールバックなし）。WetTrackFactor用。
+  async findSireRawScores(condition) {
+    const [rows] = await this._pool.execute(
+      `SELECT sire_name, MAX(score) AS score
+         FROM sire_ranking
+        WHERE track_condition = ?
+        GROUP BY sire_name`,
+      [condition]
+    );
+    return rows;
+  }
+
   // trackCondition が指定された場合、条件別スコアを優先して取得する。
   // 条件別データがなければ 'all' にフォールバックするため、現状は動作変化なし。
   async findSireScores(trackCondition = null) {

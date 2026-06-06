@@ -74,7 +74,7 @@ async function main() {
     process.exit(1);
   }
 
-  const maxPages = Number(getOpt('max-pages', '2'));  // デフォルト2ページ=200件
+  const maxPages = Number(getOpt('max-pages', '1'));  // seqnoページネーション非対応のため1ページ=100件
 
   console.log(`[INFO] distance=${distance}m  condition=${condition.code}(${condition.label})  max-pages=${maxPages}`);
 

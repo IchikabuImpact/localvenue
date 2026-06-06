@@ -1,6 +1,7 @@
 'use strict';
 const { MODEL_VERSION, calculatePrediction } = require('./scoring');
 const { computeImprovementBonuses } = require('./satellites/improvement-factor');
+const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -54,21 +55,30 @@ class PredictRaceUseCase {
         }
       }
 
-      const [racingFormRows, jockeyRows, trainerRows, sireRows] = await Promise.all([
+      const isWet = WET_CONDITIONS.has(trackCondition);
+      const [racingFormRows, jockeyRows, trainerRows, sireRows, condSireRows, allSireRows] = await Promise.all([
         this.racingFormRepository.findByRaceId(raceId),
         this.rankingRepository.findJockeyScores(year),
         this.rankingRepository.findTrainerScores(year),
         this.rankingRepository.findSireScores(trackCondition),
+        isWet ? this.rankingRepository.findSireRawScores(trackCondition) : Promise.resolve([]),
+        isWet ? this.rankingRepository.findSireRawScores('all')           : Promise.resolve([]),
       ]);
 
       if (!racingFormRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
 
-      const improvementBonuses = await computeImprovementBonuses(
-        racingFormRows,
-        raceId,
-        (horseName, beforeRaceId) => this.predictionRepository.findRecentResultsByHorseName(horseName, beforeRaceId)
-      );
-      const satellites = [{ name: 'improvement', bonuses: improvementBonuses }];
+      const [improvementBonuses, wetTrack] = await Promise.all([
+        computeImprovementBonuses(
+          racingFormRows,
+          raceId,
+          (horseName, beforeRaceId) => this.predictionRepository.findRecentResultsByHorseName(horseName, beforeRaceId)
+        ),
+        Promise.resolve(computeWetTrackBonuses(racingFormRows, trackCondition, condSireRows, allSireRows)),
+      ]);
+      const satellites = [
+        { name: 'improvement', bonuses: improvementBonuses },
+        { name: 'wettrack',    bonuses: wetTrack.bonuses, capPct: wetTrack.capPct },
+      ];
 
       const memo = calculatePrediction({
         raceId,

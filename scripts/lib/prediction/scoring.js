@@ -132,9 +132,18 @@ function calculatePrediction({
     const tScore = Math.round(tRaw * trMultiplier);
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
-    const satelliteBonus = satellites.reduce((sum, s) => sum + (s.bonuses.get(row.horse_number) || 0), 0);
-    const satelliteBreakdown = Object.fromEntries(satellites.map(s => [s.name, s.bonuses.get(row.horse_number) || 0]));
-    let total = (jScore + tScore + sScore + cScore + satelliteBonus) >>> 0;
+    const coreScore = jScore + tScore + sScore + cScore;
+    let satelliteBonus = 0;
+    const satelliteBreakdown = {};
+    for (const s of satellites) {
+      const raw = s.bonuses.get(row.horse_number) || 0;
+      const bonus = s.capPct != null
+        ? Math.min(raw, Math.round(coreScore * s.capPct / 100))
+        : raw;
+      satelliteBonus += bonus;
+      satelliteBreakdown[s.name] = bonus;
+    }
+    let total = (coreScore + satelliteBonus) >>> 0;
     if (total === 0) total += row.horse_number;
     return {
       horse_number: row.horse_number,
