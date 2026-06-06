@@ -81,15 +81,18 @@ fi
 DISTANCES="800 1200 1300 1400 1500 1600 1800 2000 2100 2200"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 種牡馬ランキング取得 開始 (距離: $DISTANCES)"
 
+CONDITIONS="all 良 稍重 重 不良"
 SIRE_ERRORS=0
 for DIST in $DISTANCES; do
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')]   距離 ${DIST}m ..."
-  node fetch-sire-ranking.js "$DIST"
-  if [ $? -ne 0 ]; then
-    echo "[WARN] 距離 ${DIST}m の取得失敗。次の距離へ続行。"
-    SIRE_ERRORS=$((SIRE_ERRORS + 1))
-  fi
-  # ※ JBIS への待機は jbis-throttle.js が自動制御（7〜9秒）するため sleep 不要
+  for COND in $CONDITIONS; do
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')]   距離 ${DIST}m  条件 ${COND} ..."
+    node fetch-sire-ranking.js "$DIST" --condition "$COND"
+    if [ $? -ne 0 ]; then
+      echo "[WARN] 距離 ${DIST}m 条件 ${COND} の取得失敗。次へ続行。"
+      SIRE_ERRORS=$((SIRE_ERRORS + 1))
+    fi
+    # ※ JBIS への待機は jbis-throttle.js が自動制御（7〜9秒）するため sleep 不要
+  done
 done
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 種牡馬ランキング取得 終了 (失敗距離: ${SIRE_ERRORS}件)"
