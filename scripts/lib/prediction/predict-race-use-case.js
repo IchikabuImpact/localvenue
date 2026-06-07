@@ -1,8 +1,9 @@
 'use strict';
-const { MODEL_VERSION, calculatePrediction } = require('./scoring');
+const { MODEL_VERSION, calculatePrediction, parseRaceClassLevel } = require('./scoring');
 const { computeImprovementBonuses } = require('./satellites/improvement-factor');
 const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
 const { computeDistanceBonuses } = require('./satellites/distance-factor');
+const { computeClassJumpBonuses } = require('./satellites/class-jump-factor');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -68,8 +69,9 @@ class PredictRaceUseCase {
 
       if (!racingFormRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
 
-      const distanceM = raceInfo?.distance_m ?? null;
-      const [improvementBonuses, wetTrack, distanceFactor] = await Promise.all([
+      const distanceM    = raceInfo?.distance_m ?? null;
+      const currentClass = parseRaceClassLevel(raceTitle);
+      const [improvementBonuses, wetTrack, distanceFactor, classJump] = await Promise.all([
         computeImprovementBonuses(
           racingFormRows,
           raceId,
@@ -82,11 +84,18 @@ class PredictRaceUseCase {
           (horseName, beforeRaceId) => this.predictionRepository.findResultsWithDistanceByHorseName(horseName, beforeRaceId),
           raceId
         ),
+        computeClassJumpBonuses(
+          racingFormRows,
+          currentClass,
+          (horseName, beforeRaceId) => this.predictionRepository.findLastRaceTitleByHorseName(horseName, beforeRaceId),
+          raceId
+        ),
       ]);
       const satellites = [
         { name: 'improvement', bonuses: improvementBonuses },
         { name: 'wettrack',    bonuses: wetTrack.bonuses,       capPct: wetTrack.capPct },
         { name: 'distance',    bonuses: distanceFactor.bonuses, capPct: distanceFactor.capPct },
+        { name: 'classjump',   bonuses: classJump.bonuses,      capPct: classJump.capPct },
       ];
 
       const memo = calculatePrediction({

@@ -13,6 +13,7 @@ function makeRepos(overrides = {}) {
       findRaceInfo: async () => null,
       findRecentResultsByHorseName: async () => [],
       findResultsWithDistanceByHorseName: async () => [],
+      findLastRaceTitleByHorseName: async () => null,
       ...overrides.prediction,
     },
     racingFormRepository: {

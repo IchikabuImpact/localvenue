@@ -48,6 +48,22 @@ class MySqlPredictionRepository {
     return rows;
   }
 
+  // 指定レースより前の同名馬の直近1走のrace_titleを返す（ClassJumpFactor用）
+  async findLastRaceTitleByHorseName(horseName, beforeRaceId) {
+    const [rows] = await this._pool.execute(
+      `SELECT ri.race_title
+         FROM race_results rr
+         JOIN race_info ri ON ri.race_id = rr.race_id
+        WHERE rr.horse_name = ?
+          AND rr.race_id < ?
+          AND rr.disqualified = 0
+        ORDER BY rr.race_id DESC
+        LIMIT 1`,
+      [horseName, beforeRaceId]
+    );
+    return rows[0] ?? null;
+  }
+
   // 指定レースより前の同名馬の直近2走結果を返す（ImprovementFactor用）
   async findRecentResultsByHorseName(horseName, beforeRaceId) {
     const [rows] = await this._pool.execute(
