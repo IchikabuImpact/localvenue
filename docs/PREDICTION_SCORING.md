@@ -1,6 +1,6 @@
 # 予想スコアリング設計書
 
-最終更新: 2026-06-04
+最終更新: 2026-06-07
 
 ---
 
@@ -29,9 +29,12 @@
 各ファイルは `{ name, bonuses: Map<horse_number, score> }` を返す関数を export する。
 ON/OFF は `predict-race-use-case.js` の `satellites` 配列への追加・削除で制御。
 
-| ファクター | ファイル | ボーナス | 条件 |
-|-----------|---------|---------|------|
-| ImprovementFactor | `satellites/improvement-factor.js` | +10 | 前走より着順が1以上改善 |
+| ファクター | ファイル | ボーナス | capPct | 条件 |
+|-----------|---------|---------|--------|------|
+| ImprovementFactor | `satellites/improvement-factor.js` | +10 | なし | 前走より着順が1以上改善 |
+| WetTrackFactor    | `satellites/wet-track-factor.js`   | 条件別sireスコア − allスコアの差分 | 10% | 馬場状態が重または不良のとき |
+| DistanceFactor    | `satellites/distance-factor.js`    | +20 | 10% | 今走と同距離で1着実績あり |
+| ClassJumpFactor   | `satellites/class-jump-factor.js`  | +20 | 10% | 前走より1段階以上クラス上昇 |
 
 ---
 
@@ -91,7 +94,10 @@ FROM sire_ranking GROUP BY sire_name
         "trainerMultiplier": 1,
         "sire": 83,
         "custom": 32,
-        "improvement": 10
+        "improvement": 10,
+        "wettrack": 0,
+        "distance": 20,
+        "classjump": 0
       }
     }
   ],
@@ -126,10 +132,11 @@ FROM sire_ranking GROUP BY sire_name
 
 | 優先度 | ファクター | 必要データ | 状態 |
 |--------|-----------|-----------|------|
-| ② | WetTrackFactor（重・不良専用サイアー） | sire_ranking（track_condition別） | 実装可 |
+| ① | ImprovementFactor（着順上昇度） | race_results | **実装済み** |
+| ② | WetTrackFactor（重・不良専用サイアー） | sire_ranking（track_condition別） | **実装済み** |
 | ③ | VenueFactor（会場別補正） | prediction_roi（蓄積待ち） | データ蓄積中 |
-| ④ | DistanceFactor（距離適性） | race_results（5415行あり） | 実装可 |
-| ⑤ | ClassJumpFactor（クラス上昇） | race_info | 実装可 |
+| ④ | DistanceFactor（距離適性） | race_results | **実装済み** |
+| ⑤ | ClassJumpFactor（クラス上昇） | race_info | **実装済み** |
 | ⑥ | 上3F（末脚トレンド） | 未収集 | スクレイピング追加必要 |
 
 ---
