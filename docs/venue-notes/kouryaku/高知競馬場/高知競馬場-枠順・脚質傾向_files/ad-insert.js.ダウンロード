@@ -1,0 +1,61 @@
+document.addEventListener("DOMContentLoaded", function () {
+  // 広告のパターンを用意
+  const ads = [
+    {
+      html: '<div style="border:solid 10px red;margin-top:10px;margin-bottom:10px;"><div style="padding:10px 20px;background-color:yellow"><p><span style="font-weight:bold;color:red;">無料メルマガで連日の無料予想と秋G1の極秘情報もGETしよう!!</span></p></div><div style="padding:10px 20px;"><p><span style="font-size:20px;font-weight:bold;">無料メルマガ登録フォーム</span></p><div><form name="asumeru_form" method="post" action="https://1lejend.com/stepmail/kd.php?no=Uzjixw">なまえ <input type="text" name="touroku_name" id="touroku_name" value="" style="width:150px;margin-bottom:10px;" required /><br>メール <input type="email" name="touroku_mail" id="touroku_mail" istyle="3" mode="alphabet" value="" style="width:150px;" required /><br><input type="hidden" name="no" value="Uzjixw" /><input type="hidden" name="action" value="kakunin" /><p class="center-text"><input type="submit" name="submit" value="無料メルマガ登録" class="formBtn" id="confirmBtn" /></p></form></div></div></div>',
+      weight: 70
+    },
+    {
+      html: '<div class="note-rss-ad" style="border:2px solid #ccc;padding:15px;margin:20px 0;background:#eef;font-weight:bold;">馬券を買うのはちょっと待て！まずは私の予想をチェック！<br><a href="https://note.com/umameshicom">⇒予想はこちら</a></div>',
+      weight: 30
+    }
+  ];
+
+  // 重み付きランダム選択関数
+  function weightedRandom(choices) {
+    const total = choices.reduce((sum, choice) => sum + choice.weight, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < choices.length; i++) {
+      r -= choices[i].weight;
+      if (r < 0) return choices[i];
+    }
+    return choices[choices.length - 1];
+  }
+
+  // <h1>の前に広告を挿入
+  const h1 = document.querySelector("h1");
+  if (h1) {
+    const selectedAd = weightedRandom(ads);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = selectedAd.html;
+    h1.before(wrapper);
+  }
+
+  // すべての<h2>の前に広告を挿入
+  const h2s = document.querySelectorAll("h2");
+  h2s.forEach(h2 => {
+    const selectedAd = weightedRandom(ads);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = selectedAd.html;
+    h2.before(wrapper);
+  });
+
+  // 複数ある可能性に対応：note-rss-ad をすべて更新
+  fetch("/note-feed.php")
+    .then(response => response.json())
+    .then(data => {
+      const noteAds = document.querySelectorAll(".note-rss-ad");
+      if (noteAds.length > 0 && Array.isArray(data) && data.length > 0) {
+        let html = "<strong>激アツ予想はコチラ！</strong><br>";
+        data.forEach(item => {
+          html += `🔥<a href="${item.link}" target="_blank">${item.title}</a><br>`;
+        });
+        noteAds.forEach(noteAd => {
+          noteAd.innerHTML = html;
+        });
+      }
+    })
+    .catch(error => {
+      console.error("noteのRSS取得に失敗しました:", error);
+    });
+});
