@@ -4,6 +4,7 @@ const { computeImprovementBonuses } = require('./satellites/improvement-factor')
 const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
 const { computeDistanceBonuses } = require('./satellites/distance-factor');
 const { computeClassJumpBonuses } = require('./satellites/class-jump-factor');
+const { loadVenueSatellites } = require('./satellites/venue/loader');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -91,11 +92,16 @@ class PredictRaceUseCase {
           raceId
         ),
       ]);
+      const babaCode = String(raceId).slice(10, 12);
+      const venueContext = { raceId, distanceM, trackCondition, weather, raceTitle };
+      const venueFactors = await loadVenueSatellites(babaCode, racingFormRows, venueContext);
+
       const satellites = [
         { name: 'improvement', bonuses: improvementBonuses },
         { name: 'wettrack',    bonuses: wetTrack.bonuses,       capPct: wetTrack.capPct },
         { name: 'distance',    bonuses: distanceFactor.bonuses, capPct: distanceFactor.capPct },
         { name: 'classjump',   bonuses: classJump.bonuses,      capPct: classJump.capPct },
+        ...venueFactors,
       ];
 
       const memo = calculatePrediction({

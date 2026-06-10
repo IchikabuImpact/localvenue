@@ -2,6 +2,32 @@
 
 const cheerio = require('cheerio');
 
+/**
+ * 直近走の通過順位（"1-1-1-1 42.6" や "6-6 39.2"）と頭数から脚質を推定する。
+ * 最初のコーナー通過順位 / 頭数 の平均比率で分類。
+ * @param {string[]} timeCells  - row4 の時計セル群 ["1:04.1 6-6 39.2", ...]
+ * @param {number[]} fieldSizes - row1 の直近走頭数 [10, 8, ...]
+ * @returns {'逃げ'|'先行'|'差し'|'追込'|null}
+ */
+function inferRunningStyle(timeCells, fieldSizes) {
+  const ratios = [];
+  for (let i = 0; i < Math.min(timeCells.length, fieldSizes.length); i++) {
+    // "1:46.5 1-1-1-1 42.6" の最初の通過順位数字を取得
+    const m = timeCells[i].match(/\d+:\d+\.\d\s+(\d+)/);
+    if (!m) continue;
+    const firstPos = Number(m[1]);
+    const fieldSize = fieldSizes[i];
+    if (fieldSize > 0) ratios.push(firstPos / fieldSize);
+  }
+  if (!ratios.length) return null;
+  const avg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+  // 頭数比で分類。先頭10%以内（10頭なら1番手）を逃げと判定
+  if (avg <= 0.10) return '逃げ';
+  if (avg <= 0.30) return '先行';
+  if (avg <= 0.60) return '差し';
+  return '追込';
+}
+
 function parseRacingForm(html, yy) {
   const $ = cheerio.load(html);
 
@@ -69,6 +95,24 @@ function parseRacingForm(html, yy) {
     const dam = $r4.find('td[colspan="3"]').first().text().trim() || null;
     const owner = $r4.find('td[colspan="1"]').first().text().trim() || null;
 
+    // row1 の直近走セル（"5 26.05.26 稍重 10頭 門別 右1000 10番" 形式）から頭数抽出
+    const fieldSizes = [];
+    $r1.find('td').each((_, td) => {
+      const t = $(td).text().replace(/\s+/g, ' ').trim();
+      const m = t.match(/\d{2}\.\d{2}\.\d{2}.*?(\d+)頭/);
+      if (m) fieldSizes.push(Number(m[1]));
+    });
+
+    // row4 の時計セル（td[0]=dam colspan3, td[1]=owner をスキップ、td[2+]が時計+通過順）
+    const timeCells = [];
+    $r4.find('td').each((i, td) => {
+      if (i < 2) return; // dam と owner をスキップ
+      const t = $(td).text().replace(/\s+/g, ' ').trim();
+      if (/\d+:\d+\.\d/.test(t)) timeCells.push(t);
+    });
+
+    const running_style = inferRunningStyle(timeCells, fieldSizes);
+
     const bmsRaw = $r5.find('td[colspan="3"]').first().text().trim();
     const broodmare_sire = bmsRaw.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
     const breeder = $r5.find('td[colspan="1"]').first().text().trim() || null;
@@ -80,6 +124,7 @@ function parseRacingForm(html, yy) {
       jockey, affiliation,
       burden_weight,
       trainer, owner, breeder,
+      running_style,
     });
   });
 
