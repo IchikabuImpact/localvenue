@@ -4,6 +4,7 @@ const { computeImprovementBonuses } = require('./satellites/improvement-factor')
 const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
 const { computeDistanceBonuses } = require('./satellites/distance-factor');
 const { computeClassJumpBonuses } = require('./satellites/class-jump-factor');
+const { computeLastKickBonuses } = require('./satellites/last-kick-factor');
 const { loadVenueSatellites } = require('./satellites/venue/loader');
 
 class PredictionSkippedError extends Error {
@@ -72,7 +73,7 @@ class PredictRaceUseCase {
 
       const distanceM    = raceInfo?.distance_m ?? null;
       const currentClass = parseRaceClassLevel(raceTitle);
-      const [improvementBonuses, wetTrack, distanceFactor, classJump] = await Promise.all([
+      const [improvementBonuses, wetTrack, distanceFactor, classJump, lastKick] = await Promise.all([
         computeImprovementBonuses(
           racingFormRows,
           raceId,
@@ -91,6 +92,7 @@ class PredictRaceUseCase {
           (horseName, beforeRaceId) => this.predictionRepository.findLastRaceTitleByHorseName(horseName, beforeRaceId),
           raceId
         ),
+        Promise.resolve(computeLastKickBonuses(racingFormRows)),
       ]);
       const babaCode = String(raceId).slice(10, 12);
       const venueContext = { raceId, distanceM, trackCondition, weather, raceTitle };
@@ -101,6 +103,7 @@ class PredictRaceUseCase {
         { name: 'wettrack',    bonuses: wetTrack.bonuses,       capPct: wetTrack.capPct },
         { name: 'distance',    bonuses: distanceFactor.bonuses, capPct: distanceFactor.capPct },
         { name: 'classjump',   bonuses: classJump.bonuses,      capPct: classJump.capPct },
+        { name: 'lastkick',    bonuses: lastKick.bonuses,       capPct: lastKick.capPct },
         ...venueFactors,
       ];
 

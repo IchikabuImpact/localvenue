@@ -9,6 +9,17 @@ const cheerio = require('cheerio');
  * @param {number[]} fieldSizes - row1 の直近走頭数 [10, 8, ...]
  * @returns {'逃げ'|'先行'|'差し'|'追込'|null}
  */
+/**
+ * 時計セル文字列 "1:03.1 9-9 37.5" から上がり3F（末尾の小数）を取得する。
+ * @param {string|undefined} cell
+ * @returns {number|null}
+ */
+function extractAgari(cell) {
+  if (!cell) return null;
+  const m = cell.match(/(\d+\.\d+)\s*$/);
+  return m ? parseFloat(m[1]) : null;
+}
+
 function inferRunningStyle(timeCells, fieldSizes) {
   const ratios = [];
   for (let i = 0; i < Math.min(timeCells.length, fieldSizes.length); i++) {
@@ -113,6 +124,10 @@ function parseRacingForm(html, yy) {
 
     const running_style = inferRunningStyle(timeCells, fieldSizes);
 
+    // 上がり3F: "1:03.1 9-9 37.5" の末尾数値（直近1走・2走分）
+    const agari_3f_1 = extractAgari(timeCells[0]) ?? null;
+    const agari_3f_2 = extractAgari(timeCells[1]) ?? null;
+
     const bmsRaw = $r5.find('td[colspan="3"]').first().text().trim();
     const broodmare_sire = bmsRaw.replace(/^[（(]\s*|\s*[)）]$/g, '').trim() || null;
     const breeder = $r5.find('td[colspan="1"]').first().text().trim() || null;
@@ -125,6 +140,8 @@ function parseRacingForm(html, yy) {
       burden_weight,
       trainer, owner, breeder,
       running_style,
+      agari_3f_1,
+      agari_3f_2,
     });
   });
 
