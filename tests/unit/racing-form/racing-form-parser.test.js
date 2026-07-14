@@ -13,7 +13,7 @@ test('keiba.go.jp DebaTableの5行ブロックから出馬表を抽出する', (
       </tr>
       <tr>
         <td class="noBorder"><span>牡3</span></td><td class="noBorder">鹿毛</td>
-        <td>05.12生</td><td>56.0 騎手</td>
+        <td>05.12生</td><td>56.0 騎手</td><td>456(+6)</td>
       </tr>
       <tr><td colspan="3">ロードカナロア</td><td colspan="1"><a>田中守（高知）</a></td></tr>
       <tr><td colspan="3">テストダム</td><td colspan="1">テスト馬主</td></tr>
@@ -35,9 +35,14 @@ test('keiba.go.jp DebaTableの5行ブロックから出馬表を抽出する', (
     jockey: '赤岡修次',
     affiliation: '高知',
     burden_weight: 56,
+    horse_weight: 456,
+    horse_weight_diff: 6,
     trainer: '田中守',
     owner: 'テスト馬主',
     breeder: 'テスト牧場',
+    running_style: null,
+    agari_3f_1: null,
+    agari_3f_2: null,
   }]);
 });
 

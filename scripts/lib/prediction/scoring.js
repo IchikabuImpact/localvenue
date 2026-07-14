@@ -68,6 +68,28 @@ function customScore(horse) {
   return bonus >>> 0;
 }
 
+function isSummerBodyWeightMonth(raceId) {
+  const month = Number(String(raceId || '').slice(4, 6));
+  return month >= 7 && month <= 9;
+}
+
+function summerBodyWeightMultiplier({ raceId, sexAge, horseWeightDiff }) {
+  if (!isSummerBodyWeightMonth(raceId)) return 1;
+  if (horseWeightDiff == null || horseWeightDiff === '') return 1;
+
+  const diff = Number(horseWeightDiff);
+  if (!Number.isFinite(diff)) return 1;
+
+  const sex = String(sexAge || '').trim().charAt(0);
+  if (sex === '牝') {
+    if (diff >= 5 && diff <= 7) return 1.1;
+    if (diff <= -7) return 0.9;
+  }
+
+  if (sex === '牡' && diff <= -10) return 0.9;
+  return 1;
+}
+
 function buildPrefixMaxScore(rows, nameKey) {
   const prefixMax = new Map();
   for (const r of rows) {
@@ -145,6 +167,13 @@ function calculatePrediction({
     }
     let total = (coreScore + satelliteBonus) >>> 0;
     if (total === 0) total += row.horse_number;
+    const bodyweightMultiplier = summerBodyWeightMultiplier({
+      raceId,
+      sexAge: row.sex_age,
+      horseWeightDiff: row.horse_weight_diff,
+    });
+    const totalBeforeBodyweight = total;
+    total = Math.max(0, Math.round(total * bodyweightMultiplier));
     return {
       horse_number: row.horse_number,
       horse_name:   row.horse_name,
@@ -154,6 +183,9 @@ function calculatePrediction({
         trainerJbis: tJbis, trainerMultiplier: trMultiplier,
         sire: sScore, custom: cScore,
         ...satelliteBreakdown,
+        bodyweightMultiplier,
+        bodyweightAdjustment: total - totalBeforeBodyweight,
+        horseWeightDiff: row.horse_weight_diff ?? null,
       },
     };
   });
@@ -182,6 +214,8 @@ module.exports = {
   trainerFallbackScore,
   trainerClassMultiplier,
   customScore,
+  isSummerBodyWeightMonth,
+  summerBodyWeightMultiplier,
   buildPrefixMaxScore,
   buildSireRows,
   findSireScore,

@@ -9,6 +9,7 @@ const RACING_FORM_COLUMNS = [
   'sire', 'dam', 'broodmare_sire',
   'jockey_name', 'affiliation',
   'carried_weight', 'trainer_name', 'owner', 'breeder',
+  'horse_weight', 'horse_weight_diff',
   'running_style',
   'agari_3f_1',
   'agari_3f_2',
@@ -35,6 +36,8 @@ function buildRacingFormUpsert(rows) {
         trainer_name=VALUES(trainer_name),
         owner=VALUES(owner),
         breeder=VALUES(breeder),
+        horse_weight=VALUES(horse_weight),
+        horse_weight_diff=VALUES(horse_weight_diff),
         running_style=VALUES(running_style),
         agari_3f_1=VALUES(agari_3f_1),
         agari_3f_2=VALUES(agari_3f_2),
@@ -53,6 +56,8 @@ function buildRacingFormParams({ raceId, rows }) {
       r.jockey, r.affiliation,
       r.burden_weight,
       r.trainer, r.owner, r.breeder,
+      r.horse_weight ?? null,
+      r.horse_weight_diff ?? null,
       r.running_style ?? null,
       r.agari_3f_1 ?? null,
       r.agari_3f_2 ?? null,
@@ -80,7 +85,8 @@ class MySqlRacingFormRepository {
       `SELECT horse_number, horse_name,
               jockey_name  AS jockey,
               trainer_name AS trainer,
-              sire, sex_age, running_style, agari_3f_1, agari_3f_2
+              sire, sex_age, horse_weight, horse_weight_diff,
+              running_style, agari_3f_1, agari_3f_2
        FROM racing_form WHERE race_id = ? ORDER BY horse_number ASC`,
       [raceId]
     );

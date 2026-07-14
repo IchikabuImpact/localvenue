@@ -23,7 +23,7 @@ test('buildRacingFormParamsは既存カラム順でパラメータを作る', ()
   const params = buildRacingFormParams({ raceId: '202605230131', rows: [{
     frame_number: 1, horse_number: 2, horse_name: '馬', sex_age: '牡3', hair: '鹿毛', birthyear: 23, birthymonth: 5,
     sire: '父', dam: '母', broodmare_sire: '母父', jockey: '騎手', affiliation: '高知', burden_weight: 56,
-    trainer: '調教師', owner: '馬主', breeder: '生産者',
+    trainer: '調教師', owner: '馬主', breeder: '生産者', horse_weight: 456, horse_weight_diff: -10,
   }] });
-  assert.deepEqual(params, ['202605230131', 1, 2, '馬', '牡3', '鹿毛', 23, 5, '父', '母', '母父', '騎手', '高知', 56, '調教師', '馬主', '生産者']);
+  assert.deepEqual(params, ['202605230131', 1, 2, '馬', '牡3', '鹿毛', 23, 5, '父', '母', '母父', '騎手', '高知', 56, '調教師', '馬主', '生産者', 456, -10, null, null, null]);
 });

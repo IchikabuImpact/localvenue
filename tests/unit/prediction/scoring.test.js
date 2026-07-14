@@ -1,7 +1,13 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { customScore, calculatePrediction, findSireScore, buildSireRows } = require('../../../scripts/lib/prediction/scoring');
+const {
+  customScore,
+  calculatePrediction,
+  findSireScore,
+  buildSireRows,
+  summerBodyWeightMultiplier,
+} = require('../../../scripts/lib/prediction/scoring');
 
 test('customScoreは偶数馬番と年齢ボーナスを加算する', () => {
   assert.equal(customScore({ horse_number: 2, sex_age: '牡2' }), 42);
@@ -33,6 +39,9 @@ test('calculatePredictionはスコア順でbestとitemsを作る', () => {
   assert.deepEqual(memo.best.breakdown, {
     jockey: 50, trainer: 21, trainerJbis: 30, trainerMultiplier: 0.7,
     sire: 40, custom: 30,
+    bodyweightMultiplier: 1,
+    bodyweightAdjustment: 0,
+    horseWeightDiff: null,
   });
   assert.equal(memo.items.length, 2);
 });
@@ -45,4 +54,34 @@ test('スコア合計0の場合は馬番をフォールバック加算する', (
     jockeyRows: [], trainerRows: [], sireRows: [],
   });
   assert.equal(memo.best.score, 7);
+});
+
+test('summerBodyWeightMultiplierは7-9月だけ牝馬の馬体重増減を補正する', () => {
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牝3', horseWeightDiff: 5 }), 1.1);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牝3', horseWeightDiff: 7 }), 1.1);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牝3', horseWeightDiff: -7 }), 0.9);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牝3', horseWeightDiff: -10 }), 0.9);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202610010101', sexAge: '牝3', horseWeightDiff: 6 }), 1);
+});
+
+test('summerBodyWeightMultiplierは7-9月の牡馬10キロ以上減を割り引く', () => {
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牡4', horseWeightDiff: -9 }), 1);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牡4', horseWeightDiff: -10 }), 0.9);
+  assert.equal(summerBodyWeightMultiplier({ raceId: '202607010101', sexAge: '牡4', horseWeightDiff: -12 }), 0.9);
+});
+
+test('calculatePredictionは夏季馬体重補正を最終スコアに適用する', () => {
+  const memo = calculatePrediction({
+    raceId: '202607010101',
+    generatedAt: 'fixed',
+    racingFormRows: [{ horse_number: 1, horse_name: 'A', jockey: '', trainer: '', sire: '', sex_age: '牝3', horse_weight_diff: 6 }],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [],
+  });
+
+  assert.equal(memo.best.score, 41);
+  assert.equal(memo.best.breakdown.bodyweightMultiplier, 1.1);
+  assert.equal(memo.best.breakdown.bodyweightAdjustment, 4);
+  assert.equal(memo.best.breakdown.horseWeightDiff, 6);
 });

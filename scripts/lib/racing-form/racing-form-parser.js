@@ -20,6 +20,16 @@ function extractAgari(cell) {
   return m ? parseFloat(m[1]) : null;
 }
 
+function parseHorseWeight(text) {
+  const normalized = String(text || '').replace(/[＋－−]/g, c => (c === '＋' ? '+' : '-'));
+  const m = normalized.match(/(?:馬体重\s*)?(\d{3})\s*[（(]\s*([+-]?\d+)\s*[)）]/);
+  if (!m) return { horse_weight: null, horse_weight_diff: null };
+  return {
+    horse_weight: Number(m[1]),
+    horse_weight_diff: Number(m[2]),
+  };
+}
+
 function inferRunningStyle(timeCells, fieldSizes) {
   const ratios = [];
   for (let i = 0; i < Math.min(timeCells.length, fieldSizes.length); i++) {
@@ -76,9 +86,13 @@ function parseRacingForm(html, yy) {
 
     let birthStr = '';
     let burden_weight = null;
+    let horseWeight = { horse_weight: null, horse_weight_diff: null };
     $r2.find('td').each((_, td) => {
       const t = $(td).text().trim();
       if (!birthStr && /\d{2}\.\d{2}生/.test(t)) birthStr = t;
+      if (horseWeight.horse_weight === null) {
+        horseWeight = parseHorseWeight(t);
+      }
       if (burden_weight === null) {
         const m = t.replace(/[　\s]+/g, ' ').match(/^(\d{2,3}\.\d)\b/);
         if (m) {
@@ -138,6 +152,8 @@ function parseRacingForm(html, yy) {
       sire, dam, broodmare_sire,
       jockey, affiliation,
       burden_weight,
+      horse_weight: horseWeight.horse_weight,
+      horse_weight_diff: horseWeight.horse_weight_diff,
       trainer, owner, breeder,
       running_style,
       agari_3f_1,
@@ -154,4 +170,4 @@ class RacingFormParser {
   }
 }
 
-module.exports = { RacingFormParser, parseRacingForm };
+module.exports = { RacingFormParser, parseRacingForm, parseHorseWeight };
