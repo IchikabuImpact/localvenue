@@ -293,6 +293,10 @@ header nav a { font-size: 0.9rem; color: var(--link); }
 .roi-cards .card .roi-detail { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
 .roi-cards .card.good { border-top-color: var(--ok); background: color-mix(in oklab, var(--ok) 5%, var(--elev-1)); }
 .roi-cards .card.good .roi-val { color: var(--ok); }
+.roi-cards .card.status { border-top-color: var(--accent); }
+.roi-cards .card.status.partial .roi-val { color: var(--accent); }
+.roi-cards .card.status.complete { border-top-color: var(--ok); }
+.roi-cards .card.status.complete .roi-val { color: var(--ok); }
 
 /* Race List (Index) */
 .race-list ul { list-style: none; padding: 0; display: grid; gap: 8px; }

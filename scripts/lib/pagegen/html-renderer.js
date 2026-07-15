@@ -69,8 +69,15 @@ function htmlFoot() {
 `;
 }
 
-function renderRoiCards(dailyRoi) {
-  if (!dailyRoi.length) return `<p>集計データなし</p>`;
+function renderRoiCards(dailyRoi, raceSummary = null) {
+  const summaryCard = raceSummary
+    ? `<div class="card status ${raceSummary.pending > 0 ? 'partial' : 'complete'}">
+        <h3>${raceSummary.pending > 0 ? '途中集計' : '確定済み'}</h3>
+        <p class="roi-val">${raceSummary.confirmed}/${raceSummary.total}R</p>
+        <p class="roi-detail">未確定 ${raceSummary.pending}R</p>
+      </div>`
+    : '';
+  if (!dailyRoi.length) return `${summaryCard}<p>集計データなし</p>`;
   const single   = dailyRoi.find(d => d.strategy === 'single')   || {};
   const place    = dailyRoi.find(d => d.strategy === 'place')    || {};
   const quinella = dailyRoi.find(d => d.strategy === 'quinella') || {};
@@ -82,26 +89,33 @@ function renderRoiCards(dailyRoi) {
     ? `<div class="card ${Number(quinella.roi_percent) >= 100 ? 'good' : ''}">
         <h3>馬複4頭</h3>
         <p class="roi-val">${quinella.roi_percent || '---'}%</p>
-        <p class="roi-detail">${quinella.return_yen || 0} / ${quinella.invest_yen || 0}円 (${quinella.races || 0}R)</p>
+        <p class="roi-detail">${quinella.return_yen || 0} / ${quinella.invest_yen || 0}円 (${quinella.races || 0}R確定分)</p>
       </div>` : '';
   return `
+    ${summaryCard}
     <div class="card ${Number(single.roi_percent) >= 100 ? 'good' : ''}">
       <h3>単勝</h3>
       <p class="roi-val">${single.roi_percent || '---'}%</p>
-      <p class="roi-detail">${single.return_yen || 0} / ${single.invest_yen || 0}円 (${single.races || 0}R)</p>
+      <p class="roi-detail">${single.return_yen || 0} / ${single.invest_yen || 0}円 (${single.races || 0}R確定分)</p>
     </div>
     <div class="card ${Number(place.roi_percent) >= 100 ? 'good' : ''}">
       <h3>複勝</h3>
       <p class="roi-val">${place.roi_percent || '---'}%</p>
-      <p class="roi-detail">${place.return_yen || 0} / ${place.invest_yen || 0}円 (${place.races || 0}R)</p>
+      <p class="roi-detail">${place.return_yen || 0} / ${place.invest_yen || 0}円 (${place.races || 0}R確定分)</p>
     </div>
     ${quinellaCard}
     <div class="card total ${totalRoi !== null && totalRoi >= 100 ? 'good' : ''}">
       <h3>合計</h3>
       <p class="roi-val">${totalRoiStr}%</p>
-      <p class="roi-detail">${totalReturn} / ${totalInvest}円</p>
+      <p class="roi-detail">${totalReturn} / ${totalInvest}円（確定分）</p>
     </div>
   `;
+}
+
+function summarizeRaceStatus(races) {
+  const total = races.length;
+  const confirmed = races.filter(r => r.win_hit !== null && r.win_hit !== undefined).length;
+  return { total, confirmed, pending: Math.max(0, total - confirmed) };
 }
 
 function renderRaceListItem(race, venueMap) {
@@ -155,7 +169,7 @@ function renderRaceListItem(race, venueMap) {
 function renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath = 'css/style.css', dailyDirs = [] }) {
   let html = htmlHead(`レース一覧 ${isoDate}`, { cssPath });
   html += `<section class="roi-summary"><h2>今日の回収率 (${isoDate})</h2><div class="roi-cards">`;
-  html += renderRoiCards(dailyRoi);
+  html += renderRoiCards(dailyRoi, summarizeRaceStatus(races));
   html += `</div></section>`;
   html += `<section class="race-list"><h2>レース一覧 (${races.length}件)</h2><ul>`;
   for (const r of races) html += renderRaceListItem(r, venueMap);
