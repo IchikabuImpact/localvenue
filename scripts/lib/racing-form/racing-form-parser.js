@@ -87,7 +87,7 @@ function parseRacingForm(html, yy) {
     let birthStr = '';
     let burden_weight = null;
     let horseWeight = { horse_weight: null, horse_weight_diff: null };
-    $r2.find('td').each((_, td) => {
+    $r2.add($r3).find('td').each((_, td) => {
       const t = $(td).text().trim();
       if (!birthStr && /\d{2}\.\d{2}生/.test(t)) birthStr = t;
       if (horseWeight.horse_weight === null) {

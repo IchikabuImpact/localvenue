@@ -1,9 +1,9 @@
 'use strict';
 
-const BONUS = 10;
+const BONUS = 15;
 
 /**
- * ImprovementFactor: 前走より着順が1つ以上改善した馬に +10 点を付与する。
+ * ImprovementFactor: 前走より着順が1つ以上改善した馬に +15 点を付与する。
  * データなし・1走分しかない場合はボーナス0（スキップ）。
  *
  * @param {Array<{horse_number, horse_name}>} racingFormRows

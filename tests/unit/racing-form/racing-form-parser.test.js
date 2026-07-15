@@ -49,3 +49,30 @@ test('keiba.go.jp DebaTableの5行ブロックから出馬表を抽出する', (
 test('出馬表テーブルがない場合はエラーにする', () => {
   assert.throws(() => parseRacingForm('<html></html>', 26), /出馬表テーブル/);
 });
+
+test('馬体重が父名/調教師行のodds_weightにある形式を抽出する', () => {
+  const html = `
+    <section class="cardTable"><table><tbody>
+      <tr class="tBorder">
+        <td class="courseNum">1</td><td class="horseNum">3</td>
+        <td><a class="horseName">テストホース2</a></td>
+        <td><a class="jockeyName">野畑凌<span class="jockeyarea">（川崎）</span></a></td>
+        <td class="odds_weight" rowspan="2">11.2<br>(5人気)</td>
+      </tr>
+      <tr>
+        <td class="noBorder"><span>牡3</span></td><td class="noBorder">鹿毛</td>
+        <td>03.15生</td><td>56.0 騎手</td>
+      </tr>
+      <tr>
+        <td colspan="3">サクラゼウス</td><td colspan="1"><a>水野貴（浦和）</a></td>
+        <td rowspan="2" class="odds_weight">476<br>(+4)</td>
+      </tr>
+      <tr><td colspan="3">テストダム</td><td colspan="1">テスト馬主</td></tr>
+      <tr><td colspan="3">（サンデーサイレンス）</td><td colspan="1">テスト牧場</td></tr>
+    </tbody></table></section>
+  `;
+
+  const [row] = parseRacingForm(html, 26);
+  assert.equal(row.horse_weight, 476);
+  assert.equal(row.horse_weight_diff, 4);
+});

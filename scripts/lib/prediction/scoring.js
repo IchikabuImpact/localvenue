@@ -82,11 +82,13 @@ function summerBodyWeightMultiplier({ raceId, sexAge, horseWeightDiff }) {
 
   const sex = String(sexAge || '').trim().charAt(0);
   if (sex === '牝') {
-    if (diff >= 5 && diff <= 7) return 1.1;
-    if (diff <= -7) return 0.9;
+    const age = Number((String(sexAge || '').match(/(\d+)/) || [])[1]);
+    const positiveUpper = age >= 2 && age <= 4 ? 15 : 7;
+    if (diff >= 5 && diff <= positiveUpper) return 1.05;
+    if (diff <= -7) return 0.95;
   }
 
-  if (sex === '牡' && diff <= -10) return 0.9;
+  if (sex === '牡' && diff <= -10) return 0.95;
   return 1;
 }
 
