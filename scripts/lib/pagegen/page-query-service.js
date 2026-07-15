@@ -33,8 +33,14 @@ async function loadRaces(pool, ymdArg, modelArg) {
       FROM prediction_eval
     ) eval ON p.race_id = eval.race_id AND p.model_version = eval.model_version
     LEFT JOIN (
-      SELECT race_id, horse_number, official_finish_position, odds_final as win_payout
-      FROM race_results WHERE official_finish_position = 1 LIMIT 1
+      SELECT
+        race_id,
+        MIN(horse_number) as horse_number,
+        1 as official_finish_position,
+        MIN(odds_final) as win_payout
+      FROM race_results
+      WHERE official_finish_position = 1
+      GROUP BY race_id
     ) r ON p.race_id = r.race_id
     LEFT JOIN race_info ri ON p.race_id = CAST(ri.race_id AS SIGNED)
     WHERE LEFT(p.race_id, 8) = ?
