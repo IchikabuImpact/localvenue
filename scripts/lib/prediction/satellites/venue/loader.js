@@ -8,7 +8,7 @@
  *   async function compute(racingFormRows, context) => { bonuses: Map, capPct?: number }
  *   const name = 'factor-name'  (satellites 配列の name フィールドに使用)
  *
- * @param {string} babaCode         - race_id の下2桁（例: '36'=高知, '42'=佐賀）
+ * @param {string} babaCode         - race_id の下2桁（例: '31'=高知, '32'=佐賀）
  * @param {Array}  racingFormRows   - findByRaceId の結果
  * @param {object} context          - { raceId, distanceM, trackCondition, ... } 予想コンテキスト
  * @returns {Promise<Array<{name, bonuses, capPct?}>>}

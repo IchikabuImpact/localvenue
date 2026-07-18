@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 高知競馬（baba_code=36）の会場別サテライトファクター群。
+ * 高知競馬（baba_code=31）の会場別サテライトファクター群。
  * 新しいファクターはここに追加して computeAll に並べる。
  */
 const runningStyle = require('./running-style-factor');
