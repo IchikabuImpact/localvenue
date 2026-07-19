@@ -6,6 +6,10 @@ const {
   calculatePrediction,
   findSireScore,
   buildSireRows,
+  matchesLimitedBonusSire,
+  matchesLimitedBonusBroodmareSire,
+  limitedSireBonus,
+  limitedBroodmareSireBonus,
   summerBodyWeightMultiplier,
 } = require('../../../scripts/lib/prediction/scoring');
 
@@ -39,11 +43,77 @@ test('calculatePredictionはスコア順でbestとitemsを作る', () => {
   assert.deepEqual(memo.best.breakdown, {
     jockey: 50, trainer: 21, trainerJbis: 30, trainerMultiplier: 0.7,
     sire: 40, custom: 30,
+    summerSire: 0,
+    summerBroodmareSire: 0,
     bodyweightMultiplier: 1,
     bodyweightAdjustment: 0,
     horseWeightDiff: null,
   });
   assert.equal(memo.items.length, 2);
+});
+
+test('summerSireは9月末までジョーカプチーノまたはガルボ産駒を10%加点する', () => {
+  assert.equal(matchesLimitedBonusSire('ジョーカプチーノ'), true);
+  assert.equal(matchesLimitedBonusSire('ジョーカプチーノ産駒'), true);
+  assert.equal(matchesLimitedBonusSire('ガルボ'), true);
+  assert.equal(matchesLimitedBonusSire('トガルボ'), false);
+  assert.equal(matchesLimitedBonusSire('ロードカナロア'), false);
+  assert.equal(matchesLimitedBonusSire(''), false);
+
+  assert.equal(limitedSireBonus(123, '202609300101', 'ジョーカプチーノ'), 12);
+  assert.equal(limitedSireBonus(123, '202610010101', 'ジョーカプチーノ'), 0);
+  assert.equal(limitedSireBonus(123, '202609300101', 'ロードカナロア'), 0);
+});
+
+test('summerBroodmareSireは9月末まで母父マンハッタンカフェを10%加点する', () => {
+  assert.equal(matchesLimitedBonusBroodmareSire('マンハッタンカフェ'), true);
+  assert.equal(matchesLimitedBonusBroodmareSire('マンハッタンカフェ系'), true);
+  assert.equal(matchesLimitedBonusBroodmareSire('サンデーサイレンス'), false);
+  assert.equal(matchesLimitedBonusBroodmareSire(''), false);
+
+  assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'マンハッタンカフェ'), 12);
+  assert.equal(limitedBroodmareSireBonus(123, '202610010101', 'マンハッタンカフェ'), 0);
+  assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'サンデーサイレンス'), 0);
+});
+
+test('calculatePredictionはsummerSire加点を最終スコアに反映する', () => {
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    racingFormRows: [
+      { horse_number: 1, horse_name: 'A', jockey: '', trainer: '', sire: 'ジョーカプチーノ', sex_age: '牡5' },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [{ sire_name: 'ジョーカプチーノ', score: 100 }],
+  });
+
+  assert.equal(memo.best.score, 118);
+  assert.equal(memo.best.breakdown.summerSire, 11);
+});
+
+test('calculatePredictionはsummerBroodmareSire加点を最終スコアに反映する', () => {
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    racingFormRows: [
+      {
+        horse_number: 1,
+        horse_name: 'A',
+        jockey: '',
+        trainer: '',
+        sire: 'ロードカナロア',
+        broodmare_sire: 'マンハッタンカフェ',
+        sex_age: '牡5',
+      },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [{ sire_name: 'ロードカナロア', score: 100 }],
+  });
+
+  assert.equal(memo.best.score, 118);
+  assert.equal(memo.best.breakdown.summerBroodmareSire, 11);
 });
 
 test('スコア合計0の場合は馬番をフォールバック加算する', () => {

@@ -1,6 +1,10 @@
 'use strict';
 
 const MODEL_VERSION = 'yosou-v1';
+const LIMITED_SIRE_BONUS_END_YMD = '20260930';
+const LIMITED_SIRE_BONUS_PCT = 10;
+const LIMITED_BONUS_SIRES = ['ジョーカプチーノ', 'ガルボ'];
+const LIMITED_BONUS_BROODMARE_SIRES = ['マンハッタンカフェ'];
 
 const norm  = s => (s || '').replace(/\s+/g, ' ').replace(/[ 　\t]/g, '').trim();
 const headN = (s, n) => Array.from(s || '').slice(0, n).join('');
@@ -121,6 +125,43 @@ function findSireScore(sireRows, sireText) {
   return 0;
 }
 
+function isLimitedSireBonusActive(raceId) {
+  const ymd = String(raceId || '').slice(0, 8);
+  return /^\d{8}$/.test(ymd) && ymd <= LIMITED_SIRE_BONUS_END_YMD;
+}
+
+function matchesLimitedBonusSire(sireText) {
+  const sire = norm(sireText);
+  if (!sire) return false;
+  return LIMITED_BONUS_SIRES.some(target => {
+    const normalizedTarget = norm(target);
+    return sire.startsWith(normalizedTarget) || normalizedTarget.startsWith(sire);
+  });
+}
+
+function matchesLimitedBonusBroodmareSire(broodmareSireText) {
+  const broodmareSire = norm(broodmareSireText);
+  if (!broodmareSire) return false;
+  return LIMITED_BONUS_BROODMARE_SIRES.some(target => {
+    const normalizedTarget = norm(target);
+    return broodmareSire.startsWith(normalizedTarget) || normalizedTarget.startsWith(broodmareSire);
+  });
+}
+
+function limitedSireBonus(coreScore, raceId, sireText) {
+  // 夏場に強い血統として、9月末まで父ジョーカプチーノ/ガルボを10%加点する。
+  if (!isLimitedSireBonusActive(raceId)) return 0;
+  if (!matchesLimitedBonusSire(sireText)) return 0;
+  return Math.round(coreScore * LIMITED_SIRE_BONUS_PCT / 100);
+}
+
+function limitedBroodmareSireBonus(coreScore, raceId, broodmareSireText) {
+  // 夏場に強い血統として、9月末まで母父マンハッタンカフェを10%加点する。
+  if (!isLimitedSireBonusActive(raceId)) return 0;
+  if (!matchesLimitedBonusBroodmareSire(broodmareSireText)) return 0;
+  return Math.round(coreScore * LIMITED_SIRE_BONUS_PCT / 100);
+}
+
 /**
  * satellites: プラグイン型サテライトファクターの配列。
  * 各要素は { name: string, bonuses: Map<horse_number, number> }。
@@ -157,8 +198,12 @@ function calculatePrediction({
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
     const coreScore = jScore + tScore + sScore + cScore;
-    let satelliteBonus = 0;
+    const summerSireBonus = limitedSireBonus(coreScore, raceId, row.sire);
+    const summerBroodmareSireBonus = limitedBroodmareSireBonus(coreScore, raceId, row.broodmare_sire);
+    let satelliteBonus = summerSireBonus + summerBroodmareSireBonus;
     const satelliteBreakdown = {};
+    satelliteBreakdown.summerSire = summerSireBonus;
+    satelliteBreakdown.summerBroodmareSire = summerBroodmareSireBonus;
     for (const s of satellites) {
       const raw = s.bonuses.get(row.horse_number) || 0;
       const bonus = s.capPct != null
@@ -221,5 +266,10 @@ module.exports = {
   buildPrefixMaxScore,
   buildSireRows,
   findSireScore,
+  isLimitedSireBonusActive,
+  matchesLimitedBonusSire,
+  matchesLimitedBonusBroodmareSire,
+  limitedSireBonus,
+  limitedBroodmareSireBonus,
   calculatePrediction,
 };
