@@ -57,6 +57,7 @@ function parseRacingForm(html, yy) {
   }
 
   const results = [];
+  let lastFrameNumber = null;
 
   $('section.cardTable table tbody tr.tBorder').each((_, tr1el) => {
     const $r1 = $(tr1el);
@@ -65,7 +66,12 @@ function parseRacingForm(html, yy) {
     const $r4 = $r3.next('tr');
     const $r5 = $r4.next('tr');
 
-    const frame_number = Number($r1.find('td.courseNum').text().trim());
+    const frameNumberText = $r1.find('td.courseNum').text().trim();
+    const parsedFrameNumber = Number(frameNumberText);
+    if (Number.isFinite(parsedFrameNumber) && parsedFrameNumber > 0) {
+      lastFrameNumber = parsedFrameNumber;
+    }
+    const frame_number = lastFrameNumber;
     const horse_number = Number($r1.find('td.horseNum').text().trim());
     const horse_name = $r1.find('a.horseName').text().trim();
     if (!frame_number || !horse_number || !horse_name) return;

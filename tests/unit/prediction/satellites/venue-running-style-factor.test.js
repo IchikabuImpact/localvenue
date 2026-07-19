@@ -48,8 +48,8 @@ test('高知は不良馬場で逃げが少なければ逃げを加点する', as
     { horse_number: 3, running_style: '追込' },
   ], { distanceM: 1300, trackCondition: '不良' });
   assert.equal(result.bonuses.get(1), 32);
-  assert.equal(result.bonuses.get(2), 6);
-  assert.equal(result.bonuses.get(3), 2);
+  assert.equal(result.bonuses.get(2), 4);
+  assert.equal(result.bonuses.has(3), false);
 });
 
 test('高知1600mは差しと追込を先行より上に置く', async () => {
