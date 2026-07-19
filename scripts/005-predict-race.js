@@ -20,6 +20,7 @@ const { MySqlPredictionRepository } = require('./lib/prediction/mysql-prediction
 const { MySqlRacingFormRepository } = require('./lib/racing-form/mysql-racing-form-repository');
 const { MySqlRankingRepository } = require('./lib/prediction/mysql-ranking-repository');
 const { PredictRaceUseCase } = require('./lib/prediction/predict-race-use-case');
+const { loadScoringConfig } = require('./lib/prediction/scoring-config-loader');
 
 let race;
 try {
@@ -29,6 +30,7 @@ try {
   process.exit(1);
 }
 
+const scoringConfigResult = loadScoringConfig({ configPath: config.scoringConfigPath || null });
 const pool = createPool(config.mysql);
 
 const useCase = new PredictRaceUseCase({
@@ -37,6 +39,7 @@ const useCase = new PredictRaceUseCase({
   rankingRepository:    new MySqlRankingRepository({ pool }),
   logger: console,
   debug: config.debug || false,
+  scoringConfig: scoringConfigResult.config,
 });
 
 useCase.execute(race)

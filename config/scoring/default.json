@@ -1,0 +1,76 @@
+{
+  "version": "summer-2026",
+  "summerBonus": {
+    "startYmd": "20260701",
+    "endYmd": "20260930",
+    "fastTrackConditions": ["良", "稍重"],
+    "wetTrackConditions": ["重", "不良"],
+    "fastTrackSireRules": [
+      { "name": "ジョーカプチーノ", "pct": 10 },
+      { "name": "ガルボ", "pct": 10 },
+      { "name": "ルヴァンスレーヴ", "pct": 10 },
+      { "name": "ナダル", "pct": 10 }
+    ],
+    "fastTrackBroodmareSireRules": [
+      { "name": "マンハッタンカフェ", "pct": 10 },
+      { "name": "ジョーカプチーノ", "pct": 10 },
+      { "name": "ゴールドアリュール", "pct": 8 },
+      { "name": "サウスヴィグラス", "pct": 8 },
+      { "name": "シンボリクリスエス", "pct": 5 },
+      { "name": "シーザリオ", "pct": 5 }
+    ],
+    "wetTrackSireRules": [
+      { "name": "ルヴァンスレーヴ", "pct": 10 },
+      { "name": "ナダル", "pct": 10 },
+      { "name": "キズナ", "pct": 5 },
+      { "name": "ディーマジェスティ", "pct": 5 },
+      { "name": "アルアイン", "pct": 5 },
+      { "name": "ダノンプレミアム", "pct": 5 },
+      { "name": "ミッキーアイル", "pct": 5 }
+    ],
+    "wetTrackBroodmareSireRules": [
+      { "name": "マンハッタンカフェ", "pct": 8 },
+      { "name": "ゴールドアリュール", "pct": 8 },
+      { "name": "ディープインパクト", "pct": 5 },
+      { "name": "ダイワメジャー", "pct": 5 },
+      { "name": "サウスヴィグラス", "pct": 5 },
+      { "name": "キングカメハメハ", "pct": 5 },
+      { "name": "フレンチデピュティ", "pct": 5 },
+      { "name": "フジキセキ", "pct": 5 },
+      { "name": "Frankel", "pct": 5 },
+      { "name": "フランケル", "pct": 5 },
+      { "name": "Galileo", "pct": 5 },
+      { "name": "ガリレオ", "pct": 5 },
+      { "name": "Harbinger", "pct": 5 },
+      { "name": "ハービンジャー", "pct": 5 },
+      { "name": "TheGurkha", "pct": 5 },
+      { "name": "The Gurkha", "pct": 5 },
+      { "name": "ザグルカ", "pct": 5 }
+    ],
+    "damFamilyRules": [
+      { "name": "ニキーヤ", "pct": 5 },
+      { "name": "ラバヤデール", "pct": 5 },
+      { "name": "リープオブフェイス", "pct": 5 },
+      { "name": "ファームフェイス", "pct": 5 },
+      { "name": "ヌチバナ", "pct": 5 },
+      { "name": "ハマオリ", "pct": 5 },
+      { "name": "エウリディーチェ", "pct": 5 },
+      { "name": "ギャラクシーソウル", "pct": 5 },
+      { "name": "バレエブラン", "pct": 5 },
+      { "name": "オリエントチャーム", "pct": 5 },
+      { "name": "ガーネットチャーム", "pct": 5 },
+      { "name": "ピクシーチャーム", "pct": 5 },
+      { "name": "クィーンチャーム", "pct": 5 },
+      { "name": "オリエントワークス", "pct": 5 },
+      { "name": "チャームザワールド", "pct": 5 },
+      { "name": "エレガントチャーム", "pct": 5 },
+      { "name": "アルヴェント", "pct": 5 }
+    ],
+    "weightAllowance": {
+      "pct": 3,
+      "minDiffKg": 2,
+      "smallFillyMaxWeight": 450,
+      "threeYearOldFilly": true
+    }
+  }
+}

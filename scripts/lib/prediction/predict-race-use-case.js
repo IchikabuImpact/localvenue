@@ -25,13 +25,22 @@ function computeDeadline(raceId, startTimeStr) {
 }
 
 class PredictRaceUseCase {
-  constructor({ predictionRepository, racingFormRepository, rankingRepository, logger = console, now = () => new Date(), debug = false }) {
+  constructor({
+    predictionRepository,
+    racingFormRepository,
+    rankingRepository,
+    logger = console,
+    now = () => new Date(),
+    debug = false,
+    scoringConfig = null,
+  }) {
     this.predictionRepository = predictionRepository;
     this.racingFormRepository = racingFormRepository;
     this.rankingRepository    = rankingRepository;
     this.logger = logger;
     this.now   = now;
     this.debug = debug;
+    this.scoringConfig = scoringConfig;
   }
 
   async execute({ raceId, year }) {
@@ -117,6 +126,7 @@ class PredictRaceUseCase {
         trackCondition,
         raceTitle,
         satellites,
+        scoringConfig: this.scoringConfig,
         generatedAt: this.now().toISOString(),
       });
 

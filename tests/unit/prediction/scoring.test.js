@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  DEFAULT_SCORING_CONFIG,
   customScore,
   calculatePrediction,
   findSireScore,
@@ -14,6 +15,8 @@ const {
   summerWeightAllowanceBonus,
   summerTrackType,
   summerBodyWeightMultiplier,
+  buildDefaultScoringFactors,
+  applyScoringFactors,
 } = require('../../../scripts/lib/prediction/scoring');
 
 test('customScoreは偶数馬番と年齢ボーナスを加算する', () => {
@@ -224,6 +227,69 @@ test('calculatePredictionは夏の斤量差3%加点を最終スコアに反映�
   const item = memo.items.find(row => row.horse_number === 1);
   assert.equal(item.score, 141);
   assert.equal(item.breakdown.summerWeightAllowance, 4);
+});
+
+test('calculatePredictionはscoringConfigで補正値を差し替えられる', () => {
+  const scoringConfig = {
+    summerBonus: {
+      ...DEFAULT_SCORING_CONFIG.summerBonus,
+      fastTrackSireRules: [{ name: 'ロードカナロア', pct: 20 }],
+      fastTrackBroodmareSireRules: [],
+      wetTrackSireRules: [],
+      wetTrackBroodmareSireRules: [],
+      damFamilyRules: [],
+      weightAllowance: { ...DEFAULT_SCORING_CONFIG.summerBonus.weightAllowance, pct: 0 },
+    },
+  };
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    trackCondition: '良',
+    scoringConfig,
+    racingFormRows: [
+      { horse_number: 1, horse_name: 'A', jockey: '', trainer: '', sire: 'ロードカナロア', sex_age: '牡5' },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [{ sire_name: 'ロードカナロア', score: 100 }],
+  });
+
+  assert.equal(memo.best.score, 128);
+  assert.equal(memo.best.breakdown.summerSire, 21);
+});
+
+test('calculatePredictionはscoringFactorsを注入できる', () => {
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    scoringFactors: [
+      { name: 'testFactor', compute: ({ row }) => row.horse_number === 1 ? 9 : 0 },
+    ],
+    racingFormRows: [
+      { horse_number: 1, horse_name: 'A', jockey: '', trainer: '', sire: '', sex_age: '牡5' },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [],
+  });
+
+  assert.equal(memo.best.score, 16);
+  assert.equal(memo.best.breakdown.testFactor, 9);
+  assert.equal('summerSire' in memo.best.breakdown, false);
+});
+
+test('buildDefaultScoringFactorsとapplyScoringFactorsはfactor内訳を返す', () => {
+  const factors = buildDefaultScoringFactors();
+  const result = applyScoringFactors({
+    factors,
+    coreScore: 100,
+    row: { sire: 'ジョーカプチーノ', sex_age: '牡5' },
+    raceContext: { raceId: '202608010101', trackCondition: '良', raceMaxCarriedWeight: null },
+  });
+
+  assert.equal(result.totalBonus, 10);
+  assert.equal(result.breakdown.summerSire, 10);
+  assert.equal(result.breakdown.summerBroodmareSire, 0);
 });
 
 test('スコア合計0の場合は馬番をフォールバック加算する', () => {

@@ -12,6 +12,8 @@ module.exports = {
   },
   // true: 予想を常に上書き（開発用）/ false: 予想が既にあればスキップ（運用モード）
   debug: false,
+  // スコアリング補正設定。相対パスはプロジェクトルート基準。未指定時は config/scoring/default.json
+  scoringConfigPath: 'config/scoring/default.json',
   // 生成済み静的HTMLの保持日数（この日数より古いものをバッチ実行時に自動削除）
   htmlRetentionDays: 30
 };

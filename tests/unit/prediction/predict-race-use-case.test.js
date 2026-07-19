@@ -44,6 +44,45 @@ test('予想に必要なデータを取得してpredictionを保存する', asyn
   assert.equal(saved[0].modelVersion, 'yosou-v1');
 });
 
+test('scoringConfigをcalculatePredictionへ渡して保存する', async () => {
+  const saved = [];
+  const repos = makeRepos({
+    prediction: { savePrediction: async payload => saved.push(payload) },
+    racingForm: {
+      findByRaceId: async () => [
+        { horse_number: 1, horse_name: 'A', jockey: '', trainer: '', sire: 'ロードカナロア', sex_age: '牡5' },
+      ],
+    },
+    ranking: {
+      findSireScores: async () => [{ sire_name: 'ロードカナロア', score: 100 }],
+    },
+  });
+  const useCase = new PredictRaceUseCase({
+    ...repos,
+    logger: silentLogger(),
+    now: () => new Date('2026-07-01T00:00:00Z'),
+    scoringConfig: {
+      summerBonus: {
+        startYmd: '20260701',
+        endYmd: '20260930',
+        fastTrackConditions: ['良'],
+        wetTrackConditions: ['不良'],
+        fastTrackSireRules: [{ name: 'ロードカナロア', pct: 20 }],
+        fastTrackBroodmareSireRules: [],
+        wetTrackSireRules: [],
+        wetTrackBroodmareSireRules: [],
+        damFamilyRules: [],
+        weightAllowance: { pct: 0 },
+      },
+    },
+  });
+
+  const memo = await useCase.execute({ raceId: '202607010101', year: 2026 });
+
+  assert.equal(memo.best.score, 128);
+  assert.equal(saved[0].memo.best.breakdown.summerSire, 21);
+});
+
 test('racing_formが空なら保存しない', async () => {
   let saved = false;
   const repos = makeRepos({
