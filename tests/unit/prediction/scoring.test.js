@@ -10,6 +10,9 @@ const {
   matchesLimitedBonusBroodmareSire,
   limitedSireBonus,
   limitedBroodmareSireBonus,
+  summerDamFamilyBonus,
+  summerWeightAllowanceBonus,
+  summerTrackType,
   summerBodyWeightMultiplier,
 } = require('../../../scripts/lib/prediction/scoring');
 
@@ -45,6 +48,8 @@ test('calculatePredictionはスコア順でbestとitemsを作る', () => {
     sire: 40, custom: 30,
     summerSire: 0,
     summerBroodmareSire: 0,
+    summerDamFamily: 0,
+    summerWeightAllowance: 0,
     bodyweightMultiplier: 1,
     bodyweightAdjustment: 0,
     horseWeightDiff: null,
@@ -52,7 +57,7 @@ test('calculatePredictionはスコア順でbestとitemsを作る', () => {
   assert.equal(memo.items.length, 2);
 });
 
-test('summerSireは9月末までジョーカプチーノまたはガルボ産駒を10%加点する', () => {
+test('summerSireは7月から9月末まで夏向き父系を加点する', () => {
   assert.equal(matchesLimitedBonusSire('ジョーカプチーノ'), true);
   assert.equal(matchesLimitedBonusSire('ジョーカプチーノ産駒'), true);
   assert.equal(matchesLimitedBonusSire('ガルボ'), true);
@@ -61,19 +66,63 @@ test('summerSireは9月末までジョーカプチーノまたはガルボ産駒
   assert.equal(matchesLimitedBonusSire(''), false);
 
   assert.equal(limitedSireBonus(123, '202609300101', 'ジョーカプチーノ'), 12);
+  assert.equal(limitedSireBonus(123, '202609300101', 'ルヴァンスレーヴ'), 12);
+  assert.equal(limitedSireBonus(123, '202606300101', 'ジョーカプチーノ'), 0);
   assert.equal(limitedSireBonus(123, '202610010101', 'ジョーカプチーノ'), 0);
   assert.equal(limitedSireBonus(123, '202609300101', 'ロードカナロア'), 0);
 });
 
-test('summerBroodmareSireは9月末まで母父マンハッタンカフェを10%加点する', () => {
+test('summerBroodmareSireは7月から9月末まで母父の夏向き血統を強弱付きで加点する', () => {
   assert.equal(matchesLimitedBonusBroodmareSire('マンハッタンカフェ'), true);
   assert.equal(matchesLimitedBonusBroodmareSire('マンハッタンカフェ系'), true);
+  assert.equal(matchesLimitedBonusBroodmareSire('ゴールドアリュール'), true);
+  assert.equal(matchesLimitedBonusBroodmareSire('シンボリクリスエス'), true);
   assert.equal(matchesLimitedBonusBroodmareSire('サンデーサイレンス'), false);
   assert.equal(matchesLimitedBonusBroodmareSire(''), false);
 
   assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'マンハッタンカフェ'), 12);
+  assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'ゴールドアリュール'), 10);
+  assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'シンボリクリスエス'), 6);
+  assert.equal(limitedBroodmareSireBonus(123, '202606300101', 'マンハッタンカフェ'), 0);
   assert.equal(limitedBroodmareSireBonus(123, '202610010101', 'マンハッタンカフェ'), 0);
   assert.equal(limitedBroodmareSireBonus(123, '202609300101', 'サンデーサイレンス'), 0);
+});
+
+test('summer blood補正は良/稍重と重/不良で対象を分ける', () => {
+  assert.equal(summerTrackType('良'), 'fast');
+  assert.equal(summerTrackType('稍重'), 'fast');
+  assert.equal(summerTrackType('重'), 'wet');
+  assert.equal(summerTrackType('不良'), 'wet');
+
+  assert.equal(limitedSireBonus(100, '202608010101', 'ジョーカプチーノ', '良'), 10);
+  assert.equal(limitedSireBonus(100, '202608010101', 'ジョーカプチーノ', '不良'), 0);
+  assert.equal(limitedSireBonus(100, '202608010101', 'キズナ', '良'), 0);
+  assert.equal(limitedSireBonus(100, '202608010101', 'キズナ', '不良'), 5);
+
+  assert.equal(limitedBroodmareSireBonus(100, '202608010101', 'Frankel', '良'), 0);
+  assert.equal(limitedBroodmareSireBonus(100, '202608010101', 'Frankel', '不良'), 5);
+  assert.equal(limitedBroodmareSireBonus(100, '202608010101', 'ゴールドアリュール', '良'), 8);
+  assert.equal(limitedBroodmareSireBonus(100, '202608010101', 'ゴールドアリュール', '不良'), 8);
+});
+
+test('summerDamFamilyはニキーヤ牝系を夏だけ控えめに加点する', () => {
+  assert.equal(summerDamFamilyBonus(100, '202608010101', 'ニキーヤ'), 5);
+  assert.equal(summerDamFamilyBonus(100, '202608010101', 'ヌチバナ'), 5);
+  assert.equal(summerDamFamilyBonus(100, '202608010101', 'オリエントチャーム'), 5);
+  assert.equal(summerDamFamilyBonus(100, '202606300101', 'ニキーヤ'), 0);
+  assert.equal(summerDamFamilyBonus(100, '202610010101', 'ニキーヤ'), 0);
+  assert.equal(summerDamFamilyBonus(100, '202608010101', '別牝系'), 0);
+});
+
+test('summerWeightAllowanceは夏に2kg以上軽い3歳牝馬や小柄な牝馬を3%加点する', () => {
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', 54, 56, '牝3', 480), 3);
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', 54, 56, '牝5', 440), 3);
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', 54, 56, '牡3', 440), 0);
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', 54, 56, '牝5', 470), 0);
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', 54.5, 56, '牝3', 440), 0);
+  assert.equal(summerWeightAllowanceBonus(100, '202606300101', 54, 56, '牝3', 440), 0);
+  assert.equal(summerWeightAllowanceBonus(100, '202610010101', 54, 56, '牝3', 440), 0);
+  assert.equal(summerWeightAllowanceBonus(100, '202608010101', null, 56, '牝3', 440), 0);
 });
 
 test('calculatePredictionはsummerSire加点を最終スコアに反映する', () => {
@@ -114,6 +163,67 @@ test('calculatePredictionはsummerBroodmareSire加点を最終スコアに反映
 
   assert.equal(memo.best.score, 118);
   assert.equal(memo.best.breakdown.summerBroodmareSire, 11);
+});
+
+test('calculatePredictionはsummerDamFamily加点を最終スコアに反映する', () => {
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    racingFormRows: [
+      {
+        horse_number: 1,
+        horse_name: 'A',
+        jockey: '',
+        trainer: '',
+        sire: 'ロードカナロア',
+        dam: 'ヌチバナ',
+        broodmare_sire: 'キングカメハメハ',
+        sex_age: '牡5',
+      },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [{ sire_name: 'ロードカナロア', score: 100 }],
+  });
+
+  assert.equal(memo.best.score, 112);
+  assert.equal(memo.best.breakdown.summerDamFamily, 5);
+});
+
+test('calculatePredictionは夏の斤量差3%加点を最終スコアに反映する', () => {
+  const memo = calculatePrediction({
+    raceId: '202608010101',
+    generatedAt: 'fixed',
+    racingFormRows: [
+      {
+        horse_number: 1,
+        horse_name: 'A',
+        jockey: '',
+        trainer: '',
+        sire: 'ロードカナロア',
+        sex_age: '牝3',
+        carried_weight: 54,
+        horse_weight: 440,
+      },
+      {
+        horse_number: 2,
+        horse_name: 'B',
+        jockey: '',
+        trainer: '',
+        sire: 'ロードカナロア',
+        sex_age: '牝3',
+        carried_weight: 56,
+        horse_weight: 460,
+      },
+    ],
+    jockeyRows: [],
+    trainerRows: [],
+    sireRows: [{ sire_name: 'ロードカナロア', score: 100 }],
+  });
+
+  const item = memo.items.find(row => row.horse_number === 1);
+  assert.equal(item.score, 141);
+  assert.equal(item.breakdown.summerWeightAllowance, 4);
 });
 
 test('スコア合計0の場合は馬番をフォールバック加算する', () => {

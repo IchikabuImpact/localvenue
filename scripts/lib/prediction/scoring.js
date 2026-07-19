@@ -1,10 +1,73 @@
 'use strict';
 
 const MODEL_VERSION = 'yosou-v1';
+const LIMITED_SIRE_BONUS_START_YMD = '20260701';
 const LIMITED_SIRE_BONUS_END_YMD = '20260930';
-const LIMITED_SIRE_BONUS_PCT = 10;
-const LIMITED_BONUS_SIRES = ['ジョーカプチーノ', 'ガルボ'];
-const LIMITED_BONUS_BROODMARE_SIRES = ['マンハッタンカフェ'];
+const SUMMER_FAST_TRACK_SIRE_RULES = [
+  { name: 'ジョーカプチーノ', pct: 10 },
+  { name: 'ガルボ', pct: 10 },
+  { name: 'ルヴァンスレーヴ', pct: 10 },
+  { name: 'ナダル', pct: 10 },
+];
+const SUMMER_FAST_TRACK_BROODMARE_SIRE_RULES = [
+  { name: 'マンハッタンカフェ', pct: 10 },
+  { name: 'ジョーカプチーノ', pct: 10 },
+  { name: 'ゴールドアリュール', pct: 8 },
+  { name: 'サウスヴィグラス', pct: 8 },
+  { name: 'シンボリクリスエス', pct: 5 },
+  { name: 'シーザリオ', pct: 5 },
+];
+const SUMMER_WET_TRACK_SIRE_RULES = [
+  { name: 'ルヴァンスレーヴ', pct: 10 },
+  { name: 'ナダル', pct: 10 },
+  { name: 'キズナ', pct: 5 },
+  { name: 'ディーマジェスティ', pct: 5 },
+  { name: 'アルアイン', pct: 5 },
+  { name: 'ダノンプレミアム', pct: 5 },
+  { name: 'ミッキーアイル', pct: 5 },
+];
+const SUMMER_WET_TRACK_BROODMARE_SIRE_RULES = [
+  { name: 'マンハッタンカフェ', pct: 8 },
+  { name: 'ゴールドアリュール', pct: 8 },
+  { name: 'ディープインパクト', pct: 5 },
+  { name: 'ダイワメジャー', pct: 5 },
+  { name: 'サウスヴィグラス', pct: 5 },
+  { name: 'キングカメハメハ', pct: 5 },
+  { name: 'フレンチデピュティ', pct: 5 },
+  { name: 'フジキセキ', pct: 5 },
+  { name: 'Frankel', pct: 5 },
+  { name: 'フランケル', pct: 5 },
+  { name: 'Galileo', pct: 5 },
+  { name: 'ガリレオ', pct: 5 },
+  { name: 'Harbinger', pct: 5 },
+  { name: 'ハービンジャー', pct: 5 },
+  { name: 'TheGurkha', pct: 5 },
+  { name: 'The Gurkha', pct: 5 },
+  { name: 'ザグルカ', pct: 5 },
+];
+const SUMMER_DAM_FAMILY_RULES = [
+  { name: 'ニキーヤ', pct: 5 },
+  { name: 'ラバヤデール', pct: 5 },
+  { name: 'リープオブフェイス', pct: 5 },
+  { name: 'ファームフェイス', pct: 5 },
+  { name: 'ヌチバナ', pct: 5 },
+  { name: 'ハマオリ', pct: 5 },
+  { name: 'エウリディーチェ', pct: 5 },
+  { name: 'ギャラクシーソウル', pct: 5 },
+  { name: 'バレエブラン', pct: 5 },
+  { name: 'オリエントチャーム', pct: 5 },
+  { name: 'ガーネットチャーム', pct: 5 },
+  { name: 'ピクシーチャーム', pct: 5 },
+  { name: 'クィーンチャーム', pct: 5 },
+  { name: 'オリエントワークス', pct: 5 },
+  { name: 'チャームザワールド', pct: 5 },
+  { name: 'エレガントチャーム', pct: 5 },
+  { name: 'アルヴェント', pct: 5 },
+];
+const FAST_TRACK_CONDITIONS_FOR_SUMMER_BLOOD = new Set(['良', '稍重']);
+const WET_TRACK_CONDITIONS_FOR_SUMMER_BLOOD = new Set(['重', '不良']);
+const SUMMER_WEIGHT_ALLOWANCE_PCT = 3;
+const SUMMER_WEIGHT_ALLOWANCE_MIN_KG = 2;
 
 const norm  = s => (s || '').replace(/\s+/g, ' ').replace(/[ 　\t]/g, '').trim();
 const headN = (s, n) => Array.from(s || '').slice(0, n).join('');
@@ -127,39 +190,94 @@ function findSireScore(sireRows, sireText) {
 
 function isLimitedSireBonusActive(raceId) {
   const ymd = String(raceId || '').slice(0, 8);
-  return /^\d{8}$/.test(ymd) && ymd <= LIMITED_SIRE_BONUS_END_YMD;
+  return /^\d{8}$/.test(ymd)
+    && ymd >= LIMITED_SIRE_BONUS_START_YMD
+    && ymd <= LIMITED_SIRE_BONUS_END_YMD;
 }
 
 function matchesLimitedBonusSire(sireText) {
-  const sire = norm(sireText);
-  if (!sire) return false;
-  return LIMITED_BONUS_SIRES.some(target => {
-    const normalizedTarget = norm(target);
-    return sire.startsWith(normalizedTarget) || normalizedTarget.startsWith(sire);
-  });
+  return matchBloodRules([
+    ...SUMMER_FAST_TRACK_SIRE_RULES,
+    ...SUMMER_WET_TRACK_SIRE_RULES,
+  ], sireText).matched;
 }
 
 function matchesLimitedBonusBroodmareSire(broodmareSireText) {
-  const broodmareSire = norm(broodmareSireText);
-  if (!broodmareSire) return false;
-  return LIMITED_BONUS_BROODMARE_SIRES.some(target => {
-    const normalizedTarget = norm(target);
-    return broodmareSire.startsWith(normalizedTarget) || normalizedTarget.startsWith(broodmareSire);
-  });
+  return matchBloodRules([
+    ...SUMMER_FAST_TRACK_BROODMARE_SIRE_RULES,
+    ...SUMMER_WET_TRACK_BROODMARE_SIRE_RULES,
+  ], broodmareSireText).matched;
 }
 
-function limitedSireBonus(coreScore, raceId, sireText) {
-  // 夏場に強い血統として、9月末まで父ジョーカプチーノ/ガルボを10%加点する。
-  if (!isLimitedSireBonusActive(raceId)) return 0;
-  if (!matchesLimitedBonusSire(sireText)) return 0;
-  return Math.round(coreScore * LIMITED_SIRE_BONUS_PCT / 100);
+function matchBloodRules(rules, bloodText) {
+  const blood = norm(bloodText);
+  if (!blood) return { matched: false, pct: 0 };
+
+  let pct = 0;
+  for (const rule of rules) {
+    const target = norm(rule.name);
+    if (blood.startsWith(target) || target.startsWith(blood)) pct = Math.max(pct, rule.pct);
+  }
+  return { matched: pct > 0, pct };
 }
 
-function limitedBroodmareSireBonus(coreScore, raceId, broodmareSireText) {
-  // 夏場に強い血統として、9月末まで母父マンハッタンカフェを10%加点する。
+function pctBonus(coreScore, pct) {
+  return Math.round(coreScore * pct / 100);
+}
+
+function summerTrackType(trackCondition) {
+  if (WET_TRACK_CONDITIONS_FOR_SUMMER_BLOOD.has(trackCondition)) return 'wet';
+  if (FAST_TRACK_CONDITIONS_FOR_SUMMER_BLOOD.has(trackCondition)) return 'fast';
+  return 'fast';
+}
+
+function limitedSireBonus(coreScore, raceId, sireText, trackCondition = '良') {
+  // 夏場に強い父系血統を、良/稍重と重/不良で分けて9月末まで加点する。
   if (!isLimitedSireBonusActive(raceId)) return 0;
-  if (!matchesLimitedBonusBroodmareSire(broodmareSireText)) return 0;
-  return Math.round(coreScore * LIMITED_SIRE_BONUS_PCT / 100);
+  const rules = summerTrackType(trackCondition) === 'wet'
+    ? SUMMER_WET_TRACK_SIRE_RULES
+    : SUMMER_FAST_TRACK_SIRE_RULES;
+  const match = matchBloodRules(rules, sireText);
+  if (!match.matched) return 0;
+  return pctBonus(coreScore, match.pct);
+}
+
+function limitedBroodmareSireBonus(coreScore, raceId, broodmareSireText, trackCondition = '良') {
+  // 夏場に強い母父血統を、良/稍重と重/不良で分けて9月末まで加点する。
+  if (!isLimitedSireBonusActive(raceId)) return 0;
+  const rules = summerTrackType(trackCondition) === 'wet'
+    ? SUMMER_WET_TRACK_BROODMARE_SIRE_RULES
+    : SUMMER_FAST_TRACK_BROODMARE_SIRE_RULES;
+  const match = matchBloodRules(rules, broodmareSireText);
+  if (!match.matched) return 0;
+  return pctBonus(coreScore, match.pct);
+}
+
+function summerDamFamilyBonus(coreScore, raceId, damText) {
+  // ニキーヤ牝系は父/母父では拾えないため、dam欄に出た場合だけ控えめに加点する。
+  if (!isLimitedSireBonusActive(raceId)) return 0;
+  const match = matchBloodRules(SUMMER_DAM_FAMILY_RULES, damText);
+  if (!match.matched) return 0;
+  return pctBonus(coreScore, match.pct);
+}
+
+function summerWeightAllowanceBonus(coreScore, raceId, carriedWeight, raceMaxCarriedWeight, sexAge, horseWeight) {
+  if (!isLimitedSireBonusActive(raceId)) return 0;
+  if (carriedWeight == null || carriedWeight === '') return 0;
+  if (raceMaxCarriedWeight == null || raceMaxCarriedWeight === '') return 0;
+  const weight = Number(carriedWeight);
+  const maxWeight = Number(raceMaxCarriedWeight);
+  if (!Number.isFinite(weight) || !Number.isFinite(maxWeight)) return 0;
+  if (maxWeight - weight < SUMMER_WEIGHT_ALLOWANCE_MIN_KG) return 0;
+
+  const sex = String(sexAge || '').trim().charAt(0);
+  const age = Number((String(sexAge || '').match(/(\d+)/) || [])[1]);
+  const bodyWeight = Number(horseWeight);
+  const isSmallFilly = sex === '牝' && Number.isFinite(bodyWeight) && bodyWeight <= 450;
+  const isThreeYearOldFilly = sex === '牝' && age === 3;
+  if (!isSmallFilly && !isThreeYearOldFilly) return 0;
+
+  return pctBonus(coreScore, SUMMER_WEIGHT_ALLOWANCE_PCT);
 }
 
 /**
@@ -188,6 +306,10 @@ function calculatePrediction({
   const classLevel  = parseRaceClassLevel(raceTitle);
   const trFallback  = trainerFallbackScore(classLevel);
   const trMultiplier = trainerClassMultiplier(classLevel);
+  const carriedWeights = racingFormRows
+    .map(row => Number(row.carried_weight))
+    .filter(Number.isFinite);
+  const raceMaxCarriedWeight = carriedWeights.length ? Math.max(...carriedWeights) : null;
 
   const calc = racingFormRows.map(row => {
     const jScore = jrPrefixMax.get(headN(norm(row.jockey),  3)) || 0;
@@ -198,12 +320,23 @@ function calculatePrediction({
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
     const coreScore = jScore + tScore + sScore + cScore;
-    const summerSireBonus = limitedSireBonus(coreScore, raceId, row.sire);
-    const summerBroodmareSireBonus = limitedBroodmareSireBonus(coreScore, raceId, row.broodmare_sire);
-    let satelliteBonus = summerSireBonus + summerBroodmareSireBonus;
+    const summerSireBonus = limitedSireBonus(coreScore, raceId, row.sire, trackCondition);
+    const summerBroodmareSireBonus = limitedBroodmareSireBonus(coreScore, raceId, row.broodmare_sire, trackCondition);
+    const summerDamFamily = summerDamFamilyBonus(coreScore, raceId, row.dam);
+    const summerWeightAllowance = summerWeightAllowanceBonus(
+      coreScore,
+      raceId,
+      row.carried_weight,
+      raceMaxCarriedWeight,
+      row.sex_age,
+      row.horse_weight
+    );
+    let satelliteBonus = summerSireBonus + summerBroodmareSireBonus + summerDamFamily + summerWeightAllowance;
     const satelliteBreakdown = {};
     satelliteBreakdown.summerSire = summerSireBonus;
     satelliteBreakdown.summerBroodmareSire = summerBroodmareSireBonus;
+    satelliteBreakdown.summerDamFamily = summerDamFamily;
+    satelliteBreakdown.summerWeightAllowance = summerWeightAllowance;
     for (const s of satellites) {
       const raw = s.bonuses.get(row.horse_number) || 0;
       const bonus = s.capPct != null
@@ -269,7 +402,11 @@ module.exports = {
   isLimitedSireBonusActive,
   matchesLimitedBonusSire,
   matchesLimitedBonusBroodmareSire,
+  matchBloodRules,
+  summerTrackType,
   limitedSireBonus,
   limitedBroodmareSireBonus,
+  summerDamFamilyBonus,
+  summerWeightAllowanceBonus,
   calculatePrediction,
 };

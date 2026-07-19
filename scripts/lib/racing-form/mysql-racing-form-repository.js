@@ -85,7 +85,8 @@ class MySqlRacingFormRepository {
       `SELECT horse_number, horse_name,
               jockey_name  AS jockey,
               trainer_name AS trainer,
-              sire, sex_age, horse_weight, horse_weight_diff,
+              sire, dam, broodmare_sire, sex_age, carried_weight,
+              horse_weight, horse_weight_diff,
               running_style, agari_3f_1, agari_3f_2
        FROM racing_form WHERE race_id = ? ORDER BY horse_number ASC`,
       [raceId]

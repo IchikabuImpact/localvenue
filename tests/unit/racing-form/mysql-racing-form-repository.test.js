@@ -3,7 +3,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildRacingFormParams, buildRacingFormUpsert, RACING_FORM_COLUMNS } = require('../../../scripts/lib/racing-form/mysql-racing-form-repository');
+const {
+  MySqlRacingFormRepository,
+  buildRacingFormParams,
+  buildRacingFormUpsert,
+  RACING_FORM_COLUMNS,
+} = require('../../../scripts/lib/racing-form/mysql-racing-form-repository');
 
 test('racing_form保存列はdata/schema.sqlと互換性がある', () => {
   const schema = fs.readFileSync(path.join(__dirname, '../../../data/schema.sql'), 'utf8');
@@ -26,4 +31,28 @@ test('buildRacingFormParamsは既存カラム順でパラメータを作る', ()
     trainer: '調教師', owner: '馬主', breeder: '生産者', horse_weight: 456, horse_weight_diff: -10,
   }] });
   assert.deepEqual(params, ['202605230131', 1, 2, '馬', '牡3', '鹿毛', 23, 5, '父', '母', '母父', '騎手', '高知', 56, '調教師', '馬主', '生産者', 456, -10, null, null, null]);
+});
+
+test('findByRaceIdは予想に必要な母名・母父・斤量を取得する', async () => {
+  const calls = [];
+  const repo = new MySqlRacingFormRepository({
+    pool: {
+      execute: async (sql, params) => {
+        calls.push({ sql, params });
+        return [[{
+          horse_number: 1,
+          horse_name: '馬',
+          dam: '母',
+          broodmare_sire: '母父',
+          carried_weight: 54,
+        }]];
+      },
+    },
+  });
+
+  const rows = await repo.findByRaceId('202607010101');
+
+  assert.match(calls[0].sql, /dam,\s*broodmare_sire,\s*sex_age,\s*carried_weight/);
+  assert.deepEqual(calls[0].params, ['202607010101']);
+  assert.equal(rows[0].carried_weight, 54);
 });
