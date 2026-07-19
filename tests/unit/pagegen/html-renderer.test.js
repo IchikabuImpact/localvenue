@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { renderIndexPage } = require('../../../scripts/lib/pagegen/html-renderer');
+const { renderIndexPage, renderRecoveryPage } = require('../../../scripts/lib/pagegen/html-renderer');
 
 test('renderIndexPage shows confirmed and pending race counts in ROI summary', () => {
   const html = renderIndexPage({
@@ -22,4 +22,22 @@ test('renderIndexPage shows confirmed and pending race counts in ROI summary', (
   assert.match(html, /1\/2R/);
   assert.match(html, /未確定 1R/);
   assert.match(html, /1R確定分/);
+});
+
+test('renderRecoveryPage shows 30-day ROI summary cards', () => {
+  const html = renderRecoveryPage({
+    isoDate: '2026-07-15',
+    dateStats: new Map(),
+    roiSummary: [
+      { strategy: 'single', roi_percent: '120.00', invest_yen: 1000, return_yen: 1200, races: 10 },
+      { strategy: 'place', roi_percent: '80.00', invest_yen: 1000, return_yen: 800, races: 10 },
+      { strategy: 'quinella', roi_percent: '150.00', invest_yen: 6000, return_yen: 9000, races: 10 },
+    ],
+  });
+
+  assert.match(html, /直近30日サマリー/);
+  assert.match(html, /単勝/);
+  assert.match(html, /120\.00%/);
+  assert.match(html, /合計/);
+  assert.match(html, /137\.50%/);
 });

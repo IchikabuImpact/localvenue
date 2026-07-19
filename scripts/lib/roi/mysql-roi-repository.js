@@ -79,10 +79,52 @@ class MySqlRoiRepository {
     );
   }
 
+  async aggregateSummary({ isoDate, periodDays = 30 }) {
+    const [rows] = await this._pool.execute(
+      `SELECT model_version, strategy,
+              SUM(races) AS races,
+              COALESCE(SUM(invest_yen), 0) AS invest_yen,
+              COALESCE(SUM(return_yen), 0) AS return_yen,
+              ROUND((SUM(return_yen) / NULLIF(SUM(invest_yen), 0)) * 100, 2) AS roi_percent
+         FROM prediction_roi_daily
+        WHERE ymd BETWEEN DATE_SUB(?, INTERVAL ? DAY) AND ?
+          AND strategy IN ('single', 'place', 'quinella')
+        GROUP BY model_version, strategy`,
+      [isoDate, periodDays - 1, isoDate]
+    );
+    return rows;
+  }
+
+  async upsertSummary({ isoDate, periodDays = 30, row }) {
+    const roi = row.roi_percent === null ? 0.00 : row.roi_percent;
+    await this._pool.execute(
+      `INSERT INTO prediction_roi_summary
+         (summary_ymd, period_days, model_version, strategy, races, invest_yen, return_yen, roi_percent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         races=VALUES(races),
+         invest_yen=VALUES(invest_yen),
+         return_yen=VALUES(return_yen),
+         roi_percent=VALUES(roi_percent),
+         updated_at=CURRENT_TIMESTAMP`,
+      [isoDate, periodDays, row.model_version, row.strategy, row.races, row.invest_yen, row.return_yen, roi]
+    );
+  }
+
   async findDailyRows(isoDate) {
     const [rows] = await this._pool.execute(
       `SELECT * FROM prediction_roi_daily WHERE ymd = ? ORDER BY model_version, strategy`,
       [isoDate]
+    );
+    return rows;
+  }
+
+  async findSummaryRows({ isoDate, periodDays = 30 }) {
+    const [rows] = await this._pool.execute(
+      `SELECT * FROM prediction_roi_summary
+        WHERE summary_ymd = ? AND period_days = ?
+        ORDER BY model_version, strategy`,
+      [isoDate, periodDays]
     );
     return rows;
   }

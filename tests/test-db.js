@@ -26,6 +26,7 @@ const TABLES = [
   { name: 'prediction_eval',     min: 0 },
   { name: 'prediction_roi',      min: 0 },
   { name: 'prediction_roi_daily',min: 0 },
+  { name: 'prediction_roi_summary', min: 0 },
   { name: 'jockey_ranking',      min: 0 },
   { name: 'sire_ranking',        min: 0 },
   { name: 'venue_master',        min: 1 },  // マスターは必ず1件以上

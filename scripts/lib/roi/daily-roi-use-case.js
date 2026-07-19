@@ -12,6 +12,12 @@ class AggregateDailyRoiUseCase {
       const rows = await this.roiRepository.aggregateDaily(targetYmd);
       if (rows.length === 0) this.logger.warn(`[WARN] No ROI data found in prediction_roi for date ${targetYmd}`);
       for (const row of rows) await this.roiRepository.upsertDaily({ isoDate, row });
+      const summaryRows = typeof this.roiRepository.aggregateSummary === 'function'
+        ? await this.roiRepository.aggregateSummary({ isoDate, periodDays: 30 })
+        : [];
+      if (typeof this.roiRepository.upsertSummary === 'function') {
+        for (const row of summaryRows) await this.roiRepository.upsertSummary({ isoDate, periodDays: 30, row });
+      }
       const dailyRows = await this.roiRepository.findDailyRows(isoDate);
       this.logger.log(`--- Daily ROI Setup Report for ${isoDate} ---`);
       if (dailyRows.length === 0) this.logger.log('No data in prediction_roi_daily (Result not ready?)');
@@ -26,8 +32,12 @@ class AggregateDailyRoiUseCase {
           if (!entry.some(d => d.strategy === 'quinella')) this.logger.warn(`  [WARN] Missing 'quinella' strategy for ${ver}`);
         }
       }
+      if (summaryRows.length > 0) {
+        this.logger.log(`--- 30-day ROI Summary through ${isoDate} ---`);
+        summaryRows.forEach(d => this.logger.log(`  - ${d.strategy.padEnd(8)}: ${d.races} races, invest ${d.invest_yen}, return ${d.return_yen}, ROI ${d.roi_percent}%`));
+      }
       this.logger.log('[OK] Aggregation completed.');
-      return { rows, dailyRows, isoDate };
+      return { rows, dailyRows, summaryRows, isoDate };
     } finally { try { await this.roiRepository.close(); } catch { /* ignore */ } }
   }
 }

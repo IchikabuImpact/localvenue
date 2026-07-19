@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildServerConnectionConfig, resolveDbConfig } = require('../../../scripts/lib/db/init-database');
-const { predictionRoiDailyTableSql } = require('../../../scripts/lib/db/setup-phase1');
+const { predictionRoiDailyTableSql, predictionRoiSummaryTableSql } = require('../../../scripts/lib/db/setup-phase1');
 const { escapeMarkdownTableValue, rowsToMarkdown, schemaToMarkdown } = require('../../../scripts/lib/db/dump-db-context');
 
 test('resolveDbConfig prefers config.db over config.mysql', () => {
@@ -21,6 +21,12 @@ test('predictionRoiDailyTableSql contains the expected table contract', () => {
   const sql = predictionRoiDailyTableSql();
   assert.match(sql, /CREATE TABLE IF NOT EXISTS prediction_roi_daily/);
   assert.match(sql, /PRIMARY KEY \(ymd, model_version, strategy\)/);
+});
+
+test('predictionRoiSummaryTableSql contains the expected table contract', () => {
+  const sql = predictionRoiSummaryTableSql();
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS prediction_roi_summary/);
+  assert.match(sql, /PRIMARY KEY \(summary_ymd, period_days, model_version, strategy\)/);
 });
 
 test('dump DB markdown helpers escape table data', () => {

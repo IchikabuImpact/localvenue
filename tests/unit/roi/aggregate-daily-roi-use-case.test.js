@@ -37,6 +37,43 @@ test('日次ROIを集計してDBに保存する', async () => {
   assert.equal(upserted[0].isoDate, '2026-05-23');
 });
 
+test('日次ROI集計後に30日ROIサマリーを保存する', async () => {
+  const summaryRows = [
+    { model_version: 'yosou-v1', strategy: 'single', races: 70, invest_yen: 7000, return_yen: 8400, roi_percent: '120.00' },
+  ];
+  const upsertedSummary = [];
+  const useCase = new AggregateDailyRoiUseCase({
+    logger: silentLogger(),
+    roiRepository: makeRepo({
+      aggregateSummary: async ({ isoDate, periodDays }) => {
+        assert.equal(isoDate, '2026-05-23');
+        assert.equal(periodDays, 30);
+        return summaryRows;
+      },
+      upsertSummary: async row => upsertedSummary.push(row),
+    }),
+  });
+
+  const result = await useCase.execute({ targetYmd: '20260523' });
+
+  assert.equal(result.summaryRows.length, 1);
+  assert.deepEqual(upsertedSummary, [{ isoDate: '2026-05-23', periodDays: 30, row: summaryRows[0] }]);
+});
+
+test('30日ROIサマリー未対応のrepositoryでも日次集計は動作する', async () => {
+  const repo = makeRepo();
+  delete repo.aggregateSummary;
+  delete repo.upsertSummary;
+  const useCase = new AggregateDailyRoiUseCase({
+    logger: silentLogger(),
+    roiRepository: repo,
+  });
+
+  const result = await useCase.execute({ targetYmd: '20260523' });
+
+  assert.deepEqual(result.summaryRows, []);
+});
+
 // ── 集計データなし ──────────────────────────────────────────────────
 test('ROIデータが空の場合に警告ログを出力する', async () => {
   const warnings = [];

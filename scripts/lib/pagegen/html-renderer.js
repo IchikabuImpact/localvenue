@@ -325,9 +325,74 @@ function renderLineChart(dateStats) {
   </svg>`;
 }
 
-function renderRecoveryPage({ isoDate, dateStats, cssPath = 'css/style.css' }) {
+function summarizeRoiRows(rows) {
+  const map = new Map();
+  for (const row of rows || []) map.set(row.strategy, row);
+  const totalInvest = Array.from(map.values()).reduce((sum, row) => sum + (Number(row.invest_yen) || 0), 0);
+  const totalReturn = Array.from(map.values()).reduce((sum, row) => sum + (Number(row.return_yen) || 0), 0);
+  const totalRaces = Math.max(0, ...Array.from(map.values()).map(row => Number(row.races) || 0));
+  return { map, totalInvest, totalReturn, totalRaces };
+}
+
+function buildSummaryRowsFromDateStats(dateStats) {
+  const byStrategy = new Map();
+  for (const st of dateStats.values()) {
+    for (const row of Object.values(st)) {
+      if (!row?.strategy) continue;
+      const cur = byStrategy.get(row.strategy) || {
+        model_version: row.model_version || 'yosou-v1',
+        strategy: row.strategy,
+        races: 0,
+        invest_yen: 0,
+        return_yen: 0,
+      };
+      cur.races += Number(row.races) || 0;
+      cur.invest_yen += Number(row.invest_yen) || 0;
+      cur.return_yen += Number(row.return_yen) || 0;
+      byStrategy.set(row.strategy, cur);
+    }
+  }
+  return Array.from(byStrategy.values()).map(row => ({
+    ...row,
+    roi_percent: row.invest_yen > 0
+      ? (Math.round(row.return_yen / row.invest_yen * 10000) / 100).toFixed(2)
+      : '0.00',
+  }));
+}
+
+function renderRecoverySummary({ roiSummary, dateStats }) {
+  const rows = roiSummary && roiSummary.length ? roiSummary : buildSummaryRowsFromDateStats(dateStats);
+  if (!rows.length) return '';
+  const { map, totalInvest, totalReturn, totalRaces } = summarizeRoiRows(rows);
+  const totalRoi = totalInvest > 0 ? (Math.round(totalReturn / totalInvest * 10000) / 100).toFixed(2) : '0.00';
+  const card = (key, label) => {
+    const row = map.get(key) || {};
+    const roi = row.roi_percent ?? '0.00';
+    return `<div class="card ${Number(roi) >= 100 ? 'good' : ''}">
+      <h3>${label}</h3>
+      <p class="roi-val">${roi}%</p>
+      <p class="roi-detail">${row.return_yen || 0} / ${row.invest_yen || 0}円 (${row.races || 0}R)</p>
+    </div>`;
+  };
+  return `<section class="roi-summary">
+    <h2>直近30日サマリー</h2>
+    <div class="roi-cards">
+      ${card('single', '単勝')}
+      ${card('place', '複勝')}
+      ${card('quinella', '馬複4頭')}
+      <div class="card total ${Number(totalRoi) >= 100 ? 'good' : ''}">
+        <h3>合計</h3>
+        <p class="roi-val">${totalRoi}%</p>
+        <p class="roi-detail">${totalReturn} / ${totalInvest}円 (${totalRaces}R)</p>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderRecoveryPage({ isoDate, dateStats, roiSummary = [], cssPath = 'css/style.css' }) {
   let html = htmlHead(`回収率推移`, { cssPath });
   html += `<h2>直近30日の回収率推移</h2>`;
+  html += renderRecoverySummary({ roiSummary, dateStats });
   html += renderLineChart(dateStats);
   html += `<p style="font-size:0.8em;text-align:right;color:#888;">─ 100%ライン（赤破線）以上が黒字</p>`;
   html += `<table class="recovery-table"><thead><tr><th>日付</th><th>単勝ROI</th><th>複勝ROI</th><th>馬複4頭ROI</th><th>合計ROI</th><th>投資合計</th></tr></thead><tbody>`;
@@ -353,4 +418,4 @@ function renderRecoveryPage({ isoDate, dateStats, cssPath = 'css/style.css' }) {
   return html;
 }
 
-module.exports = { htmlHead, htmlFoot, renderIndexPage, renderDetailPage, renderRecoveryPage };
+module.exports = { htmlHead, htmlFoot, renderIndexPage, renderDetailPage, renderRecoveryPage, renderRecoverySummary };

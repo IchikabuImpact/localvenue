@@ -73,6 +73,7 @@
 - `prediction_eval`: race_idごとの単勝・複勝的中フラグと払戻額
 - `prediction_roi`: strategy（single/place）別の累積ROI
 - `prediction_roi_daily`: 日次ROI（ymd × strategy）
+- `prediction_roi_summary`: 指定日を終点にした期間別ROIサマリー（初期は直近30日 × strategy）
 
 現在の評価対象: **単勝（single）・複勝（place）の2種**
 

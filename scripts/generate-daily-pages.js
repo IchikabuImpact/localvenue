@@ -14,7 +14,7 @@ const config = require('../config/config.js');
 const { createPool } = require('./lib/db/pool-factory');
 const { jstTodayYmd } = require('./lib/shared/date-utils');
 const { buildCutoffYmdFromBaseYmd, stripMergeConflictMarkers } = require('./lib/pagegen/page-utils');
-const { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats } = require('./lib/pagegen/page-query-service');
+const { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats, loadRoiSummary } = require('./lib/pagegen/page-query-service');
 const { renderIndexPage, renderDetailPage, renderRecoveryPage } = require('./lib/pagegen/html-renderer');
 
 const ymdArg   = process.argv[2] || jstTodayYmd();
@@ -70,11 +70,12 @@ function purgeOldFiles() {
   const pool = createPool(config.mysql);
   try {
     // ── DB queries ──────────────────────────────────────────────
-    const [venueMap, dailyRoi, races, dateStats] = await Promise.all([
+    const [venueMap, dailyRoi, races, dateStats, roiSummary] = await Promise.all([
       loadVenueMap(pool),
       loadDailyRoi(pool, isoDate),
       loadRaces(pool, ymdArg, modelArg),
       loadRoiStats(pool, isoDate),
+      loadRoiSummary(pool, isoDate, 30).catch(() => []),
     ]);
 
     // ── index.html ──────────────────────────────────────────────
@@ -96,9 +97,9 @@ function purgeOldFiles() {
 
     // ── recovery.html ────────────────────────────────────────────
     write(path.join(PUBLIC_DIR, 'recovery.html'),
-      renderRecoveryPage({ isoDate, dateStats, cssPath: 'css/style.css' }));
+      renderRecoveryPage({ isoDate, dateStats, roiSummary, cssPath: 'css/style.css' }));
     write(path.join(currentDailyDir, 'recovery.html'),
-      renderRecoveryPage({ isoDate, dateStats, cssPath: '../../css/style.css' }));
+      renderRecoveryPage({ isoDate, dateStats, roiSummary, cssPath: '../../css/style.css' }));
     console.log('[GEN] recovery.html');
 
     purgeOldFiles();

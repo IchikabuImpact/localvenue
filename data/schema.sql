@@ -146,6 +146,28 @@ CREATE TABLE `prediction_roi_daily` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `prediction_roi_summary`
+--
+
+DROP TABLE IF EXISTS `prediction_roi_summary`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `prediction_roi_summary` (
+  `summary_ymd` date NOT NULL,
+  `period_days` int NOT NULL,
+  `model_version` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `strategy` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `races` int NOT NULL,
+  `invest_yen` int NOT NULL,
+  `return_yen` int NOT NULL,
+  `roi_percent` decimal(7,2) NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`summary_ymd`,`period_days`,`model_version`,`strategy`),
+  KEY `idx_prediction_roi_summary_latest` (`period_days`,`summary_ymd`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `race_cnt`
 --
 

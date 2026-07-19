@@ -64,7 +64,7 @@ async function loadRaces(pool, ymdArg, modelArg) {
 
 async function loadRoiStats(pool, isoDate) {
   const [stats] = await pool.execute(`
-    SELECT ymd, strategy, roi_percent, invest_yen, return_yen
+    SELECT ymd, strategy, roi_percent, races, invest_yen, return_yen
     FROM prediction_roi_daily
     WHERE ymd >= DATE_SUB(?, INTERVAL 30 DAY)
     ORDER BY ymd ASC, strategy DESC
@@ -82,4 +82,14 @@ async function loadRoiStats(pool, isoDate) {
   return dateStats;
 }
 
-module.exports = { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats };
+async function loadRoiSummary(pool, isoDate, periodDays = 30) {
+  const [rows] = await pool.execute(`
+    SELECT summary_ymd, period_days, model_version, strategy, races, invest_yen, return_yen, roi_percent
+    FROM prediction_roi_summary
+    WHERE summary_ymd = ? AND period_days = ?
+    ORDER BY model_version, strategy
+  `, [isoDate, periodDays]);
+  return rows;
+}
+
+module.exports = { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats, loadRoiSummary };
