@@ -71,6 +71,12 @@
       "minDiffKg": 2,
       "smallFillyMaxWeight": 450,
       "threeYearOldFilly": true
+    },
+    "youngRace": {
+      "maxAge": 3,
+      "minYoungHorseRatio": 0.6,
+      "sireBoostPct": 30,
+      "juvenileSireRankingBonusPct": 15
     }
   }
 }

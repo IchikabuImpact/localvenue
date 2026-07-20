@@ -41,6 +41,29 @@ function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order 
   });
 }
 
+function buildJuvenileSireRankingUrl({ year, division = 3, ranking = 2, sort = 'ranking', order = 'A', seqno = '' }) {
+  return buildRankingUrl({
+    sort,
+    order,
+    items: '100',
+    ranking: String(ranking),
+    y1: year,
+    y2: year - 2,
+    y3: year,
+    kind: '1',
+    division: String(division),
+    y_f: year,
+    y_t: year,
+    hold: '0',
+    condition: '1',
+    distance_f: '',
+    distance_t: '',
+    horse: '',
+    seqno: seqno ? String(seqno) : '',
+    match: 'prefix',
+  });
+}
+
 // 馬場状態コード（JBIS の condition パラメータ値 → ラベル）
 const TRACK_CONDITION_MAP = {
   1: 'all',  // 総合（全馬場）
@@ -162,6 +185,26 @@ function parseSireRanking(html) {
   return uniqueSortedBy(rows, (row) => row.sireId);
 }
 
+function parseHorseRanking(html, { maxRank = 100 } = {}) {
+  const $ = cheerio.load(html);
+  const rows = [];
+  $('.data-7__inner > div').each((_, row) => {
+    const children = $(row).children('div');
+    if (!children.length) return;
+    const rank = parseInt($(children[0]).text().trim(), 10);
+    if (!Number.isFinite(rank) || rank < 1 || rank > maxRank) return;
+    const a = $(row).find('.jc-left a, a').filter((_, el) => /\/horse\/\d+\//.test($(el).attr('href') || '')).first();
+    if (!a.length) return;
+    const href = a.attr('href') || '';
+    const matched = href.match(/\/horse\/(\d+)\//);
+    if (!matched) return;
+    const horseName = a.text().trim();
+    if (!horseName) return;
+    rows.push({ rank, horseId: matched[1], horseName });
+  });
+  return uniqueSortedBy(rows, (row) => row.horseId);
+}
+
 // JBIS上の実際のrank番号からスコアを計算（地方調教師は rank300+ になりうるため負になることがある）
 // 通常は scoreFromPosition を使うこと
 function scoreFromRank(rank) {
@@ -238,15 +281,43 @@ async function saveSireRanking(rows, { distance, trackCondition = 'all', mysqlCl
   }
 }
 
+async function saveJuvenileSireRanking(rows, { year, division = 3, mysqlClient = mysql, appConfig }) {
+  if (!rows.length) return 0;
+  const conn = await createRankingConnection(mysqlClient, appConfig);
+  try {
+    await conn.beginTransaction();
+    const sql = `
+      INSERT INTO juvenile_sire_ranking (year, division, sire_id, sire_name, score)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        sire_name = VALUES(sire_name),
+        score     = VALUES(score)
+    `;
+    for (let i = 0; i < rows.length; i++) {
+      await conn.execute(sql, [year, division, rows[i].sireId, rows[i].sireName, scoreFromPosition(i)]);
+    }
+    await conn.commit();
+    return rows.length;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    await conn.end();
+  }
+}
+
 module.exports = {
   TRACK_CONDITION_MAP,
   TRACK_CONDITION_CODES,
+  buildJuvenileSireRankingUrl,
   buildPeopleRankingUrl,
   buildRankingUrl,
   buildSireRankingUrl,
   fetchHtml,
+  parseHorseRanking,
   parsePeopleRanking,
   parseSireRanking,
+  saveJuvenileSireRanking,
   savePeopleRanking,
   saveSireRanking,
   scoreFromRank,

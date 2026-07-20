@@ -63,6 +63,25 @@ CREATE TABLE `jockey_ranking` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `juvenile_sire_ranking`
+--
+
+DROP TABLE IF EXISTS `juvenile_sire_ranking`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `juvenile_sire_ranking` (
+  `year` int NOT NULL,
+  `division` tinyint NOT NULL DEFAULT '3',
+  `sire_id` bigint NOT NULL,
+  `sire_name` varchar(255) NOT NULL,
+  `score` int NOT NULL,
+  PRIMARY KEY (`year`,`division`,`sire_id`),
+  KEY `idx_juvenile_sire_ranking_name` (`year`,`division`,`sire_name`),
+  KEY `idx_juvenile_sire_ranking_score` (`year`,`division`,`score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `prediction`
 --
 

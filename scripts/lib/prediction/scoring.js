@@ -74,6 +74,12 @@ const DEFAULT_SCORING_CONFIG = Object.freeze({
       smallFillyMaxWeight: 450,
       threeYearOldFilly: true,
     },
+    youngRace: {
+      maxAge: 3,
+      minYoungHorseRatio: 0.6,
+      sireBoostPct: 30,
+      juvenileSireRankingBonusPct: 15,
+    },
   },
 });
 
@@ -155,6 +161,23 @@ function customScore(horse) {
   return bonus >>> 0;
 }
 
+function parseAge(sexAge) {
+  const m = String(sexAge || '').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function isYoungRace(racingFormRows, raceTitle, scoringConfig = DEFAULT_SCORING_CONFIG) {
+  const cfg = summerConfig(scoringConfig).youngRace || {};
+  const maxAge = cfg.maxAge ?? 3;
+  const ages = (racingFormRows || [])
+    .map(row => parseAge(row.sex_age))
+    .filter(Number.isFinite);
+  if (!ages.length) return /2歳|3歳|新馬/.test(raceTitle || '');
+  const youngCount = ages.filter(age => age <= maxAge).length;
+  const ratio = youngCount / ages.length;
+  return ratio >= (cfg.minYoungHorseRatio ?? 0.6) || /2歳|3歳|新馬/.test(raceTitle || '');
+}
+
 function isSummerBodyWeightMonth(raceId) {
   const month = Number(String(raceId || '').slice(4, 6));
   return month >= 7 && month <= 9;
@@ -206,6 +229,18 @@ function findSireScore(sireRows, sireText) {
     if (S.startsWith(R) || R.startsWith(S)) return r.score;
   }
   return 0;
+}
+
+function buildNameMaxScore(rows, nameKey) {
+  const nameMax = new Map();
+  for (const r of rows || []) {
+    const key = norm(r[nameKey]);
+    if (!key) continue;
+    const val = Math.max(0, Number(r.score) || 0);
+    const cur = nameMax.get(key) || 0;
+    if (val > cur) nameMax.set(key, val);
+  }
+  return nameMax;
 }
 
 function isLimitedSireBonusActive(raceId, scoringConfig = DEFAULT_SCORING_CONFIG) {
@@ -370,6 +405,7 @@ function calculatePrediction({
   jockeyRows,
   trainerRows,
   sireRows,
+  juvenileSireRows = [],
   weather       = null,
   trackCondition = null,
   raceTitle     = null,
@@ -381,6 +417,7 @@ function calculatePrediction({
   const jrPrefixMax = buildPrefixMaxScore(jockeyRows, 'jockey_name');
   const trPrefixMax = buildPrefixMaxScore(trainerRows, 'trainer_name');
   const normalizedSireRows = buildSireRows(sireRows);
+  const juvenileSireScores = buildSireRows(juvenileSireRows);
 
   // レースクラスから調教師スコア補正値を計算
   const classLevel  = parseRaceClassLevel(raceTitle);
@@ -399,6 +436,8 @@ function calculatePrediction({
     raceClass: classLevel,
     raceMaxCarriedWeight,
   };
+  const youngRace = isYoungRace(racingFormRows, raceTitle, scoringConfig);
+  const youngRaceConfig = summerConfig(scoringConfig).youngRace || {};
 
   const calc = racingFormRows.map(row => {
     const jScore = jrPrefixMax.get(headN(norm(row.jockey),  3)) || 0;
@@ -408,7 +447,16 @@ function calculatePrediction({
     const tScore = Math.round(tRaw * trMultiplier);
     const sScore = findSireScore(normalizedSireRows, row.sire) || 0;
     const cScore = customScore({ horse_number: row.horse_number, sex_age: row.sex_age });
-    const coreScore = jScore + tScore + sScore + cScore;
+    const youngSireBoost = youngRace
+      ? Math.round(sScore * ((youngRaceConfig.sireBoostPct ?? 30) / 100))
+      : 0;
+    const juvenileSireRankScore = youngRace
+      ? findSireScore(juvenileSireScores, row.sire)
+      : 0;
+    const juvenileSireRankBonus = Math.round(
+      juvenileSireRankScore * ((youngRaceConfig.juvenileSireRankingBonusPct ?? 15) / 100)
+    );
+    const coreScore = jScore + tScore + sScore + cScore + youngSireBoost + juvenileSireRankBonus;
     const factorResult = applyScoringFactors({
       factors: configuredFactors,
       row,
@@ -442,6 +490,10 @@ function calculatePrediction({
         jockey: jScore, trainer: tScore,
         trainerJbis: tJbis, trainerMultiplier: trMultiplier,
         sire: sScore, custom: cScore,
+        youngRace,
+        youngSireBoost,
+        juvenileSireRank: juvenileSireRankScore,
+        juvenileSireRankingBonus: juvenileSireRankBonus,
         ...satelliteBreakdown,
         bodyweightMultiplier,
         bodyweightAdjustment: total - totalBeforeBodyweight,
@@ -475,10 +527,13 @@ module.exports = {
   trainerFallbackScore,
   trainerClassMultiplier,
   customScore,
+  parseAge,
+  isYoungRace,
   isSummerBodyWeightMonth,
   summerBodyWeightMultiplier,
   buildPrefixMaxScore,
   buildSireRows,
+  buildNameMaxScore,
   findSireScore,
   isLimitedSireBonusActive,
   matchesLimitedBonusSire,

@@ -4,8 +4,9 @@
 #   JBIS から騎手・種牡馬ランキングを取得して DB へ保存
 #
 # 処理順:
-#   [1] fetch-jockey-ranking.js  — 騎手ランキング（地方 top100）
-#   [2] fetch-sire-ranking.js    — 種牡馬ランキング（距離別 top100）
+#   [1] fetch-jockey-ranking.js         — 騎手ランキング（地方 top100）
+#   [2] fetch-juvenile-sire-ranking.js  — 2歳種牡馬ランキング（地方 top100）
+#   [3] fetch-sire-ranking.js           — 種牡馬ランキング（距離別 top100）
 #
 # crontab 設定例:
 #   0 3 1 * * /home/ichikabu/projects/localvenue/cron/monthly.sh
@@ -77,9 +78,20 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit $EXIT_CODE
 fi
 
-# [2] 種牡馬ランキング（距離別 — 地方ダート平地の主要距離）
+# [2] 2歳種牡馬ランキング（地方 division=3 / JBIS ranking=2）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 2歳種牡馬ランキング取得 開始"
+node fetch-juvenile-sire-ranking.js --division=3 --ranking=2
+EXIT_CODE=$?
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 2歳種牡馬ランキング取得 終了 (exit=$EXIT_CODE)"
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "[ERROR] 2歳種牡馬ランキング取得失敗。処理を中断します。"
+  exit $EXIT_CODE
+fi
+
+# [3] 種牡馬ランキング（距離別 — 地方ダート平地の主要距離）
 DISTANCES="800 1200 1300 1400 1500 1600 1800 2000 2100 2200"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 種牡馬ランキング取得 開始 (距離: $DISTANCES)"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [3] 種牡馬ランキング取得 開始 (距離: $DISTANCES)"
 
 CONDITIONS="all 良 稍重 重 不良"
 SIRE_ERRORS=0
@@ -95,7 +107,7 @@ for DIST in $DISTANCES; do
   done
 done
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2] 種牡馬ランキング取得 終了 (失敗距離: ${SIRE_ERRORS}件)"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [3] 種牡馬ランキング取得 終了 (失敗距離: ${SIRE_ERRORS}件)"
 
 echo "========================================"
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 月次バッチ 完了"

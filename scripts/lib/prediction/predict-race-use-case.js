@@ -69,13 +69,16 @@ class PredictRaceUseCase {
       }
 
       const isWet = WET_CONDITIONS.has(trackCondition);
-      const [racingFormRows, jockeyRows, trainerRows, sireRows, condSireRows, allSireRows] = await Promise.all([
+      const [racingFormRows, jockeyRows, trainerRows, sireRows, condSireRows, allSireRows, juvenileSireRows] = await Promise.all([
         this.racingFormRepository.findByRaceId(raceId),
         this.rankingRepository.findJockeyScores(year),
         this.rankingRepository.findTrainerScores(year),
         this.rankingRepository.findSireScores(trackCondition),
         isWet ? this.rankingRepository.findSireRawScores(trackCondition) : Promise.resolve([]),
         isWet ? this.rankingRepository.findSireRawScores('all')           : Promise.resolve([]),
+        typeof this.rankingRepository.findJuvenileSireScores === 'function'
+          ? this.rankingRepository.findJuvenileSireScores(year, 3)
+          : Promise.resolve([]),
       ]);
 
       if (!racingFormRows.length) throw new Error(`racing_form が空: race_id=${raceId}`);
@@ -122,6 +125,7 @@ class PredictRaceUseCase {
         jockeyRows,
         trainerRows,
         sireRows,
+        juvenileSireRows,
         weather,
         trackCondition,
         raceTitle,

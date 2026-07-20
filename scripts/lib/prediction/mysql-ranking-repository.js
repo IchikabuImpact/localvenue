@@ -64,6 +64,16 @@ class MySqlRankingRepository {
     );
     return rows;
   }
+
+  async findJuvenileSireScores(year, division = 3) {
+    const [rows] = await this._pool.execute(
+      `SELECT sire_name, score
+         FROM juvenile_sire_ranking
+        WHERE year = ? AND division = ?`,
+      [year, division]
+    );
+    return rows;
+  }
 }
 
 module.exports = { MySqlRankingRepository };
