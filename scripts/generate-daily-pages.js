@@ -16,6 +16,7 @@ const { jstTodayYmd } = require('./lib/shared/date-utils');
 const { buildCutoffYmdFromBaseYmd, stripMergeConflictMarkers } = require('./lib/pagegen/page-utils');
 const { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats, loadRoiSummary } = require('./lib/pagegen/page-query-service');
 const { renderIndexPage, renderDetailPage, renderRecoveryPage } = require('./lib/pagegen/html-renderer');
+const { writeSitemap } = require('./lib/seo/sitemap-generator');
 
 const ymdArg   = process.argv[2] || jstTodayYmd();
 const modelArg = process.argv[3] || null;
@@ -103,6 +104,14 @@ function purgeOldFiles() {
     console.log('[GEN] recovery.html');
 
     purgeOldFiles();
+
+    const siteUrl = process.env.SITE_URL || config.siteUrl;
+    if (siteUrl) {
+      const result = writeSitemap({ publicDir: PUBLIC_DIR, siteUrl });
+      console.log(`[GEN] sitemap.xml (${result.urlCount} urls)`);
+    } else {
+      console.warn('[WARN] sitemap.xml skipped: set SITE_URL env or config.siteUrl');
+    }
   } catch (e) {
     console.error('[FATAL]', e);
     process.exit(1);
