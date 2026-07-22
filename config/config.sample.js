@@ -14,6 +14,8 @@ module.exports = {
   debug: false,
   // スコアリング補正設定。相対パスはプロジェクトルート基準。未指定時は config/scoring/default.json
   scoringConfigPath: 'config/scoring/default.json',
+  // sitemap.xml のURL生成に使う公開URL（末尾スラッシュなし推奨）。環境変数 SITE_URL でも上書き可能。
+  siteUrl: 'https://example.com',
   // 生成済み静的HTMLの保持日数（この日数より古いものをバッチ実行時に自動削除）
   htmlRetentionDays: 30
 };

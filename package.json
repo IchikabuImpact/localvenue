@@ -10,6 +10,7 @@
     "node": ">=22.20.0"
   },
   "scripts": {
+    "test": "npm run test:unit",
     "pm2:save": "pm2 save",
     "pm2:resurrect": "pm2 resurrect",
     "scrape:month": "node scripts/001-save-monthly-calendar.js",
@@ -17,6 +18,7 @@
     "yosou:date": "node scripts/daily-yosou-batch.js",
     "db:dump": "node scripts/dump-db-context.js",
     "serve": "node scripts/server.js",
+    "sitemap": "node scripts/generate-sitemap.js",
     "result": "node scripts/daily-result-batch.js",
     "result:date": "node scripts/daily-result-batch.js",
     "test:unit": "node --test tests/unit/**/*.test.js"
