@@ -1,11 +1,12 @@
 'use strict';
-const { MODEL_VERSION, calculatePrediction, parseRaceClassLevel } = require('./scoring');
+const { MODEL_VERSION, calculatePrediction, parseRaceClassLevel, buildDefaultScoringFactors } = require('./scoring');
 const { computeImprovementBonuses } = require('./satellites/improvement-factor');
 const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-track-factor');
 const { computeDistanceBonuses } = require('./satellites/distance-factor');
 const { computeClassJumpBonuses } = require('./satellites/class-jump-factor');
 const { computeLastKickBonuses } = require('./satellites/last-kick-factor');
 const { loadVenueSatellites } = require('./satellites/venue/loader');
+const { buildHorsePatternScoringFactor } = require('./horse-pattern-factor');
 
 class PredictionSkippedError extends Error {
   constructor(msg) { super(msg); this.exitCode = 4; }
@@ -69,7 +70,7 @@ class PredictRaceUseCase {
       }
 
       const isWet = WET_CONDITIONS.has(trackCondition);
-      const [racingFormRows, jockeyRows, trainerRows, sireRows, condSireRows, allSireRows, juvenileSireRows] = await Promise.all([
+      const [racingFormRows, jockeyRows, trainerRows, sireRows, condSireRows, allSireRows, juvenileSireRows, horsePatternRules] = await Promise.all([
         this.racingFormRepository.findByRaceId(raceId),
         this.rankingRepository.findJockeyScores(year),
         this.rankingRepository.findTrainerScores(year),
@@ -78,6 +79,9 @@ class PredictRaceUseCase {
         isWet ? this.rankingRepository.findSireRawScores('all')           : Promise.resolve([]),
         typeof this.rankingRepository.findJuvenileSireScores === 'function'
           ? this.rankingRepository.findJuvenileSireScores(year, 3)
+          : Promise.resolve([]),
+        typeof this.predictionRepository.findActiveHorsePatternRules === 'function'
+          ? this.predictionRepository.findActiveHorsePatternRules(raceId)
           : Promise.resolve([]),
       ]);
 
@@ -130,6 +134,10 @@ class PredictRaceUseCase {
         trackCondition,
         raceTitle,
         satellites,
+        scoringFactors: [
+          ...buildDefaultScoringFactors(this.scoringConfig || undefined),
+          buildHorsePatternScoringFactor(horsePatternRules),
+        ],
         scoringConfig: this.scoringConfig,
         generatedAt: this.now().toISOString(),
       });

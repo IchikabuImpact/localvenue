@@ -430,6 +430,8 @@ function calculatePrediction({
   const configuredFactors = scoringFactors || buildDefaultScoringFactors(scoringConfig);
   const raceContext = {
     raceId,
+    babaCode: Number(String(raceId || '').slice(10, 12)),
+    racingFormRows,
     trackCondition,
     weather,
     raceTitle,

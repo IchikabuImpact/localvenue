@@ -8,3 +8,25 @@ REPLACE INTO `baba` VALUES (1,'北見ば',NULL),(2,'岩見ば',NULL),(3,'帯広�
 
 
 REPLACE INTO `venue_master` VALUES (3,'03041503','帯広ば'),(10,'10061006','盛岡'),(11,'11060605','水沢'),(18,'18131203','浦和'),(19,'19140801','船橋'),(20,'20151205','大井'),(21,'21350805','川崎'),(22,'22181501','金沢'),(23,'23201204','笠松'),(24,'24332203','名古屋'),(27,'27261706','園田'),(28,'28260102','姫路'),(31,'31291106','高知'),(32,'32302205','佐賀'),(36,'36011504','門別');
+
+INSERT INTO `horse_win_pattern_rules`
+  (`rule_code`, `rule_name`, `horse_name`, `pattern_type`, `baba_code`,
+   `min_frame_number`, `max_frame_number`, `target_running_styles`,
+   `max_escape_count_excluding_self`, `max_front_runner_count`, `bonus_pct`, `enabled`, `notes`)
+VALUES
+  ('shishi_kochi_inner_type_s', 'シシ 高知内枠TYPE S', 'シシ', 'TYPE S', 31,
+   1, 4, JSON_ARRAY('逃げ', '先行'),
+   0, 3, 10.00, 1, '気持ちで走る持続力タイプ。内枠で集中でき、他に逃げ馬がいない消耗戦を加点')
+ON DUPLICATE KEY UPDATE
+  `rule_name` = VALUES(`rule_name`),
+  `horse_name` = VALUES(`horse_name`),
+  `pattern_type` = VALUES(`pattern_type`),
+  `baba_code` = VALUES(`baba_code`),
+  `min_frame_number` = VALUES(`min_frame_number`),
+  `max_frame_number` = VALUES(`max_frame_number`),
+  `target_running_styles` = VALUES(`target_running_styles`),
+  `max_escape_count_excluding_self` = VALUES(`max_escape_count_excluding_self`),
+  `max_front_runner_count` = VALUES(`max_front_runner_count`),
+  `bonus_pct` = VALUES(`bonus_pct`),
+  `enabled` = VALUES(`enabled`),
+  `notes` = VALUES(`notes`);

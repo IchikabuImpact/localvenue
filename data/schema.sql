@@ -101,6 +101,41 @@ CREATE TABLE `prediction` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `horse_win_pattern_rules`
+-- 1頭ごとの勝ちパターンを予想加点ルールとして管理する
+--
+
+DROP TABLE IF EXISTS `horse_win_pattern_rules`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `horse_win_pattern_rules` (
+  `rule_id` bigint NOT NULL AUTO_INCREMENT,
+  `rule_code` varchar(64) NOT NULL,
+  `rule_name` varchar(128) NOT NULL,
+  `horse_name` varchar(64) NOT NULL,
+  `pattern_type` varchar(32) DEFAULT NULL COMMENT '例: TYPE S',
+  `baba_code` tinyint DEFAULT NULL COMMENT 'NAR競馬場コード。高知=31',
+  `min_frame_number` tinyint DEFAULT NULL,
+  `max_frame_number` tinyint DEFAULT NULL,
+  `target_running_styles` json DEFAULT NULL COMMENT '例: ["逃げ","先行"]',
+  `max_escape_count_excluding_self` tinyint DEFAULT NULL COMMENT '自馬以外の逃げ馬上限',
+  `max_front_runner_count` tinyint DEFAULT NULL COMMENT '逃げ+先行の頭数上限',
+  `bonus_pct` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `active_from_ymd` char(8) DEFAULT NULL,
+  `active_to_ymd` char(8) DEFAULT NULL,
+  `notes` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`rule_id`),
+  UNIQUE KEY `uq_horse_win_pattern_rule_code` (`rule_code`),
+  KEY `idx_horse_win_pattern_lookup` (`enabled`,`baba_code`,`horse_name`),
+  KEY `idx_horse_win_pattern_active` (`enabled`,`active_from_ymd`,`active_to_ymd`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='1頭ごとの勝ちパターン加点ルール';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `prediction_eval`
 --
 
