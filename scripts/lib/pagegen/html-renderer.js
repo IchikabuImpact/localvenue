@@ -123,8 +123,9 @@ function renderRaceListItem(race, venueMap) {
   const venueCode = race.race_id.slice(10, 12);
   const rr        = race.race_id.slice(8, 10);
   const venueName = venueMap.get(venueCode) || `Venue${venueCode}`;
-  const best      = memo?.best?.horse_number || '-';
-  const bestName  = memo?.best?.horse_name   || '';
+  const hasPrediction = !!memo?.best || (Array.isArray(memo?.items) && memo.items.length > 0);
+  const best      = hasPrediction ? (memo?.best?.horse_number || '-') : '-';
+  const bestName  = hasPrediction ? (memo?.best?.horse_name || '') : '予想なし';
 
   let statusClass = 'pending';
   if (race.win_hit === 1) statusClass = 'win';
@@ -206,7 +207,7 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
     <div class="breadcrumb"><a href="/index.html">&lt; 一覧へ戻る</a></div>
     <h2>${venueName} ${parseInt(rr)}R ${distStr}(${race.race_id})</h2>
     ${condLine}
-    <p class="model-info">Model: ${race.model_version}</p>
+    <p class="model-info">Model: ${race.model_version || '-'}</p>
   `;
   const predUpdatedAt = fmtJst(memo?.generatedAt);
   const predTitle = predUpdatedAt ? `AI予想(更新日 ${predUpdatedAt})` : 'AI予想';
@@ -220,7 +221,9 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
     }
   } else {
     const best = memo?.best || {};
-    html += `<tr><td>◎</td><td>${best.horse_number || '?'}</td><td>${best.horse_name || ''}</td><td>-</td></tr>`;
+    const horseNumber = best.horse_number || '-';
+    const horseName = best.horse_name || '予想なし';
+    html += `<tr><td>-</td><td>${horseNumber}</td><td>${horseName}</td><td>-</td></tr>`;
   }
   html += `</tbody></table></section>`;
   if (race.win_hit !== null) {

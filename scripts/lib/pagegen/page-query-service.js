@@ -21,13 +21,21 @@ async function loadDailyRoi(pool, isoDate) {
 async function loadRaces(pool, ymdArg, modelArg) {
   const [rows] = await pool.execute(`
     SELECT
-      CAST(p.race_id AS CHAR) as race_id, p.model_version, p.memo, p.created_at,
+      base.race_id,
+      p.model_version, p.memo, p.created_at,
       r.official_finish_position, r.horse_number as win_horse_number, r.win_payout,
       eval.win_hit, eval.win_payout as eval_win_return,
       eval.place_hit, eval.place_payout as eval_place_return,
       eval.quinella_hit, eval.quinella_payout as eval_quinella_return,
       ri.weather, ri.track_condition, ri.distance_m, ri.race_start_time, ri.race_title
-    FROM prediction p
+    FROM (
+      SELECT CAST(race_id AS CHAR) AS race_id FROM racing_form WHERE LEFT(CAST(race_id AS CHAR), 8) = ?
+      UNION
+      SELECT CAST(race_id AS CHAR) AS race_id FROM race_info WHERE LEFT(CAST(race_id AS CHAR), 8) = ?
+    ) base
+    LEFT JOIN prediction p
+      ON CAST(p.race_id AS CHAR) = base.race_id
+      AND (? IS NULL OR p.model_version = ?)
     LEFT JOIN (
       SELECT race_id, model_version, win_hit, win_payout, place_hit, place_payout, quinella_hit, quinella_payout
       FROM prediction_eval
@@ -41,16 +49,19 @@ async function loadRaces(pool, ymdArg, modelArg) {
       FROM race_results
       WHERE official_finish_position = 1
       GROUP BY race_id
-    ) r ON p.race_id = r.race_id
-    LEFT JOIN race_info ri ON p.race_id = CAST(ri.race_id AS SIGNED)
-    WHERE LEFT(p.race_id, 8) = ?
-    ORDER BY p.race_id ASC
-  `, [ymdArg]);
+    ) r ON CAST(r.race_id AS CHAR) = base.race_id
+    LEFT JOIN race_info ri ON base.race_id = CAST(ri.race_id AS CHAR)
+    ORDER BY base.race_id ASC
+  `, [ymdArg, ymdArg, modelArg, modelArg]);
 
   const raceMap = new Map();
   for (const r of rows) {
-    if (modelArg && r.model_version !== modelArg) continue;
-    if (!raceMap.has(r.race_id) || new Date(r.created_at) > new Date(raceMap.get(r.race_id).created_at)) {
+    if (!raceMap.has(r.race_id)) {
+      raceMap.set(r.race_id, r);
+      continue;
+    }
+    const current = raceMap.get(r.race_id);
+    if (!current.created_at || (r.created_at && new Date(r.created_at) > new Date(current.created_at))) {
       raceMap.set(r.race_id, r);
     }
   }
