@@ -38,7 +38,10 @@ fi
 echo "[INFO] $(node --version) / nvm loaded"
 
 cd "$PROJECT"
-node scripts/daily-result-batch.js
+YMD=$(date '+%Y%m%d')
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 対象日: $YMD"
+
+node scripts/daily-result-batch.js "$YMD"
 EXIT_CODE=$?
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 結果バッチ 終了 (exit=$EXIT_CODE)"
@@ -46,6 +49,19 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] 結果バッチ 終了 (exit=$EXIT_CODE)"
 if [ $EXIT_CODE -ne 0 ]; then
   exit $EXIT_CODE
 fi
+
+# 結果反映後の本番欠落チェック。異常なら予想上書き→結果バッチ→HTML生成まで復旧する。
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] health-check 開始"
+if ! node scripts/ops/daily-health-check.js "$YMD"; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ALERT health-check failed; recover-daily --result 開始"
+  node scripts/ops/recover-daily.js --date "$YMD" --result
+  EXIT_CODE=$?
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] recover-daily --result 終了 (exit=$EXIT_CODE)"
+  if [ $EXIT_CODE -ne 0 ]; then
+    exit $EXIT_CODE
+  fi
+fi
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] health-check 終了"
 
 # HTML 生成＋git push（結果をすぐ公開）
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] git push 開始"

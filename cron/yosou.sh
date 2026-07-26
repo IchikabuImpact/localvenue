@@ -74,6 +74,19 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit $EXIT_CODE
 fi
 
+# [2.5] 本番欠落チェック。予想/HTML欠落や「予想なし」があれば復旧してから公開する。
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] health-check 開始"
+if ! node scripts/ops/daily-health-check.js "$YMD"; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ALERT health-check failed; recover-daily 開始"
+  node scripts/ops/recover-daily.js --date "$YMD"
+  EXIT_CODE=$?
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] recover-daily 終了 (exit=$EXIT_CODE)"
+  if [ $EXIT_CODE -ne 0 ]; then
+    exit $EXIT_CODE
+  fi
+fi
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] health-check 終了"
+
 # [3] git push（出馬表・予想ページをVPSへ公開）
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] git push 開始"
 bash "$PROJECT/cron/autoupdate.sh"
