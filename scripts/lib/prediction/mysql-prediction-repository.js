@@ -36,20 +36,25 @@ class MySqlPredictionRepository {
   async findActiveHorsePatternRules(raceId) {
     const ymd = String(raceId || '').slice(0, 8);
     const babaCode = Number(String(raceId || '').slice(10, 12));
-    const [rows] = await this._pool.execute(
-      `SELECT rule_id, rule_code, rule_name, horse_name, pattern_type, baba_code,
-              min_frame_number, max_frame_number, target_running_styles,
-              max_escape_count_excluding_self, max_front_runner_count,
-              bonus_pct, notes
-         FROM horse_win_pattern_rules
-        WHERE enabled = 1
-          AND (baba_code IS NULL OR baba_code = ?)
-          AND (active_from_ymd IS NULL OR active_from_ymd <= ?)
-          AND (active_to_ymd IS NULL OR active_to_ymd >= ?)
-        ORDER BY horse_name, rule_id`,
-      [babaCode, ymd, ymd]
-    );
-    return rows;
+    try {
+      const [rows] = await this._pool.execute(
+        `SELECT rule_id, rule_code, rule_name, horse_name, pattern_type, baba_code,
+                min_frame_number, max_frame_number, target_running_styles,
+                max_escape_count_excluding_self, max_front_runner_count,
+                bonus_pct, notes
+           FROM horse_win_pattern_rules
+          WHERE enabled = 1
+            AND (baba_code IS NULL OR baba_code = ?)
+            AND (active_from_ymd IS NULL OR active_from_ymd <= ?)
+            AND (active_to_ymd IS NULL OR active_to_ymd >= ?)
+          ORDER BY horse_name, rule_id`,
+        [babaCode, ymd, ymd]
+      );
+      return rows;
+    } catch (e) {
+      if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return [];
+      throw e;
+    }
   }
 
   // 指定レースより前の同名馬の過去結果を距離付きで返す（DistanceFactor用）

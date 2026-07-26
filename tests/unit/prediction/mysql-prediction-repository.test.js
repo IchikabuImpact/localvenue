@@ -60,3 +60,18 @@ test('MySqlPredictionRepositoryは有効な馬別勝ちパターンをrace_idの
   assert.match(calls[0].sql, /baba_code IS NULL OR baba_code = \?/);
   assert.deepEqual(calls[0].params, [31, '20260725', '20260725']);
 });
+
+test('MySqlPredictionRepositoryは馬別勝ちパターンテーブル未作成なら空配列で予想を継続できる', async () => {
+  const mockPool = {
+    execute: async () => {
+      const error = new Error("Table 'localvenue.horse_win_pattern_rules' doesn't exist");
+      error.code = 'ER_NO_SUCH_TABLE';
+      error.errno = 1146;
+      throw error;
+    },
+  };
+  const repo = new MySqlPredictionRepository({ pool: mockPool });
+  const rows = await repo.findActiveHorsePatternRules('202607250131');
+
+  assert.deepEqual(rows, []);
+});
