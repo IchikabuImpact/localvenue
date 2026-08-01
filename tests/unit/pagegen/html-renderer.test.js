@@ -24,6 +24,35 @@ test('renderIndexPage shows confirmed and pending race counts in ROI summary', (
   assert.match(html, /1R確定分/);
 });
 
+test('renderIndexPage omits the blog teaser when teaserHtml is not given', () => {
+  const html = renderIndexPage({
+    isoDate: '2026-07-15',
+    races: [],
+    dailyRoi: [],
+    venueMap: new Map(),
+  });
+
+  assert.doesNotMatch(html, /blog-teaser/);
+});
+
+test('renderIndexPage inserts teaserHtml between the ROI summary and the race list', () => {
+  const html = renderIndexPage({
+    isoDate: '2026-07-15',
+    races: [],
+    dailyRoi: [],
+    venueMap: new Map(),
+    teaserHtml: '<section class="blog-teaser">MARKER</section>',
+  });
+
+  const roiIndex = html.indexOf('roi-summary');
+  const teaserIndex = html.indexOf('blog-teaser');
+  const raceListIndex = html.indexOf('race-list');
+
+  assert.ok(roiIndex !== -1 && teaserIndex !== -1 && raceListIndex !== -1);
+  assert.ok(roiIndex < teaserIndex, 'teaser should come after the ROI summary');
+  assert.ok(teaserIndex < raceListIndex, 'teaser should come before the race list');
+});
+
 test('renderRecoveryPage shows 30-day ROI summary cards', () => {
   const html = renderRecoveryPage({
     isoDate: '2026-07-15',

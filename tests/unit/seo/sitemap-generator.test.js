@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { buildSitemapXml, normalizeBaseUrl } = require('../../../scripts/lib/seo/sitemap-generator');
+const { buildSitemapXml, normalizeBaseUrl, writeSitemap } = require('../../../scripts/lib/seo/sitemap-generator');
 
 test('normalizeBaseUrl removes trailing slashes', () => {
   assert.equal(normalizeBaseUrl('https://example.com///'), 'https://example.com');
