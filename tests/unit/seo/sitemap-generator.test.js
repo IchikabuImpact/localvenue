@@ -31,3 +31,32 @@ test('buildSitemapXml lists public html files with absolute urls', () => {
   assert.doesNotMatch(xml, /robots\.txt/);
   assert.equal((xml.match(/<url>/g) || []).length, 5);
 });
+
+test('buildSitemapXml includes blog post/category/index pages but excludes noindex tag pages (R8)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'localvenue-sitemap-blog-'));
+  fs.mkdirSync(path.join(dir, 'blog', 'category'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'blog', 'tag'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'blog', 'index.html'), '<html></html>');
+  fs.writeFileSync(path.join(dir, 'blog', '2026-07-nar-sire-natsu.html'), '<html></html>');
+  fs.writeFileSync(path.join(dir, 'blog', 'category', 'keito.html'), '<html></html>');
+  fs.writeFileSync(path.join(dir, 'blog', 'tag', 'monthly-report.html'), '<html></html>');
+
+  const xml = buildSitemapXml({ publicDir: dir, siteUrl: 'https://example.com' });
+
+  assert.match(xml, /<loc>https:\/\/example\.com\/blog\/index\.html<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/example\.com\/blog\/2026-07-nar-sire-natsu\.html<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/example\.com\/blog\/category\/keito\.html<\/loc>/);
+  assert.doesNotMatch(xml, /blog\/tag\/monthly-report\.html/);
+  assert.equal((xml.match(/<url>/g) || []).length, 3);
+});
+
+test('writeSitemap writes the xml file and reports the url count', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'localvenue-sitemap-write-'));
+  fs.writeFileSync(path.join(dir, 'index.html'), '<html></html>');
+  const outputPath = path.join(dir, 'sitemap.xml');
+
+  const result = writeSitemap({ publicDir: dir, siteUrl: 'https://example.com', outputPath });
+
+  assert.equal(result.urlCount, 1);
+  assert.equal(fs.existsSync(outputPath), true);
+});
