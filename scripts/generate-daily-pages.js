@@ -17,6 +17,23 @@ const { buildCutoffYmdFromBaseYmd, stripMergeConflictMarkers } = require('./lib/
 const { loadVenueMap, loadDailyRoi, loadRaces, loadRoiStats, loadRoiSummary } = require('./lib/pagegen/page-query-service');
 const { renderIndexPage, renderDetailPage, renderRecoveryPage } = require('./lib/pagegen/html-renderer');
 const { writeSitemap } = require('./lib/seo/sitemap-generator');
+const { loadPosts } = require('./lib/blog/blog-post-loader');
+const { renderBlogTeaser } = require('./lib/blog/blog-html-renderer');
+
+const CONTENT_BLOG_DIR = path.resolve(__dirname, '../content/blog');
+
+// ブログ記事(content/blog/*.md)を読んで最新1件のティザーHTMLを作る。
+// R6: ブログのビルド(HTML変換・commit)は自宅セッションで行うが、
+// 既に公開済みの記事一覧を読むだけなので日次バッチから参照しても問題ない。
+function buildLatestBlogTeaser() {
+  try {
+    const posts = loadPosts(CONTENT_BLOG_DIR);
+    return renderBlogTeaser({ latestPost: posts[0] || null });
+  } catch (e) {
+    console.warn('[WARN] blog teaser skipped:', e.message);
+    return '';
+  }
+}
 
 const ymdArg   = process.argv[2] || jstTodayYmd();
 const modelArg = process.argv[3] || null;
@@ -81,8 +98,9 @@ function purgeOldFiles() {
 
     // ── index.html ──────────────────────────────────────────────
     const dailyDirs = getDailyDirs();
+    const teaserHtml = buildLatestBlogTeaser();
     write(path.join(PUBLIC_DIR, 'index.html'),
-      renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: 'css/style.css', dailyDirs }));
+      renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: 'css/style.css', dailyDirs, teaserHtml }));
     write(path.join(currentDailyDir, 'index.html'),
       renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: '../../css/style.css' }));
     console.log('[GEN] index.html');

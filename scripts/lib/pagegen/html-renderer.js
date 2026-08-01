@@ -27,7 +27,8 @@ function htmlHead(title, opts = {}) {
     <h1><a href="/index.html">けんちゃん馬券☆WEB（地方競馬）</a></h1>
     <p class="site-subtitle"> - 恥ずかしい馬券 - 矛盾にあふれる人間の発想とロジカルなAIがぶつかり合ったものです</p>
     <nav>
-      <a href="/index.html">一覧</a>
+      <a href="/index.html">予想一覧</a>
+      <a href="/blog/index.html">ブログ</a>
       <a href="/recovery.html">回収率</a>
       <a href="/terms.html">ご利用規約</a>
       <a href="/privacy-policy.html">プライバシーポリシー</a>
@@ -167,11 +168,12 @@ function renderRaceListItem(race, venueMap) {
   `;
 }
 
-function renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath = 'css/style.css', dailyDirs = [] }) {
+function renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath = 'css/style.css', dailyDirs = [], teaserHtml = '' }) {
   let html = htmlHead(`レース一覧 ${isoDate}`, { cssPath });
   html += `<section class="roi-summary"><h2>今日の回収率 (${isoDate})</h2><div class="roi-cards">`;
   html += renderRoiCards(dailyRoi, summarizeRaceStatus(races));
   html += `</div></section>`;
+  html += teaserHtml;
   html += `<section class="race-list"><h2>レース一覧 (${races.length}件)</h2><ul>`;
   for (const r of races) html += renderRaceListItem(r, venueMap);
   html += `</ul></section>`;

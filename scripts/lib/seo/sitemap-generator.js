@@ -6,7 +6,11 @@ const path = require('path');
 const STATIC_HTML_PRIORITIES = new Map([
   ['index.html', '1.0'],
   ['recovery.html', '0.8'],
+  ['blog/index.html', '0.8'],
 ]);
+
+// R8: タグページは回遊用途限定でnoindexのため、sitemapには載せない
+const SITEMAP_EXCLUDE_PATTERNS = [/^blog\/tag\/.+\.html$/];
 
 function normalizeBaseUrl(raw) {
   const value = String(raw || '').trim();
@@ -35,6 +39,8 @@ function priorityFor(relativePath) {
   if (/^daily\/\d{8}\/index\.html$/.test(normalized)) return '0.7';
   if (/^\d{12}\.html$/.test(normalized)) return '0.6';
   if (/^daily\/\d{8}\/\d{12}\.html$/.test(normalized)) return '0.5';
+  if (/^blog\/category\/.+\.html$/.test(normalized)) return '0.6';
+  if (/^blog\/[\w-]+\.html$/.test(normalized)) return '0.6';
   return '0.4';
 }
 
@@ -42,6 +48,11 @@ function changefreqFor(relativePath) {
   const normalized = relativePath.split(path.sep).join('/');
   if (normalized === 'index.html' || normalized === 'recovery.html') return 'daily';
   return 'weekly';
+}
+
+function isSitemapExcluded(relativePath) {
+  const normalized = relativePath.split(path.sep).join('/');
+  return SITEMAP_EXCLUDE_PATTERNS.some((re) => re.test(normalized));
 }
 
 function collectHtmlFiles(publicDir) {
@@ -57,6 +68,7 @@ function collectHtmlFiles(publicDir) {
         continue;
       }
       if (!dirent.isFile() || !dirent.name.endsWith('.html')) continue;
+      if (isSitemapExcluded(relativePath)) continue;
       const stat = fs.statSync(fullPath);
       entries.push({
         relativePath,
