@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>けんちゃん馬券☆WEB ブログ</title>
+    <link>https://example.com/blog/index.html</link>
+    <description>地方競馬(NAR)データの面白い傾向・回収率・血統/騎手成績を紹介するブログです。</description>
+    <language>ja</language>
+    <item>
+      <title>7月のNAR種牡馬成績、夏に強いのは？</title>
+      <link>https://example.com/blog/2026-07-nar-sire-natsu.html</link>
+      <guid>https://example.com/blog/2026-07-nar-sire-natsu.html</guid>
+      <pubDate>Sun, 02 Aug 2026 00:00:00 GMT</pubDate>
+      <description>2026年7月のNAR実績(50走以上)から夏向き種牡馬を紹介します。</description>
+    </item>
+  </channel>
+</rss>
