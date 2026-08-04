@@ -6,10 +6,13 @@
     "fastTrackConditions": ["良", "稍重"],
     "wetTrackConditions": ["重", "不良"],
     "fastTrackSireRules": [
-      { "name": "ジョーカプチーノ", "pct": 10 },
+      { "name": "ジョーカプチーノ", "pct": 12 },
       { "name": "ガルボ", "pct": 10 },
       { "name": "ルヴァンスレーヴ", "pct": 10 },
-      { "name": "ナダル", "pct": 10 }
+      { "name": "ナダル", "pct": 10 },
+      { "name": "フォーウィールドライブ", "pct": 10 },
+      { "name": "ダノンレジェンド", "pct": 10 },
+      { "name": "リアルスティール", "pct": 10 }
     ],
     "fastTrackBroodmareSireRules": [
       { "name": "マンハッタンカフェ", "pct": 10 },

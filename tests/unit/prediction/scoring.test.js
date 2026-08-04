@@ -94,11 +94,14 @@ test('summerSireは7月から9月末まで夏向き父系を加点する', () =>
   assert.equal(matchesLimitedBonusSire('ジョーカプチーノ'), true);
   assert.equal(matchesLimitedBonusSire('ジョーカプチーノ産駒'), true);
   assert.equal(matchesLimitedBonusSire('ガルボ'), true);
+  assert.equal(matchesLimitedBonusSire('フォーウィールドライブ'), true);
+  assert.equal(matchesLimitedBonusSire('ダノンレジェンド'), true);
+  assert.equal(matchesLimitedBonusSire('リアルスティール'), true);
   assert.equal(matchesLimitedBonusSire('トガルボ'), false);
   assert.equal(matchesLimitedBonusSire('ロードカナロア'), false);
   assert.equal(matchesLimitedBonusSire(''), false);
 
-  assert.equal(limitedSireBonus(123, '202609300101', 'ジョーカプチーノ'), 12);
+  assert.equal(limitedSireBonus(123, '202609300101', 'ジョーカプチーノ'), 15);
   assert.equal(limitedSireBonus(123, '202609300101', 'ルヴァンスレーヴ'), 12);
   assert.equal(limitedSireBonus(123, '202606300101', 'ジョーカプチーノ'), 0);
   assert.equal(limitedSireBonus(123, '202610010101', 'ジョーカプチーノ'), 0);
@@ -127,8 +130,11 @@ test('summer blood補正は良/稍重と重/不良で対象を分ける', () => 
   assert.equal(summerTrackType('重'), 'wet');
   assert.equal(summerTrackType('不良'), 'wet');
 
-  assert.equal(limitedSireBonus(100, '202608010101', 'ジョーカプチーノ', '良'), 10);
+  assert.equal(limitedSireBonus(100, '202608010101', 'ジョーカプチーノ', '良'), 12);
   assert.equal(limitedSireBonus(100, '202608010101', 'ジョーカプチーノ', '不良'), 0);
+  assert.equal(limitedSireBonus(100, '202608010101', 'フォーウィールドライブ', '良'), 10);
+  assert.equal(limitedSireBonus(100, '202608010101', 'ダノンレジェンド', '稍重'), 10);
+  assert.equal(limitedSireBonus(100, '202608010101', 'リアルスティール', '不良'), 0);
   assert.equal(limitedSireBonus(100, '202608010101', 'キズナ', '良'), 0);
   assert.equal(limitedSireBonus(100, '202608010101', 'キズナ', '不良'), 5);
 
@@ -170,8 +176,8 @@ test('calculatePredictionはsummerSire加点を最終スコアに反映する', 
     sireRows: [{ sire_name: 'ジョーカプチーノ', score: 100 }],
   });
 
-  assert.equal(memo.best.score, 118);
-  assert.equal(memo.best.breakdown.summerSire, 11);
+  assert.equal(memo.best.score, 120);
+  assert.equal(memo.best.breakdown.summerSire, 13);
 });
 
 test('calculatePredictionはsummerBroodmareSire加点を最終スコアに反映する', () => {
@@ -327,8 +333,8 @@ test('buildDefaultScoringFactorsとapplyScoringFactorsはfactor内訳を返す',
     raceContext: { raceId: '202608010101', trackCondition: '良', raceMaxCarriedWeight: null },
   });
 
-  assert.equal(result.totalBonus, 10);
-  assert.equal(result.breakdown.summerSire, 10);
+  assert.equal(result.totalBonus, 12);
+  assert.equal(result.breakdown.summerSire, 12);
   assert.equal(result.breakdown.summerBroodmareSire, 0);
 });
 
