@@ -52,6 +52,18 @@ test('シシでも外枠・他の逃げ馬あり・先行勢過多は一致し�
   }), false);
 });
 
+test('馬場状態を指定した個別パターンは対象馬場だけに一致する', () => {
+  const rule = {
+    horse_name: 'ハニーベリー',
+    target_track_conditions: '["良"]',
+    bonus_pct: 15,
+  };
+  const row = { horse_number: 11, horse_name: 'ハニーベリー' };
+
+  assert.equal(ruleMatches(rule, row, { trackCondition: '良', racingFormRows: [row] }), true);
+  assert.equal(ruleMatches(rule, row, { trackCondition: '稍重', racingFormRows: [row] }), false);
+});
+
 test('horsePatternファクターは一致したルールのbonus_pctをコアスコアに掛ける', () => {
   const factor = buildHorsePatternScoringFactor([shishiRule]);
   const row = { horse_number: 1, horse_name: 'シシ', frame_number: 1, running_style: '逃げ' };

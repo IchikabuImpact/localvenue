@@ -23,6 +23,7 @@ test('horse_win_pattern_rulesは1頭ごとの勝ちパターン条件を保持�
   assert.match(table, /`min_frame_number` tinyint/);
   assert.match(table, /`max_frame_number` tinyint/);
   assert.match(table, /`target_running_styles` json/);
+  assert.match(table, /`target_track_conditions` json/);
   assert.match(table, /`max_escape_count_excluding_self` tinyint/);
   assert.match(table, /`max_front_runner_count` tinyint/);
   assert.match(table, /`bonus_pct` decimal\(5,2\) NOT NULL/);

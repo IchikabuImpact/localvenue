@@ -12,11 +12,14 @@ REPLACE INTO `venue_master` VALUES (3,'03041503','帯広ば'),(10,'10061006','�
 INSERT INTO `horse_win_pattern_rules`
   (`rule_code`, `rule_name`, `horse_name`, `pattern_type`, `baba_code`,
    `min_frame_number`, `max_frame_number`, `target_running_styles`,
-   `max_escape_count_excluding_self`, `max_front_runner_count`, `bonus_pct`, `enabled`, `notes`)
+   `target_track_conditions`, `max_escape_count_excluding_self`, `max_front_runner_count`, `bonus_pct`, `enabled`, `notes`)
 VALUES
   ('shishi_kochi_inner_type_s', 'シシ 高知内枠TYPE S', 'シシ', 'TYPE S', 31,
-   1, 4, JSON_ARRAY('逃げ', '先行'),
-   0, 3, 10.00, 1, '気持ちで走る持続力タイプ。内枠で集中でき、他に逃げ馬がいない消耗戦を加点')
+   1, 4, JSON_ARRAY('逃げ', '先行'), NULL,
+   0, 3, 10.00, 1, '気持ちで走る持続力タイプ。内枠で集中でき、他に逃げ馬がいない消耗戦を加点'),
+  ('honeyberry_fast_track', 'ハニーベリー 良馬場TYPE', 'ハニーベリー', '良馬場TYPE', NULL,
+   NULL, NULL, NULL, JSON_ARRAY('良'),
+   NULL, NULL, 15.00, 1, '良馬場で単勝回収率379%の個別適性を加点')
 ON DUPLICATE KEY UPDATE
   `rule_name` = VALUES(`rule_name`),
   `horse_name` = VALUES(`horse_name`),
@@ -25,6 +28,7 @@ ON DUPLICATE KEY UPDATE
   `min_frame_number` = VALUES(`min_frame_number`),
   `max_frame_number` = VALUES(`max_frame_number`),
   `target_running_styles` = VALUES(`target_running_styles`),
+  `target_track_conditions` = VALUES(`target_track_conditions`),
   `max_escape_count_excluding_self` = VALUES(`max_escape_count_excluding_self`),
   `max_front_runner_count` = VALUES(`max_front_runner_count`),
   `bonus_pct` = VALUES(`bonus_pct`),

@@ -48,6 +48,9 @@ function ruleMatches(rule, row, raceContext) {
   const styles = asArray(rule.target_running_styles);
   if (styles.length && !styles.includes(row.running_style)) return false;
 
+  const trackConditions = asArray(rule.target_track_conditions);
+  if (trackConditions.length && !trackConditions.includes(raceContext.trackCondition)) return false;
+
   const rows = raceContext.racingFormRows || [];
   const maxOtherEscape = toNumberOrNull(rule.max_escape_count_excluding_self);
   if (maxOtherEscape != null && escapeCountExcludingSelf(rows, row) > maxOtherEscape) return false;

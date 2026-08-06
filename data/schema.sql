@@ -118,6 +118,7 @@ CREATE TABLE `horse_win_pattern_rules` (
   `min_frame_number` tinyint DEFAULT NULL,
   `max_frame_number` tinyint DEFAULT NULL,
   `target_running_styles` json DEFAULT NULL COMMENT '例: ["逃げ","先行"]',
+  `target_track_conditions` json DEFAULT NULL COMMENT '対象馬場状態。例: ["良","稍重"]',
   `max_escape_count_excluding_self` tinyint DEFAULT NULL COMMENT '自馬以外の逃げ馬上限',
   `max_front_runner_count` tinyint DEFAULT NULL COMMENT '逃げ+先行の頭数上限',
   `bonus_pct` decimal(5,2) NOT NULL DEFAULT '0.00',

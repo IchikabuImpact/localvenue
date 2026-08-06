@@ -40,6 +40,7 @@ class MySqlPredictionRepository {
       const [rows] = await this._pool.execute(
         `SELECT rule_id, rule_code, rule_name, horse_name, pattern_type, baba_code,
                 min_frame_number, max_frame_number, target_running_styles,
+                target_track_conditions,
                 max_escape_count_excluding_self, max_front_runner_count,
                 bonus_pct, notes
            FROM horse_win_pattern_rules

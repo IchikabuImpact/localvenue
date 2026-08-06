@@ -97,6 +97,7 @@ test('summerSireは7月から9月末まで夏向き父系を加点する', () =>
   assert.equal(matchesLimitedBonusSire('フォーウィールドライブ'), true);
   assert.equal(matchesLimitedBonusSire('ダノンレジェンド'), true);
   assert.equal(matchesLimitedBonusSire('リアルスティール'), true);
+  assert.equal(matchesLimitedBonusSire('マクフィ'), true);
   assert.equal(matchesLimitedBonusSire('トガルボ'), false);
   assert.equal(matchesLimitedBonusSire('ロードカナロア'), false);
   assert.equal(matchesLimitedBonusSire(''), false);

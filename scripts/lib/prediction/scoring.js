@@ -15,6 +15,7 @@ const DEFAULT_SCORING_CONFIG = Object.freeze({
       { name: 'フォーウィールドライブ', pct: 10 },
       { name: 'ダノンレジェンド', pct: 10 },
       { name: 'リアルスティール', pct: 10 },
+      { name: 'マクフィ', pct: 10 },
     ],
     fastTrackBroodmareSireRules: [
       { name: 'マンハッタンカフェ', pct: 10 },
