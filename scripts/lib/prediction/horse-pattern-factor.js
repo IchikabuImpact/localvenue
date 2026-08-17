@@ -58,6 +58,15 @@ function ruleMatches(rule, row, raceContext) {
   const maxFront = toNumberOrNull(rule.max_front_runner_count);
   if (maxFront != null && frontRunnerCount(rows) > maxFront) return false;
 
+  const minWeight = toNumberOrNull(rule.min_horse_weight);
+  const maxWeight = toNumberOrNull(rule.max_horse_weight);
+  if (minWeight != null || maxWeight != null) {
+    const weight = toNumberOrNull(row.horse_weight);
+    if (weight == null) return false;
+    if (minWeight != null && weight < minWeight) return false;
+    if (maxWeight != null && weight > maxWeight) return false;
+  }
+
   return true;
 }
 

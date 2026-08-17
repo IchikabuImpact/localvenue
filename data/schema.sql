@@ -121,6 +121,8 @@ CREATE TABLE `horse_win_pattern_rules` (
   `target_track_conditions` json DEFAULT NULL COMMENT '対象馬場状態。例: ["良","稍重"]',
   `max_escape_count_excluding_self` tinyint DEFAULT NULL COMMENT '自馬以外の逃げ馬上限',
   `max_front_runner_count` tinyint DEFAULT NULL COMMENT '逃げ+先行の頭数上限',
+  `min_horse_weight` smallint DEFAULT NULL COMMENT '対象馬体重の下限(kg)',
+  `max_horse_weight` smallint DEFAULT NULL COMMENT '対象馬体重の上限(kg)',
   `bonus_pct` decimal(5,2) NOT NULL DEFAULT '0.00',
   `enabled` tinyint(1) NOT NULL DEFAULT '1',
   `active_from_ymd` char(8) DEFAULT NULL,

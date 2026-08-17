@@ -26,6 +26,8 @@ test('horse_win_pattern_rulesは1頭ごとの勝ちパターン条件を保持�
   assert.match(table, /`target_track_conditions` json/);
   assert.match(table, /`max_escape_count_excluding_self` tinyint/);
   assert.match(table, /`max_front_runner_count` tinyint/);
+  assert.match(table, /`min_horse_weight` smallint/);
+  assert.match(table, /`max_horse_weight` smallint/);
   assert.match(table, /`bonus_pct` decimal\(5,2\) NOT NULL/);
   assert.match(table, /UNIQUE KEY `uq_horse_win_pattern_rule_code` \(`rule_code`\)/);
 });
@@ -59,6 +61,7 @@ test('MySqlPredictionRepositoryは有効な馬別勝ちパターンをrace_idの
   assert.deepEqual(rows, [{ rule_code: 'shishi_kochi_inner_type_s' }]);
   assert.match(calls[0].sql, /FROM horse_win_pattern_rules/);
   assert.match(calls[0].sql, /baba_code IS NULL OR baba_code = \?/);
+  assert.match(calls[0].sql, /min_horse_weight, max_horse_weight/);
   assert.deepEqual(calls[0].params, [31, '20260725', '20260725']);
 });
 

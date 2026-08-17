@@ -64,6 +64,23 @@ test('馬場状態を指定した個別パターンは対象馬場だけに一�
   assert.equal(ruleMatches(rule, row, { trackCondition: '稍重', racingFormRows: [row] }), false);
 });
 
+test('馬体重帯を指定した個別パターンは範囲内の馬体重だけに一致する', () => {
+  const rule = {
+    horse_name: 'ケンオーシャン',
+    baba_code: 20,
+    min_horse_weight: 486,
+    max_horse_weight: 495,
+    bonus_pct: 10,
+  };
+
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: 486 }, { babaCode: 20, racingFormRows: [] }), true);
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: 495 }, { babaCode: 20, racingFormRows: [] }), true);
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: 485 }, { babaCode: 20, racingFormRows: [] }), false);
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: 496 }, { babaCode: 20, racingFormRows: [] }), false);
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: null }, { babaCode: 20, racingFormRows: [] }), false);
+  assert.equal(ruleMatches(rule, { horse_name: 'ケンオーシャン', horse_weight: 490 }, { babaCode: 21, racingFormRows: [] }), false);
+});
+
 test('horsePatternファクターは一致したルールのbonus_pctをコアスコアに掛ける', () => {
   const factor = buildHorsePatternScoringFactor([shishiRule]);
   const row = { horse_number: 1, horse_name: 'シシ', frame_number: 1, running_style: '逃げ' };

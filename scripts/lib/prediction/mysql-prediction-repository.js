@@ -42,6 +42,7 @@ class MySqlPredictionRepository {
                 min_frame_number, max_frame_number, target_running_styles,
                 target_track_conditions,
                 max_escape_count_excluding_self, max_front_runner_count,
+                min_horse_weight, max_horse_weight,
                 bonus_pct, notes
            FROM horse_win_pattern_rules
           WHERE enabled = 1
