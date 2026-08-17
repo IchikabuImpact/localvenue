@@ -14,7 +14,7 @@
 | --- | --- |
 | `config/` | `config.sample.js` とローカル専用設定ファイル |
 | `data/` | スキーマ、シード、初期化スクリプト |
-| `docs/` | 公開しても問題ない設計・仕様ドキュメント |
+| `docs/` | 公開しても問題ない設計・仕様ドキュメント（予想スコア設計は `docs/PREDICTION_SCORING.md`、馬別加点ルールは `docs/HORSE_PATTERN_RULES.md`） |
 | `scripts/` | Node.js バッチ・ライブラリ |
 | `cron/` | 運用ラッパースクリプト |
 | `public/` | 静的HTML生成先 |
