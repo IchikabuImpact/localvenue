@@ -38,6 +38,13 @@
 - 出力: `public/index.html` / `public/recovery.html` / `public/YYYYMMDDRRBB.html` / `public/daily/YYYYMMDD/`
 - 保持期間: `config.htmlRetentionDays`（デフォルト30日）を超えた日付のファイルを自動削除
 
+### 2.5 ヘルスチェック
+- 日次ヘルスチェック: `cron/health-check.sh` → `scripts/ops/daily-health-check.js`（当日分のレース数・予想数・生成HTML数の整合性、`horse_win_pattern_rules`テーブルの存在を確認）
+- schema.sqlとDBのカラム照合: `cron/schema-drift-check.sh` → `scripts/ops/schema-drift-check.js`（詳細は [HORSE_PATTERN_RULES.md](HORSE_PATTERN_RULES.md) の運用ルール参照）
+  - `data/schema.sql` の `CREATE TABLE` 定義と実DBの `information_schema.COLUMNS` を突き合わせ、schema.sqlにあってDBに無いカラム／テーブルを検出する
+  - 2026-08-17〜19に発生した「コードとschema.sqlはpushしたが本番DBへのALTER TABLEを適用し忘れ、cronバッチが2日間失敗し続けた」事故の再発防止用。ユニットテストはDBをモックするため気付けない領域を、実DB照合でカバーする
+  - 異常時は `logs/alerts.log` に `ALERT` 行を出力（通知連携は別途検討中）
+
 ---
 
 ## 3. 予想ロジック（yosou-v1）

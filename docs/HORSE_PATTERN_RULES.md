@@ -70,10 +70,32 @@
 
 ---
 
-## 5. テスト
+## 5. 条件カラムを追加するときの運用ルール（重要）
+
+2026-08-17に本ドキュメントの4章の `min_horse_weight`/`max_horse_weight` を追加した際、
+`data/schema.sql`・コード・seedはpushしたが**本番DBへのALTER TABLE適用を忘れ**、
+2026-08-18〜19の2日間、cronのyosou/resultバッチが `Unknown column` エラーで全滅した
+（ユニットテストはDBをモックしているため、この種のズレは検知できない）。
+
+条件カラムを追加するときは必ずこの順で行う:
+
+1. `data/schema.sql` にカラム追加
+2. **その場で本番DB（`config/config.js` が指すDB）に `ALTER TABLE` を実行**（pushより先）
+3. `node scripts/ops/schema-drift-check.js` でズレが無いことを確認（`ok: true` になること）
+4. コード（`mysql-prediction-repository.js` のSELECT等）・テスト・seedを更新してcommit/push
+
+`scripts/ops/schema-drift-check.js`（`cron/schema-drift-check.sh` 経由で定期実行）は、
+`data/schema.sql` のCREATE TABLE定義と実DBの `information_schema.COLUMNS` を突き合わせ、
+ズレを検出するヘルスチェック。詳細は [spec.md](spec.md) 2.5節。
+
+---
+
+## 6. テスト
 
 - `tests/unit/prediction/horse-pattern-factor.test.js` — `ruleMatches` の条件判定単体
 - `tests/unit/prediction/mysql-prediction-repository.test.js` — スキーマ互換性・SQL取得内容
 - `tests/unit/prediction/predict-race-use-case.test.js` — エンドツーエンドの加点反映
+- `tests/unit/ops/schema-drift-check.test.js` — schema.sqlパース・実DB照合ロジック単体（実DBそのものへの疎通は`node scripts/ops/schema-drift-check.js`で確認）
 
-ルールの条件カラムを追加した場合は、上記3ファイル＋本ドキュメントの4.表を更新すること。
+ルールの条件カラムを追加した場合は、上記4ファイル＋本ドキュメントの4.表を更新すること。
+追加後は5章の手順（本番DBへのALTER TABLE適用→schema-drift-checkでの確認）を必ず実施すること。
