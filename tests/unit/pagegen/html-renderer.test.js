@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { renderIndexPage, renderRecoveryPage } = require('../../../scripts/lib/pagegen/html-renderer');
+const { renderIndexPage, renderRecoveryPage, renderDetailPage } = require('../../../scripts/lib/pagegen/html-renderer');
 
 test('renderIndexPage shows confirmed and pending race counts in ROI summary', () => {
   const html = renderIndexPage({
@@ -51,6 +51,58 @@ test('renderIndexPage inserts teaserHtml between the ROI summary and the race li
   assert.ok(roiIndex !== -1 && teaserIndex !== -1 && raceListIndex !== -1);
   assert.ok(roiIndex < teaserIndex, 'teaser should come after the ROI summary');
   assert.ok(teaserIndex < raceListIndex, 'teaser should come before the race list');
+});
+
+test('renderIndexPage shows "予想なしのため対象外" instead of "未確定" when results exist without a prediction', () => {
+  const html = renderIndexPage({
+    isoDate: '2026-08-18',
+    races: [
+      { race_id: '202608180118', memo: null, win_hit: null, place_hit: null, finish_summary: '1着:5 テストホース / 2着:3 サンプルホース' },
+    ],
+    dailyRoi: [],
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.match(html, /単勝: 予想なしのため対象外/);
+  assert.doesNotMatch(html, /単勝: 未確定/);
+});
+
+test('renderIndexPage keeps "未確定" when there is no prediction and no finish result yet', () => {
+  const html = renderIndexPage({
+    isoDate: '2026-08-20',
+    races: [
+      { race_id: '202608200118', memo: null, win_hit: null, place_hit: null, finish_summary: null },
+    ],
+    dailyRoi: [],
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.match(html, /単勝: 未確定/);
+});
+
+test('renderDetailPage shows finish order when there is no prediction but race_results exist', () => {
+  const html = renderDetailPage({
+    race: {
+      race_id: '202608180118',
+      memo: null,
+      win_hit: null,
+      place_hit: null,
+      finish_summary: '1着:5 テストホース / 2着:3 サンプルホース / 3着:7 ダミーホース',
+    },
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.match(html, /予想なしのため的中判定は対象外/);
+  assert.match(html, /1着:5 テストホース \/ 2着:3 サンプルホース \/ 3着:7 ダミーホース/);
+});
+
+test('renderDetailPage shows neither eval nor finish-order section when nothing is confirmed yet', () => {
+  const html = renderDetailPage({
+    race: { race_id: '202608200118', memo: null, win_hit: null, place_hit: null, finish_summary: null },
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.doesNotMatch(html, /result-info/);
 });
 
 test('renderRecoveryPage shows 30-day ROI summary cards', () => {

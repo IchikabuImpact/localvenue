@@ -27,7 +27,8 @@ async function loadRaces(pool, ymdArg, modelArg) {
       eval.win_hit, eval.win_payout as eval_win_return,
       eval.place_hit, eval.place_payout as eval_place_return,
       eval.quinella_hit, eval.quinella_payout as eval_quinella_return,
-      ri.weather, ri.track_condition, ri.distance_m, ri.race_start_time, ri.race_title
+      ri.weather, ri.track_condition, ri.distance_m, ri.race_start_time, ri.race_title,
+      fin.finish_summary
     FROM (
       SELECT CAST(race_id AS CHAR) AS race_id FROM racing_form WHERE LEFT(CAST(race_id AS CHAR), 8) = ?
       UNION
@@ -51,6 +52,16 @@ async function loadRaces(pool, ymdArg, modelArg) {
       GROUP BY race_id
     ) r ON CAST(r.race_id AS CHAR) = base.race_id
     LEFT JOIN race_info ri ON base.race_id = CAST(ri.race_id AS CHAR)
+    LEFT JOIN (
+      SELECT race_id,
+        GROUP_CONCAT(
+          CONCAT(official_finish_position, '着:', horse_number, ' ', horse_name)
+          ORDER BY official_finish_position SEPARATOR ' / '
+        ) AS finish_summary
+      FROM race_results
+      WHERE official_finish_position IN (1, 2, 3)
+      GROUP BY race_id
+    ) fin ON CAST(fin.race_id AS CHAR) = base.race_id
     ORDER BY base.race_id ASC
   `, [ymdArg, ymdArg, modelArg, modelArg]);
 

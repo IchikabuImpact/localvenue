@@ -43,6 +43,24 @@ test('loadRaces includes races without prediction rows', async () => {
   assert.equal(races[0].memo, null);
 });
 
+test('loadRaces joins a finish_summary fallback from race_results for races without a prediction', async () => {
+  const queries = [];
+  const pool = {
+    async execute(sql, params) {
+      queries.push({ sql, params });
+      return [[
+        { race_id: '202608180118', model_version: null, memo: null, win_hit: null, finish_summary: '1着:5 テストホース / 2着:3 サンプルホース' },
+      ]];
+    },
+  };
+
+  const races = await loadRaces(pool, '20260818', null);
+
+  assert.equal(races[0].finish_summary, '1着:5 テストホース / 2着:3 サンプルホース');
+  assert.match(queries[0].sql, /LEFT JOIN \(\s*SELECT race_id,\s*GROUP_CONCAT/);
+  assert.match(queries[0].sql, /official_finish_position IN \(1, 2, 3\)/);
+});
+
 test('loadRoiSummary reads the 30-day summary table for a target date', async () => {
   const queries = [];
   const pool = {

@@ -133,14 +133,20 @@ function renderRaceListItem(race, venueMap) {
   else if (race.place_hit === 1) statusClass = 'place-hit';
   else if (race.win_hit === 0)   statusClass = 'lose';
 
+  const noPredictionButFinished = race.win_hit === null && !!race.finish_summary;
+
   const winBadge = race.win_hit === null
-    ? `<span class="result-badge pending">単勝: 未確定</span>`
+    ? noPredictionButFinished
+      ? `<span class="result-badge pending">単勝: 予想なしのため対象外</span>`
+      : `<span class="result-badge pending">単勝: 未確定</span>`
     : race.win_hit
       ? `<span class="result-badge hit">単勝: 的中🎯 (利益: ${race.eval_win_return || 0} YEN)</span>`
       : `<span class="result-badge miss">単勝: 不的中 (利益: 0 YEN)</span>`;
 
   const placeBadge = race.place_hit === null
-    ? `<span class="result-badge pending">複勝: 未確定</span>`
+    ? noPredictionButFinished
+      ? ''
+      : `<span class="result-badge pending">複勝: 未確定</span>`
     : race.place_hit
       ? `<span class="result-badge hit">複勝: 的中🎯 (利益: ${race.eval_place_return || 0} YEN)</span>`
       : `<span class="result-badge miss">複勝: 不的中 (利益: 0 YEN)</span>`;
@@ -242,6 +248,12 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
         <dt>複勝</dt><dd>${race.place_hit ? '<span class="win">的中🎯</span>' : '不的中'} (利益: ${race.eval_place_return || 0} YEN)</dd>
         ${quinellaRow}
       </dl>
+    </section>`;
+  } else if (race.finish_summary) {
+    // 予想が無く的中判定はできないが、着順自体はrace_resultsに保存済みのケース
+    // （締め切り超過で予想を復元できなかった日など）は着順だけでも表示する。
+    html += `<section class="result-info"><h3>結果（着順・予想なしのため的中判定は対象外）</h3>
+      <p>${race.finish_summary}</p>
     </section>`;
   }
   html += htmlFoot();
