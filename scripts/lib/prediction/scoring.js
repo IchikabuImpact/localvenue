@@ -130,8 +130,14 @@ function parseRaceClassLevel(title) {
  * レースクラスレベルから JBIS未登録調教師のフォールバックスコアを計算する。
  * 「クラスレベル -1 段階」として扱う（上位クラスでも未登録=一段落ちる）。
  *   Lv5→60, Lv4→40, Lv3→20, Lv2→10, Lv1/不明→10
+ *
+ * Lv1（C3/C4/新馬）のみ 10→20 に引き上げ中（2026-08-23〜1週間試験運用）。
+ * このクラス帯は無名調教師の馬が大穴を出す傾向が観測されたため、
+ * 無名調教師へのペナルティを緩めて穴馬を拾いやすくする狙い。
+ * 様子を見て元の10に戻すか本採用するか判断する。
  */
 function trainerFallbackScore(raceClassLevel) {
+  if (raceClassLevel === 1) return 20;
   const SCORES = { 5: 60, 4: 40, 3: 20, 2: 10, 1: 10 };
   const level = Math.max(1, (raceClassLevel || 2) - 1);
   return SCORES[level] ?? 10;
