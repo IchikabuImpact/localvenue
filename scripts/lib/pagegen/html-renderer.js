@@ -1,5 +1,6 @@
 'use strict';
 const { safeJSON } = require('./page-utils');
+const { SITE_NAME, SITE_SUBTITLE, SITE_COPYRIGHT_YEAR } = require('../site-config');
 
 // ISO文字列をJST "yyyy/mm/dd hh:mm" に変換
 function fmtJst(isoStr) {
@@ -24,8 +25,8 @@ function htmlHead(title, opts = {}) {
 <body>
 <header>
   <div class="container">
-    <h1><a href="/index.html">けんちゃん馬券☆WEB（地方競馬）</a></h1>
-    <p class="site-subtitle"> - 恥ずかしい馬券 - 矛盾にあふれる人間の発想とロジカルなAIがぶつかり合ったものです</p>
+    <h1><a href="/index.html">${SITE_NAME}</a></h1>
+    <p class="site-subtitle"> - ${SITE_SUBTITLE}</p>
     <nav>
       <a href="/index.html">予想一覧</a>
       <a href="/blog/index.html">ブログ</a>
@@ -46,7 +47,7 @@ function htmlFoot() {
 </main>
 <footer>
   <div class="container">
-    <p>&copy; けんちゃん馬券☆WEB （地方競馬）2026</p>
+    <p>&copy; ${SITE_NAME} ${SITE_COPYRIGHT_YEAR}</p>
     <p>
       <a href="/terms.html">ご利用規約</a>
       &nbsp;|&nbsp;

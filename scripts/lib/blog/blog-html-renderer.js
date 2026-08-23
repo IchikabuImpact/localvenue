@@ -2,6 +2,7 @@
 
 const { htmlHead, htmlFoot } = require('../pagegen/html-renderer');
 const { CATEGORIES, TAGS } = require('./blog-taxonomy');
+const { SITE_BRAND } = require('../site-config');
 
 function esc(value) {
   return String(value)
@@ -56,8 +57,8 @@ function buildPostJsonLd(post, { siteUrl }) {
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
     url,
     image: post.image ? absoluteUrl(siteUrl, post.image) : undefined,
-    author: { '@type': 'Organization', name: 'けんちゃん馬券☆WEB' },
-    publisher: { '@type': 'Organization', name: 'けんちゃん馬券☆WEB' },
+    author: { '@type': 'Organization', name: SITE_BRAND },
+    publisher: { '@type': 'Organization', name: SITE_BRAND },
   };
 }
 

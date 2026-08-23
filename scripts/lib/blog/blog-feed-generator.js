@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const { normalizeBaseUrl } = require('../seo/sitemap-generator');
+const { SITE_BRAND } = require('../site-config');
 
 function xmlEscape(value) {
   return String(value)
@@ -17,7 +18,7 @@ function rfc822(dateYmd) {
 }
 
 // R10: 公開記事(draft除く)からRSS 2.0のfeed.xmlを組み立てる
-function buildFeedXml({ posts, siteUrl, title = 'けんちゃん馬券☆WEB ブログ', description = '地方競馬(NAR)データの面白い傾向・回収率・血統/騎手成績を紹介するブログです。' }) {
+function buildFeedXml({ posts, siteUrl, title = `${SITE_BRAND} ブログ`, description = '地方競馬(NAR)データの面白い傾向・回収率・血統/騎手成績を紹介するブログです。' }) {
   const baseUrl = normalizeBaseUrl(siteUrl);
   if (!baseUrl) throw new Error('siteUrl is required to generate feed.xml');
 
