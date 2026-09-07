@@ -35,7 +35,22 @@ ON/OFF は `predict-race-use-case.js` の `satellites` 配列への追加・削�
 | WetTrackFactor    | `satellites/wet-track-factor.js`   | 条件別sireスコア − allスコアの差分 | 10% | 馬場状態が重または不良のとき |
 | DistanceFactor    | `satellites/distance-factor.js`    | +20 | 10% | 今走と同距離で1着実績あり |
 | ClassJumpFactor   | `satellites/class-jump-factor.js`  | +20 | 10% | 前走より1段階以上クラス上昇 |
-| SummerBodyWeight  | `scoring.js` | 最終スコア×0.95/1.05 | なし | 7〜9月の馬体重増減と性別で補正 |
+| LastKickFactor    | `satellites/last-kick-factor.js`   | +15 | 10% | 直近2走で上がり3Fが改善 |
+| PaceFactor        | `satellites/pace-factor.js`        | 脚質ごとに0〜15（下表） | 10% | 出走馬の脚質構成から推定したペースに応じて優遇脚質を変える |
+
+### PaceFactor（ペース想定）
+
+出走全馬の `running_style`（逃げ/先行/差し/追込。過去レースの通過順位比率から推定）を集計し、
+「逃げ+先行」の頭数（`frontCount`）でレース展開を3区分に分類する。
+
+| 区分 | 条件 | 想定 | ボーナス（逃げ/先行/差し/追込） |
+|------|------|------|------------------------------|
+| ハイペース | frontCount ≥ 4 | 前が競り合って垂れやすい | 0 / 0 / +15 / +12 |
+| スローペース | frontCount ≤ 1 | 楽な逃げになりやすい | +15 / +10 / 0 / 0 |
+| ミドルペース | 上記以外 | 小幅に逃げ・差し寄り | +5 / +5 / +8 / +3 |
+
+会場を問わず全レースで適用（`predict-race-use-case.js` に直接wired、venue固有ではない）。
+`saga_running_style`（高知・佐賀専用の距離別脚質ボーナス）とは独立して加算される。
 
 ### SummerBodyWeight の補正
 
@@ -157,7 +172,8 @@ FROM sire_ranking GROUP BY sire_name
 | ③ | VenueFactor（会場別補正） | prediction_roi（蓄積待ち） | データ蓄積中 |
 | ④ | DistanceFactor（距離適性） | race_results | **実装済み** |
 | ⑤ | ClassJumpFactor（クラス上昇） | race_info | **実装済み** |
-| ⑥ | 上3F（末脚トレンド） | 未収集 | スクレイピング追加必要 |
+| ⑥ | LastKickFactor（上3F末脚トレンド） | racing_form（agari_3f_1/2） | **実装済み** |
+| ⑦ | PaceFactor（ペース想定） | racing_form（running_style） | **実装済み** |
 
 ---
 

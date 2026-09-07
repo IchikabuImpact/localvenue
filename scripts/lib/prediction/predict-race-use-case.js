@@ -5,6 +5,7 @@ const { computeWetTrackBonuses, WET_CONDITIONS } = require('./satellites/wet-tra
 const { computeDistanceBonuses } = require('./satellites/distance-factor');
 const { computeClassJumpBonuses } = require('./satellites/class-jump-factor');
 const { computeLastKickBonuses } = require('./satellites/last-kick-factor');
+const { computePaceBonuses } = require('./satellites/pace-factor');
 const { loadVenueSatellites } = require('./satellites/venue/loader');
 const { buildHorsePatternScoringFactor } = require('./horse-pattern-factor');
 
@@ -89,7 +90,7 @@ class PredictRaceUseCase {
 
       const distanceM    = raceInfo?.distance_m ?? null;
       const currentClass = parseRaceClassLevel(raceTitle);
-      const [improvementBonuses, wetTrack, distanceFactor, classJump, lastKick] = await Promise.all([
+      const [improvementBonuses, wetTrack, distanceFactor, classJump, lastKick, pace] = await Promise.all([
         computeImprovementBonuses(
           racingFormRows,
           raceId,
@@ -109,6 +110,7 @@ class PredictRaceUseCase {
           raceId
         ),
         Promise.resolve(computeLastKickBonuses(racingFormRows)),
+        Promise.resolve(computePaceBonuses(racingFormRows)),
       ]);
       const babaCode = String(raceId).slice(10, 12);
       const venueContext = { raceId, distanceM, trackCondition, weather, raceTitle };
@@ -120,6 +122,7 @@ class PredictRaceUseCase {
         { name: 'distance',    bonuses: distanceFactor.bonuses, capPct: distanceFactor.capPct },
         { name: 'classjump',   bonuses: classJump.bonuses,      capPct: classJump.capPct },
         { name: 'lastkick',    bonuses: lastKick.bonuses,       capPct: lastKick.capPct },
+        { name: 'pace',        bonuses: pace.bonuses,           capPct: pace.capPct },
         ...venueFactors,
       ];
 
@@ -146,7 +149,7 @@ class PredictRaceUseCase {
 
       const condStr = `馬場:${trackCondition}`;
       const wxStr   = weather ? ` 天候:${weather}` : '';
-      this.logger.log(`[OK] race_id=${raceId} 推奨: 馬番${memo.best.horse_number} (score=${memo.best.score}) 内訳=${JSON.stringify(memo.best.breakdown)} ${wxStr}${condStr}`);
+      this.logger.log(`[OK] race_id=${raceId} 推奨: 馬番${memo.best.horse_number} (score=${memo.best.score}) 内訳=${JSON.stringify(memo.best.breakdown)} ${wxStr}${condStr} ペース:${pace.paceType}`);
       return memo;
     } finally {
       await Promise.allSettled([
