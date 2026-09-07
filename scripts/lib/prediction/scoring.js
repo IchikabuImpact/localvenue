@@ -420,6 +420,7 @@ function calculatePrediction({
   trackCondition = null,
   raceTitle     = null,
   satellites    = [],
+  paceType      = null,
   scoringConfig = DEFAULT_SCORING_CONFIG,
   scoringFactors = null,
   generatedAt   = new Date().toISOString(),
@@ -525,6 +526,7 @@ function calculatePrediction({
     weather,
     trackCondition,
     raceClass: classLevel,
+    paceType,
     generatedAt,
   };
 }

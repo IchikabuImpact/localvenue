@@ -196,6 +196,8 @@ function renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath = 'css/st
   return html;
 }
 
+const PACE_LABELS = { high: 'ハイペース', middle: 'ミドルペース', slow: 'スローペース' };
+
 function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
   const memo      = safeJSON(race.memo);
   const items     = Array.isArray(memo?.items) ? memo.items : [];
@@ -206,7 +208,10 @@ function renderDetailPage({ race, venueMap, cssPath = 'css/style.css' }) {
   const distStr = race.distance_m ? `${race.distance_m}m ` : '';
   const wxStr   = race.weather        ? `天候: ${race.weather}` : '';
   const tcStr   = race.track_condition ? `馬場: ${race.track_condition}` : '';
-  const condParts = [wxStr, tcStr].filter(Boolean);
+  const paceStr = memo?.paceType && PACE_LABELS[memo.paceType]
+    ? `想定ペース: ${PACE_LABELS[memo.paceType]}`
+    : '';
+  const condParts = [wxStr, tcStr, paceStr].filter(Boolean);
   const condLine = condParts.length
     ? `<p class="baba-info">${condParts.join(' / ')}</p>`
     : '';

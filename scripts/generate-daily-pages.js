@@ -97,13 +97,19 @@ function purgeOldFiles() {
     ]);
 
     // ── index.html ──────────────────────────────────────────────
+    // ルート直下（public/index.html, public/recovery.html）は「今日」の状態を表す本番トップページ。
+    // ymdArg が今日以外（未来の先出し予想 / 過去日の再集計）のときに上書きすると、
+    // 本番トップが違う日付の内容にすり替わってしまうため、今日のときだけ書き込む。
+    const isToday = ymdArg === jstTodayYmd();
     const dailyDirs = getDailyDirs();
     const teaserHtml = buildLatestBlogTeaser();
-    write(path.join(PUBLIC_DIR, 'index.html'),
-      renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: 'css/style.css', dailyDirs, teaserHtml }));
+    if (isToday) {
+      write(path.join(PUBLIC_DIR, 'index.html'),
+        renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: 'css/style.css', dailyDirs, teaserHtml }));
+    }
     write(path.join(currentDailyDir, 'index.html'),
       renderIndexPage({ isoDate, races, dailyRoi, venueMap, cssPath: '../../css/style.css' }));
-    console.log('[GEN] index.html');
+    console.log(`[GEN] index.html${isToday ? '' : ' (daily配下のみ、rootは今日以外のためskip)'}`);
 
     // ── 個別レースページ ─────────────────────────────────────────
     for (const race of races) {
@@ -115,11 +121,13 @@ function purgeOldFiles() {
     console.log(`[GEN] ${races.length} race pages`);
 
     // ── recovery.html ────────────────────────────────────────────
-    write(path.join(PUBLIC_DIR, 'recovery.html'),
-      renderRecoveryPage({ isoDate, dateStats, roiSummary, cssPath: 'css/style.css' }));
+    if (isToday) {
+      write(path.join(PUBLIC_DIR, 'recovery.html'),
+        renderRecoveryPage({ isoDate, dateStats, roiSummary, cssPath: 'css/style.css' }));
+    }
     write(path.join(currentDailyDir, 'recovery.html'),
       renderRecoveryPage({ isoDate, dateStats, roiSummary, cssPath: '../../css/style.css' }));
-    console.log('[GEN] recovery.html');
+    console.log(`[GEN] recovery.html${isToday ? '' : ' (daily配下のみ)'}`);
 
     purgeOldFiles();
 

@@ -105,6 +105,34 @@ test('renderDetailPage shows neither eval nor finish-order section when nothing 
   assert.doesNotMatch(html, /result-info/);
 });
 
+test('renderDetailPage shows pace label when memo.paceType is set', () => {
+  const html = renderDetailPage({
+    race: {
+      race_id: '202608180118',
+      weather: '晴',
+      track_condition: '良',
+      memo: JSON.stringify({ paceType: 'high', items: [] }),
+    },
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.match(html, /想定ペース: ハイペース/);
+});
+
+test('renderDetailPage omits pace label when memo has no paceType (old records)', () => {
+  const html = renderDetailPage({
+    race: {
+      race_id: '202608180118',
+      weather: '晴',
+      track_condition: '良',
+      memo: JSON.stringify({ items: [] }),
+    },
+    venueMap: new Map([['18', '浦和']]),
+  });
+
+  assert.doesNotMatch(html, /想定ペース/);
+});
+
 test('renderRecoveryPage shows 30-day ROI summary cards', () => {
   const html = renderRecoveryPage({
     isoDate: '2026-07-15',

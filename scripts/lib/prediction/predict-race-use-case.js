@@ -137,6 +137,7 @@ class PredictRaceUseCase {
         trackCondition,
         raceTitle,
         satellites,
+        paceType: pace.paceType,
         scoringFactors: [
           ...buildDefaultScoringFactors(this.scoringConfig || undefined),
           buildHorsePatternScoringFactor(horsePatternRules),
