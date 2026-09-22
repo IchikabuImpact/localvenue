@@ -60,3 +60,4 @@ Thumbs.db
 # =============================================================
 docs/DB_CONTEXT.md
 docs/OPS_LOCAL.md
+cron/autoupdate-dev.sh
