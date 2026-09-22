@@ -402,7 +402,7 @@ CREATE TABLE `external_request_log` (
   KEY `idx_service_time` (`service`, `requested_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='外部APIリクエスト履歴。月次バッチで先月分以前を自動削除。';
-/*!40101 SET client_encoding = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `race_info`
@@ -423,7 +423,7 @@ CREATE TABLE `race_info` (
   PRIMARY KEY (`race_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='keiba.go.jp RaceList から取得するレース単位情報。002バッチで更新。';
-/*!40101 SET client_charset = @saved_cs_client */;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `venue_master`
