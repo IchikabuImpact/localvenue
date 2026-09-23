@@ -353,3 +353,15 @@ header nav a { font-size: 0.9rem; color: var(--link); }
 
 .contact-fallback-note { font-size: .92rem; color: var(--muted); margin: 8px 0 14px; }
 .contact-fallback-note a { text-decoration: underline; }
+
+/* Blog: affiliate ad disclosure (stealth marketing regulation compliance) */
+.blog-ad-disclosure {
+  display: inline-block;
+  background: var(--warn);
+  color: #1a1200;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin: 8px 0 16px;
+}

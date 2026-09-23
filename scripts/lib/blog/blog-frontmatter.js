@@ -105,6 +105,9 @@ function validateFrontmatter(frontmatter, filePath) {
     description: String(frontmatter.description),
     image: frontmatter.image ? String(frontmatter.image) : null,
     draft: frontmatter.draft === true,
+    // 景品表示法のステマ規制対応: アフィリエイトリンク等を含む記事はtrueにする。
+    // renderBlogPostPageが本文冒頭に「広告」の開示表示を自動挿入する。
+    sponsored: frontmatter.sponsored === true,
   };
 }
 

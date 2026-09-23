@@ -39,6 +39,14 @@ test('validateFrontmatter returns a normalized post-meta object for valid input'
   assert.deepEqual(meta.tags, ['monthly-report']);
   assert.equal(meta.draft, false);
   assert.equal(meta.image, null);
+  assert.equal(meta.sponsored, false);
+});
+
+test('validateFrontmatter sets sponsored=true when frontmatter has sponsored: true', () => {
+  const raw = VALID_RAW.replace('description: 7月のNAR種牡馬別成績まとめ\n', 'description: 7月のNAR種牡馬別成績まとめ\nsponsored: true\n');
+  const { frontmatter } = parseFrontmatter(raw, 'test.md');
+  const meta = validateFrontmatter(frontmatter, 'test.md');
+  assert.equal(meta.sponsored, true);
 });
 
 test('validateFrontmatter throws when a required field is missing', () => {

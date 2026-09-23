@@ -26,6 +26,7 @@ function loadPost(filePath) {
     description: frontmatter.description,
     image: frontmatter.image,
     draft: frontmatter.draft,
+    sponsored: frontmatter.sponsored,
     bodyHtml,
     sourcePath: filePath,
   };

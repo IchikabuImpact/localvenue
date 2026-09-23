@@ -125,6 +125,9 @@ function renderBlogPostPage({ post, relatedPosts = [], siteUrl, cssPath = '../cs
       <a class="blog-taxonomy-badge" href="/blog/${esc(CATEGORIES[post.category].path)}">${esc(categoryLabel(post.category))}</a>
       ${post.tags.map((t) => `<a class="blog-taxonomy-badge tag" href="/blog/${esc(TAGS[t].path)}">${esc(tagLabel(t))}</a>`).join('')}
     </p>`;
+  if (post.sponsored) {
+    html += `<p class="blog-ad-disclosure">【広告】本記事はアフィリエイトリンク（プロモーション）を含みます。</p>`;
+  }
   html += `<div class="blog-body">${post.bodyHtml}</div>`;
   html += `</article>`;
   if (relatedPosts.length) {
