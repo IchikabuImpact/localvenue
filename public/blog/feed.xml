@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>けんちゃん馬券☆WEB ブログ</title>
+    <link>https://example.com/blog/index.html</link>
+    <description>地方競馬(NAR)データの面白い傾向・回収率・血統/騎手成績を紹介するブログです。</description>
+    <language>ja</language>
+    <item>
+      <title>2026年9月 秋分の地方競馬 ― 単勝万馬券7件、目立つのは馬場より見習い騎手</title>
+      <link>https://example.com/blog/2026-09-shuubun-manbaken.html</link>
+      <guid>https://example.com/blog/2026-09-shuubun-manbaken.html</guid>
+      <pubDate>Wed, 23 Sep 2026 00:00:00 GMT</pubDate>
+      <description>2026年9月1日〜23日(秋分)の地方競馬で単勝万馬券(払戻1万円超)となった7頭を分析。馬場状態・脚質の偏りは月間の基本傾向とほぼ同水準だった一方、見習い騎手の関与率は全体の4.6倍という結果に。</description>
+    </item>
+    <item>
+      <title>2026年 立秋〜処暑の地方競馬 ― 大穴はランキング下位の調教師の牝馬から、伸びる種牡馬も</title>
+      <link>https://example.com/blog/2026-08-risshu-shosho-anaba.html</link>
+      <guid>https://example.com/blog/2026-08-risshu-shosho-anaba.html</guid>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 GMT</pubDate>
+      <description>2026年8月7日(立秋)〜23日(処暑)の地方競馬で単勝20倍を超えて1着した40頭を分析。ランキング下位の調教師が95%、牝馬が7割を占め、荒れやすいのはC3/C4よりむしろC1/C2・A/B1でした。あわせて7月に勝率を伸ばした種牡馬トップ5も紹介します。</description>
+    </item>
+    <item>
+      <title>2026年8月中旬 回収率点検 ― 下級クラスに強く、高配当は人気薄の伏兵から</title>
+      <link>https://example.com/blog/2026-08-roi-class-gap.html</link>
+      <guid>https://example.com/blog/2026-08-roi-class-gap.html</guid>
+      <pubDate>Wed, 19 Aug 2026 00:00:00 GMT</pubDate>
+      <description>2026年7月〜8月中旬のNAR予想を振り返り、単勝・複勝・馬複とも回収率100%超え。クラス別の成績を見るとC3〜C2クラスは好調な一方B2/B3クラスだけが不振、高配当的中はJBIS未登録の無名厩舎から生まれていました。</description>
+    </item>
+    <item>
+      <title>2026年7月 NAR種牡馬別成績 ― 夏場に伸びた種牡馬たち</title>
+      <link>https://example.com/blog/2026-07-nar-sire-natsu.html</link>
+      <guid>https://example.com/blog/2026-07-nar-sire-natsu.html</guid>
+      <pubDate>Sat, 01 Aug 2026 00:00:00 GMT</pubDate>
+      <description>2026年7月のNAR(地方競馬)、50走以上の種牡馬別成績まとめ。フォーウィールドライブ・ダノンレジェンド・リアルスティールなど、夏場に勝率が伸びた種牡馬を集計しました。</description>
+    </item>
+  </channel>
+</rss>
