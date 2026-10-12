@@ -45,6 +45,17 @@ test('renderBlogPostPage includes canonical link and body html', () => {
   assert.match(html, /本文/);
 });
 
+test('renderBlogPostPage shows the ad disclosure when post.sponsored is true', () => {
+  const html = renderBlogPostPage({ post: { ...POST, sponsored: true }, siteUrl: 'https://example.jp' });
+  assert.match(html, /blog-ad-disclosure/);
+  assert.match(html, /【広告】/);
+});
+
+test('renderBlogPostPage omits the ad disclosure when post.sponsored is not set', () => {
+  const html = renderBlogPostPage({ post: POST, siteUrl: 'https://example.jp' });
+  assert.doesNotMatch(html, /blog-ad-disclosure/);
+});
+
 test('renderBlogIndexPage lists posts and links to all 4 categories', () => {
   const html = renderBlogIndexPage({ posts: [POST], siteUrl: 'https://example.jp' });
   assert.match(html, /2026年7月 NAR種牡馬別成績/);
