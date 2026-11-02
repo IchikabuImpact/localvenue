@@ -82,8 +82,6 @@ npm test   # 単体テスト（DB・外部サイトへの接続は不要）
 npm run serve   # http://localhost:8131
 ```
 
-> ⚠️ `cron/autoupdate.sh` は作業ツリーの変更をすべて commit / push します。運用中のディレクトリで編集中のファイルは、次のバッチ完了時に公開されます。
-
 ---
 
 ## 🧩 Component Reference
@@ -184,7 +182,13 @@ npm run serve   # http://localhost:8131
 
 ## 🌐 静的HTML配信
 
-方針：**バッチ実行環境で `public/` を生成し、公開サーバーは静的ファイル配信のみ**。
+方針：**バッチ実行環境で `public/` を生成して push し、VPS は `git pull` で静的ファイルを更新して配信するだけ**。
+
+```
+バッチ実行環境（生成 → git push）→ GitHub → VPS（git pull → Nginx が public/ を配信）
+```
+
+VPS では Node.js のバッチも DB も使いません。HTML / CSS / JS は pull するだけで本番に反映され、動的なプログラムは影響しません。
 
 公開先のホスト名、ユーザー名、絶対パスなどの運用情報はリポジトリに書かず、各環境の手順書またはシークレット管理に分離してください。
 
@@ -199,9 +203,9 @@ server {
 }
 ```
 
-### 日次デプロイ例
+### VPS での反映
 ```bash
-rsync -avz --delete ./public/ deploy@example.com:/path/to/public/
+git pull
 ```
 
 ---

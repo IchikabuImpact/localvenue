@@ -31,7 +31,7 @@ node scripts/generate-daily-pages.js [YYYYMMDD]
 - 日付未指定時は当日分を処理します。
 - 生成物は `public/` と `public/daily/YYYYMMDD/` に出力されます。
 - 環境固有の cron 設定、実サーバーのパス、デプロイ先は公開ドキュメントに書かず、各環境で管理してください。
-- ⚠️ バッチ完了時の自動更新（`cron/autoupdate.sh`）は `public/` に限らず作業ツリーの変更をすべて commit / push します。運用中のディレクトリに作業途中のコードを置いたままにしないでください。
+- 公開の流れ: バッチ実行環境で静的HTMLを生成して push し、VPS は `git pull` で更新するだけです。VPS では動的なプログラムを動かしていません。作業は `main` で行い、そのまま push して構いません。
 
 ## DB と設定
 

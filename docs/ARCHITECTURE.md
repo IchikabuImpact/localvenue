@@ -115,7 +115,7 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
                                │
                           git push
                                ↓
-                    公開サーバー: 静的HTMLを配信
+                    VPS: git pull → 静的HTMLを配信
 ```
 
 ---
@@ -261,7 +261,7 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 - `result.sh`: 夜バッチ → ヘルスチェック（異常時は復旧）→ 公開
 - `monthly.sh`: `external_request_log` の掃除とランキング取得
 - `health-check.sh` / `schema-drift-check.sh`: 単体の監視。異常時は `logs/alerts.log` に記録
-- `autoupdate.sh`: 公開処理。**作業ツリーの変更をすべて** commit / push する（`public/` に限らない）
+- `autoupdate.sh`: 変更を commit / push する。VPS はこれを `git pull` して本番に反映する
 
 #### `scripts/ops/daily-health-check.js`
 - **役割**: レース数と予想数・生成HTML数の一致、「予想なし」表示の有無、`horse_win_pattern_rules` の存在を確認
@@ -339,6 +339,7 @@ YYYYMMDD RR BB
 
 ### public/ を git 管理する理由
 公開サーバーのメモリ節約のため、静的 HTML を生成物として配信できる構成。
+バッチ実行環境で生成して push し、VPS は `git pull` するだけで HTML / CSS / JS が更新される。VPS では動的なプログラムを動かさない。
 公開先のホスト名・ユーザー名・絶対パスなど、環境固有の運用情報は公開ドキュメントに含めない。
 
 ### htmlRetentionDays
