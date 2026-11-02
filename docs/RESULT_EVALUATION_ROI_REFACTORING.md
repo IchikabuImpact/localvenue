@@ -2,6 +2,8 @@
 
 最終更新: 2026-05-29
 
+> **履歴メモ**: 実施時点の記録です。その後 102 に馬複（`--stake-quinella`, `quinella`）が追加されています。現在の仕様は [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+
 ## 目的
 
 `101-save-result-db.js`、`102-eval-prediction.js`、`103-eval-roi.js`、`104-aggregate-roi-daily.js` のCLI契約と終了コードを保ちながら、DDD / Onion Architecture に寄せる第一段階を実施した。

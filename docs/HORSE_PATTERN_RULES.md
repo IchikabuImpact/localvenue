@@ -1,6 +1,6 @@
 # 馬別勝ちパターン加点ルール（horse_win_pattern_rules）
 
-最終更新: 2026-08-17
+最終更新: 2026-11-03
 
 このファイルを読めば、他のファイルを開かずに仕組み全体を把握できることを目的とする。
 
@@ -23,6 +23,11 @@
 
 呼び出し元は `predict-race-use-case.js`。`buildHorsePatternScoringFactor(horsePatternRules)` を
 `scoringFactors` に追加するだけで、他のコアファクターと同じ経路でスコアに乗る。
+
+運用面では次の2つもこのテーブルを参照する。
+
+- `scripts/lib/ops/daily-health.js`: テーブルの存在を確認する
+- `scripts/ops/recover-daily.js`: テーブルが無ければ作成し、`shishi_kochi_inner_type_s` を投入する（CREATE文とルールを `schema.sql` / `seed-master.sql` とは別に持っている）
 
 ---
 
@@ -84,7 +89,7 @@
 3. `node scripts/ops/schema-drift-check.js` でズレが無いことを確認（`ok: true` になること）
 4. コード（`mysql-prediction-repository.js` のSELECT等）・テスト・seedを更新してcommit/push
 
-`scripts/ops/schema-drift-check.js`（`cron/schema-drift-check.sh` 経由で定期実行）は、
+`scripts/ops/schema-drift-check.js`（ラッパーは `cron/schema-drift-check.sh`。2026-11-03 時点で crontab には未登録で、手動実行）は、
 `data/schema.sql` のCREATE TABLE定義と実DBの `information_schema.COLUMNS` を突き合わせ、
 ズレを検出するヘルスチェック。詳細は [spec.md](spec.md) 2.5節。
 

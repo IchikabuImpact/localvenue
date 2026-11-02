@@ -16,7 +16,7 @@ The following table lists the venues managed in `venue_master` and their corresp
 | Venue Name (会場名) | NAR Code (`baba`) | Rakuten Code (`venue_master`) |
 | :--- | :---: | :---: |
 | **Obihiro** (帯広ば) | 3 | 03041503 |
-| **Morioka** (盛岡) | 10 | 10061006 |
+| **Morioka** (盛岡) | 10 | 10060902 |
 | **Mizusawa** (水沢) | 11 | 11060605 |
 | **Urawa** (浦和) | 18 | 18131203 |
 | **Funabashi** (船橋) | 19 | 19140801 |
@@ -36,4 +36,17 @@ The following table lists the venues managed in `venue_master` and their corresp
 *   **`baba` table**: Contains the master list of NAR venues.
 *   **`venue_master` table**: A mapping table specifically for Rakuten Keiba integration. It links the NAR `baba_code` to the Rakuten-specific 8-digit code.
 
-For complete data initialization, please refer to `seed-master.sql`.
+For complete data initialization, please refer to `data/seed-master.sql`.
+
+## Where the Codes Are Used
+
+The Rakuten codes above are the ones used for result fetching. The batch scripts do not read Rakuten codes from the database:
+
+*   **Result fetching (`101`)** uses its own table, `RAKUTEN_BABA_CODE` in `scripts/lib/result/rakuten-race-code.js`.
+*   **Page generation** reads only `baba_code` and `venue` from `venue_master`, then overrides them with a hardcoded name map in `scripts/lib/pagegen/page-query-service.js`.
+
+## Note on Morioka (as of 2026-11-03)
+
+`10060902` in `scripts/lib/result/rakuten-race-code.js` is the code in operation. Morioka results have been saved with it continuously since 2026-05-24.
+
+`venue_master` and `data/seed-master.sql` still hold `10061006` for Morioka. No script reads this value, so it does not affect operation.

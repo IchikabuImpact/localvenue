@@ -2,6 +2,8 @@
 
 最終更新: 2026-05-29
 
+> **履歴メモ**: 実施時点の記録です。現在の仕様は [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+
 ## 目的
 
 `001-save-monthly-calendar.js` と `001-save-monthly-calendar-rakuten.js` の既存の呼び出し方を保ったまま、段階的に DDD / Onion Architecture に寄せるための第一段階を実施した。

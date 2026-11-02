@@ -2,6 +2,8 @@
 
 最終更新: 2026-05-29
 
+> **履歴メモ**: 実施時点の記録です。現在の仕様は [ARCHITECTURE.md](ARCHITECTURE.md) と [PREDICTION_SCORING.md](PREDICTION_SCORING.md) を参照してください。
+
 ## 目的
 
 `004-racing-form-to-db.js` と `005-predict-race.js` の既存CLI契約を保ったまま、DDD / Onion Architecture に寄せる第一段階を実施した。

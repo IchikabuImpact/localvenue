@@ -260,7 +260,7 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 - `yosou.sh`: 朝バッチ → HTML生成 → ヘルスチェック（異常時は復旧）→ 公開
 - `result.sh`: 夜バッチ → ヘルスチェック（異常時は復旧）→ 公開
 - `monthly.sh`: `external_request_log` の掃除とランキング取得
-- `health-check.sh` / `schema-drift-check.sh`: 単体の監視。異常時は `logs/alerts.log` に記録
+- `health-check.sh` / `schema-drift-check.sh`: 単体実行用の監視。異常時は `logs/alerts.log` に記録（2026-11-03 時点で crontab には未登録）
 - `autoupdate.sh`: 変更を commit / push する。VPS はこれを `git pull` して本番に反映する
 
 #### `scripts/ops/daily-health-check.js`
