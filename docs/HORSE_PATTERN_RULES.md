@@ -12,6 +12,7 @@
 コアスコアに `bonus_pct` %を加算する機構。会場全体・脚質全体にかかる
 `satellites/`（[PREDICTION_SCORING.md](PREDICTION_SCORING.md) 参照）とは別枠で、
 「この馬だけ」の個別事情（得意条件・馬体重帯など）を反映するためのもの。
+狙いは、特定の条件が揃うと回収率が跳ね上がったり大穴を開けたりする馬の要素をDBに入れ、スコアを上げること。
 
 関与ファイルは3つだけ:
 
@@ -33,8 +34,14 @@
 
 ## 2. ルールを追加する方法
 
-`data/seed-master.sql` の `horse_win_pattern_rules` INSERT 文に1行足すだけで完結する
-（コード変更は不要。条件の種類を増やす場合のみ3.のカラム追加が要る）。
+次の2つを行う（コード変更は不要。条件の種類を増やす場合のみ3.のカラム追加が要る）。
+
+1. **本番DBに同じ行を INSERT する**。これをしないとルールは効かない
+2. 新規構築用に `data/seed-master.sql` の INSERT 文にも1行足す
+
+seed が読まれるのは `node data/data_reset.js` のときだけで、バッチは読まない。`data_reset.js` は `schema.sql` の `DROP TABLE` を実行して全データを消すため、本番への反映には使わない。
+
+追加したら `SELECT rule_code FROM horse_win_pattern_rules` で本番DBに入ったことを確認する。
 
 ```sql
 ('rule_code一意キー', 'ルール名', '馬名（完全一致）', 'パターン種別（任意メモ）', baba_code,
@@ -65,13 +72,19 @@
 
 ---
 
-## 4. 現在登録済みのルール（seed-master.sql）
+## 4. 登録済みのルール（2026-11-03 時点）
 
-| rule_code | 馬名 | 会場 | 条件 | bonus_pct |
-|-----------|------|------|------|-----------|
-| `shishi_kochi_inner_type_s` | シシ | 高知(31) | 1-4枠、逃げ/先行、他に逃げ馬なし、先行勢3頭以下 | 10% |
-| `honeyberry_fast_track` | ハニーベリー | 全会場 | 馬場状態=良 | 15% |
-| `kenocean_oi_weight_band` | ケンオーシャン | 大井(20) | 馬体重486〜495kg | 10% |
+| rule_code | 馬名 | 会場 | 条件 | bonus_pct | 本番DB |
+|-----------|------|------|------|-----------|--------|
+| `shishi_kochi_inner_type_s` | シシ | 高知(31) | 1-4枠、逃げ/先行、他に逃げ馬なし、先行勢3頭以下 | 10% | 登録済み |
+| `honeyberry_fast_track` | ハニーベリー | 全会場 | 馬場状態=良 | 15% | 登録済み |
+| `kenocean_oi_weight_band` | ケンオーシャン | 大井(20) | 馬体重486〜495kg | 10% | **未登録**（seed のみ。加点されていない） |
+
+### 適用範囲
+
+ルールに書いた条件以外に、曜日や会場の制限は無い。全レースの予想で判定し、`baba_code` が NULL のルールは全会場が対象。実際の加点は `prediction.memo` の `breakdown.horsePattern` で確認できる。
+
+データが無いと条件を満たせない。`running_style` や `horse_weight` が NULL の馬は、その条件を指定したルールに一致しない。
 
 ---
 
