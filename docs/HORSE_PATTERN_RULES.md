@@ -90,7 +90,11 @@ seed が読まれるのは `node data/data_reset.js` のときだけで、バッ
 | `kouyudaidai_mombetsu_20261103` | コウユーダイダイ | 門別(36) | 2026-11-03 | 30% |
 | `yunahawkpower_mombetsu_20261103` | ユナホークパワー | 門別(36) | 2026-11-03 | 90% |
 | `missionfellow_mombetsu_20261103` | ミッションフェロー | 門別(36) | 2026-11-03 | 30% |
-| `meinanfast_funabashi_20261103` | メイナンファスト | 船橋(19) | 2026-11-03 | 30% |
+| `lunaticeye_funabashi_20261103` | ルナティックアイ | 船橋(19) | 2026-11-03 | 60% |
+| `sunboulder_funabashi_20261103` | サンボールダー | 船橋(19) | 2026-11-03 | 160% |
+| `mylittleromance_funabashi_20261103` | マイリトルロマンス | 船橋(19) | 2026-11-03 | 60% |
+| `tatsunomach_funabashi_20261103` | タツノマッハ | 船橋(19) | 2026-11-03 | 100% |
+| `crowningcup_funabashi_20261103` | クラウニングカップ | 船橋(19) | 2026-11-03 | 110% |
 | `meimeimefa_funabashi_20261103` | メイメイメファ | 船橋(19) | 2026-11-03 | 30% |
 | `shelterbelt_kanazawa_20261103` | シェルターベルト | 金沢(22) | 2026-11-03 | 30% |
 | `daiyubomber_kanazawa_20261103` | ダイユウボンバー | 金沢(22) | 2026-11-03 | 30% |
