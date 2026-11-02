@@ -185,27 +185,31 @@ npm run serve   # http://localhost:8131
 方針：**バッチ実行環境で `public/` を生成して push し、VPS は `git pull` で静的ファイルを更新して配信するだけ**。
 
 ```
-バッチ実行環境（生成 → git push）→ GitHub → VPS（git pull → Nginx が public/ を配信）
+バッチ実行環境（生成 → git push）→ GitHub → VPS（cron で git pull → Apache が public/ を配信）
 ```
 
-VPS では Node.js のバッチも DB も使いません。HTML / CSS / JS は pull するだけで本番に反映され、動的なプログラムは影響しません。
+- VPS の cron は `git pull` だけを定期実行し、localvenue のバッチは実行しません。`public/` の HTML / CSS / JS は pull するだけで本番に反映されます。
+- VPS にはリポジトリ全体を clone していますが、Web に公開するのは DocumentRoot の `public/` だけです。
+- バッチの push から公開までには、次の pull までの待ち時間があります。
 
 公開先のホスト名、ユーザー名、絶対パスなどの運用情報はリポジトリに書かず、各環境の手順書またはシークレット管理に分離してください。
 
-### Nginx 設定例
-```nginx
-server {
-    listen 80;
-    server_name example.com;
-    root /path/to/localvenue/public;
-    index index.html;
-    location / { try_files $uri $uri/ =404; }
-}
+### Apache 設定例
+```apache
+<VirtualHost *:443>
+    ServerName example.com
+    DocumentRoot /path/to/localvenue/public
+    <Directory "/path/to/localvenue/public">
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+</VirtualHost>
 ```
 
-### VPS での反映
-```bash
-git pull
+### VPS での反映（crontab 例）
+```cron
+0,30 * * * * cd /path/to/localvenue && /usr/bin/git pull origin main >> logs/git-pull.log 2>&1
 ```
 
 ---

@@ -94,10 +94,12 @@
 ## 5. デプロイ構成
 
 ```
-バッチ実行環境（生成 → git push）→ GitHub（main）→ VPS（git pull → 静的配信）
+バッチ実行環境（生成 → git push）→ GitHub（main）→ VPS（cron で git pull → Apache で静的配信）
 ```
 
-- VPS は `git pull` するだけで HTML / CSS / JS が更新される。VPS では動的なプログラムを動かさない
+- VPS は `git pull` するだけで HTML / CSS / JS が更新される。VPS の cron は pull だけで、localvenue のバッチは実行しない
+- VPS にはリポジトリ全体を clone しているが、公開されるのは DocumentRoot の `public/` だけ
+- バッチの push から公開までには、次の pull までの待ち時間がある
 - `autoupdate.sh` は push 前に `git pull --rebase -X ours` を実行
 - 公開環境の具体的なホスト名・ユーザー名・絶対パスは、公開ドキュメントに含めない
 

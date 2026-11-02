@@ -339,7 +339,8 @@ YYYYMMDD RR BB
 
 ### public/ を git 管理する理由
 公開サーバーのメモリ節約のため、静的 HTML を生成物として配信できる構成。
-バッチ実行環境で生成して push し、VPS は `git pull` するだけで HTML / CSS / JS が更新される。VPS では動的なプログラムを動かさない。
+バッチ実行環境で生成して push し、VPS は cron の `git pull` で HTML / CSS / JS を更新する。VPS の cron は pull だけで、localvenue のバッチは実行しない。
+VPS にはリポジトリ全体を clone しているが、Apache の DocumentRoot は `public/` なので、公開されるのは `public/` だけ。
 公開先のホスト名・ユーザー名・絶対パスなど、環境固有の運用情報は公開ドキュメントに含めない。
 
 ### htmlRetentionDays
