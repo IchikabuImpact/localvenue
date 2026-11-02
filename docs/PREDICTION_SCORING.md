@@ -1,6 +1,6 @@
 # 予想スコアリング設計書
 
-最終更新: 2026-06-07
+最終更新: 2026-11-03
 
 ---
 
@@ -12,7 +12,13 @@
 
 ## 2. スコア構成
 
-スコアは **コアファクター4本 + サテライトファクター（可変）** の合算です。
+計算順序（`calculatePrediction`）:
+
+```
+coreScore = 騎手 + 調教師 + 種牡馬 + カスタム + 若駒レース補正
+total     = coreScore + 期間限定ボーナス + 馬別ルール + サテライト（capPct があれば coreScore の%で上限）
+score     = round(total × 夏季馬体重倍率)
+```
 
 ### コアファクター
 
@@ -22,6 +28,26 @@
 | 調教師スコア（trainer） | `trainer_ranking` | 名前前方一致 + クラス乗数 | 実質0〜100 |
 | 種牡馬スコア（sire） | `sire_ranking` | 名前前方一致（馬場状態・距離別） | 0〜100 |
 | カスタム（custom） | 馬番・年齢 | 偶数馬番=馬番値加算、年齢2歳+40/3歳+30/4歳+20 | 0〜60 |
+| 若駒レース補正（youngSireBoost / juvenileSireRankingBonus） | `sire_ranking`, `juvenile_sire_ranking` | 若駒レースのみ、種牡馬スコアの30% + 2歳種牡馬スコアの15% | 可変 |
+
+若駒レースは「出走馬の6割以上が3歳以下」またはレース名に `2歳` / `3歳` / `新馬` を含むレース。割合は `config/scoring/default.json` の `youngRace` で設定する。
+
+### 期間限定ボーナス（設定ファイル）
+
+`config/scoring/default.json` の `summerBonus` で定義し、`startYmd`〜`endYmd` のレースだけ、コアスコアの%を加算する。設定は `scoring.js` の `DEFAULT_SCORING_CONFIG` に上書きマージされ、ファイルが読めない場合や検証に失敗した場合はエラーで停止する（`config.scoringConfigPath` で読み込み先を変更可）。
+
+| ファクター | 条件 |
+|-----------|------|
+| summerSire | 父が対象血統（良/稍重と重/不良で別リスト） |
+| summerBroodmareSire | 母父が対象血統（良/稍重と重/不良で別リスト） |
+| summerDamFamily | 母が対象牝系 |
+| summerWeightAllowance | 斤量がレース最大より2kg以上軽く、馬体重450kg以下の牝馬または3歳牝馬 |
+
+現在の期間は 2026-07-01〜2026-09-30 のため、2026-11-03 時点では無効。来年も使う場合は期間の更新が必要。
+
+### 馬別ルール（DB）
+
+`horse_win_pattern_rules` の条件に一致した馬に加点する。詳細は [HORSE_PATTERN_RULES.md](HORSE_PATTERN_RULES.md)。
 
 ### サテライトファクター（プラグイン型）
 
@@ -37,6 +63,10 @@ ON/OFF は `predict-race-use-case.js` の `satellites` 配列への追加・削�
 | ClassJumpFactor   | `satellites/class-jump-factor.js`  | +20 | 10% | 前走より1段階以上クラス上昇 |
 | LastKickFactor    | `satellites/last-kick-factor.js`   | +15 | 10% | 直近2走で上がり3Fが改善 |
 | PaceFactor        | `satellites/pace-factor.js`        | 脚質ごとに0〜15（下表） | 10% | 出走馬の脚質構成から推定したペースに応じて優遇脚質を変える |
+| kochi_running_style | `satellites/venue/31/running-style-factor.js` | 距離・脚質別 + ペース圧補正 | 12% | 高知（baba_code=31）のみ |
+| saga_running_style  | `satellites/venue/32/running-style-factor.js` | 距離・脚質別 | 10% | 佐賀（baba_code=32）のみ |
+
+会場別サテライトは `satellites/venue/loader.js` が `venue/<baba_code>/index.js` を読み込む。該当ディレクトリが無い会場では何も加算しない。
 
 ### PaceFactor（ペース想定）
 
@@ -50,11 +80,11 @@ ON/OFF は `predict-race-use-case.js` の `satellites` 配列への追加・削�
 | ミドルペース | 上記以外 | 小幅に逃げ・差し寄り | +5 / +5 / +8 / +3 |
 
 会場を問わず全レースで適用（`predict-race-use-case.js` に直接wired、venue固有ではない）。
-`saga_running_style`（高知・佐賀専用の距離別脚質ボーナス）とは独立して加算される。
+会場別の `kochi_running_style` / `saga_running_style` とは独立して加算される。
 
 ### SummerBodyWeight の補正
 
-7月から9月のレースだけ、コア+サテライト合計後の最終スコアに倍率補正をかける。
+7月から9月のレースだけ（年を問わない。設定ファイルの期間とは独立）、コア+サテライト合計後の最終スコアに倍率補正をかける。
 
 | 条件 | 補正 |
 |------|------|
@@ -79,14 +109,19 @@ tScore = Math.round(tRaw × trainerClassMultiplier)
 
 | レベル | 条件 | 乗数 | フォールバック |
 |--------|------|------|-------------|
-| 5（重賞） | 重賞/GI/Jpn1等 | 1.0 | 60 |
-| 4（A/B1） | A1〜A4/B1 | 1.0 | 40 |
-| 3（B2/B3） | B2/B3 | 0.8 | 20 |
+| 5（重賞） | 重賞/グランプリ/ダービー/オークス/GI/Jpn1等 | 1.0 | 40 |
+| 4（A/B1） | A1〜A4/B1 | 1.0 | 20 |
+| 3（B2/B3） | B2/B3 | 0.8 | 10 |
 | 2（C1/C2） | C1/C2 | 0.6 | 10 |
 | 1（C3/新馬） | C3/C4/新馬/2歳/3歳新 | 0.4 | **20**（試験運用中、通常10） |
-| null（不明） | 解析できない場合 | 0.7 | 20 |
+| null（不明） | 解析できない場合 | 0.7 | 10 |
 
-> **2026-08-23〜1週間試験運用**: Lv1（C3/C4/新馬）だけ無名調教師（JBIS未登録）のフォールバックスコアを10→20に引き上げ中。同クラス帯は無名調教師の馬が大穴を出す傾向が観測されたため、ペナルティを緩めて穴馬を拾いやすくする狙い。`scripts/lib/prediction/scoring.js` の `trainerFallbackScore()` を参照。的中率・ROIを見て本採用か10に戻すか判断する。
+> **試験運用（判断待ち）**: 2026-08-23 から1週間の予定で、Lv1（C3/C4/新馬）だけ無名調教師（JBIS未登録）のフォールバックスコアを10→20に引き上げた。同クラス帯は無名調教師の馬が大穴を出す傾向が観測されたため、ペナルティを緩めて穴馬を拾いやすくする狙い。2026-11-03 時点でも20のまま。`scripts/lib/prediction/scoring.js` の `trainerFallbackScore()` を参照。的中率・ROIを見て本採用か10に戻すか判断する。
+
+### 既知の問題（2026-11-03 時点、未修正）
+
+- **クラス判定の誤爆**: `parseRaceClassLevel()` の `/A[1-4]?/` は数字なしの `A` にも一致する。`JRA交流 C2` のように英字 `A` を含むレース名は Lv4 と判定される。
+- **`scoring.js` のコメントが実装と不一致**: `trainerFallbackScore()` のコメントは Lv5→60 / Lv4→40 / Lv3→20 と書いているが、実際の値は上の表のとおり。コメントの意図が正しい場合は実装側の不具合になるため、確認が必要。
 
 ---
 
@@ -126,10 +161,20 @@ FROM sire_ranking GROUP BY sire_name
         "trainerMultiplier": 1,
         "sire": 83,
         "custom": 32,
-        "improvement": 10,
+        "youngRace": false,
+        "youngSireBoost": 0,
+        "juvenileSireRank": 0,
+        "juvenileSireRankingBonus": 0,
+        "summerSire": 0,
+        "summerBroodmareSire": 0,
+        "summerDamFamily": 0,
+        "summerWeightAllowance": 0,
+        "improvement": 15,
         "wettrack": 0,
         "distance": 20,
         "classjump": 0,
+        "lastkick": 0,
+        "pace": 8,
         "bodyweightMultiplier": 1,
         "bodyweightAdjustment": 0,
         "horseWeightDiff": null
@@ -140,12 +185,14 @@ FROM sire_ranking GROUP BY sire_name
   "weather": "晴",
   "trackCondition": "稍重",
   "raceClass": 2,
+  "paceType": "middle",
   "generatedAt": "2026-06-04T01:00:00.000Z"
 }
 ```
 
 - `items` はスコア降順。`best = items[0]`
-- 旧レコード（2026-05-23以前）は `trainerJbis` / `trainerMultiplier` / `improvement` なし
+- `breakdown` のキーはファクターの追加に合わせて増えるため、古いレコードには無いキーがある（例: 2026-05-23以前は `trainerJbis` / `trainerMultiplier` / `improvement` なし）
+- 馬別ルールと会場別サテライトのキーは、該当する場合に `breakdown` へ追加される
 - 旧レコードに `trainer: 4294967287` が存在する場合は `>>> 0` バグ由来（表示上の問題のみ、運用に影響なし）
 
 ---

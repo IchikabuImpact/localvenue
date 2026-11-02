@@ -1,6 +1,6 @@
 # LocalVenue 現状仕様 (As-Is)
 
-最終更新: 2026-05-28
+最終更新: 2026-11-03
 
 ---
 
@@ -18,20 +18,21 @@
 ### 2.1 予想バッチ（朝）
 - エントリポイント: `cron/yosou.sh` → `scripts/daily-yosou-batch.js`
 - 実行順: 001（カレンダー）→ 002（レース数）→ 003（race_id列挙）→ 004+005（出馬表+予想、並列2）
-- 完了後: `generate-daily-pages.js`（HTML生成）→ `autoupdate.sh`（push）
-- cron: 7:55 / 8:00 / 10:10〜20:40（30分おき）
+- 完了後: `generate-daily-pages.js`（HTML生成）→ ヘルスチェック（異常時は `recover-daily.js`）→ `autoupdate.sh`（push）
+- 1日に複数回実行する。実行時刻は各環境の crontab で管理する
 
 ### 2.2 結果バッチ（夜）
 - エントリポイント: `cron/result.sh` → `scripts/daily-result-batch.js`
 - 実行順: 003 → 101（結果）→ 102（評価）→ 103（ROI）→ 104（日次集計）→ HTML生成
-- 完了後: `autoupdate.sh`（push）
-- cron: 10:30〜21:00（30分おき、予想バッチの20分後）
+- 完了後: ヘルスチェック（異常時は `recover-daily.js --result`）→ `autoupdate.sh`（push）
+- 開催時間中に複数回実行する。実行時刻は各環境の crontab で管理する
 - 101 exit 2（未確定）/ 102 exit 2（予想なし）/ exit 3（結果なし）はスキップして続行
 
 ### 2.3 月次バッチ
 - エントリポイント: `cron/monthly.sh`
-- 実行内容: external_request_logクリーンアップ → 騎手ランキング → 種牡馬ランキング（距離別）
-- cron: 毎月1日 3:00
+- 実行内容: external_request_logクリーンアップ → 騎手ランキング → 2歳種牡馬ランキング → 種牡馬ランキング（距離×馬場状態別）
+- 調教師ランキングは含まれない（`scripts/ops/monthly-fetch-trainer-ranking.sh` で手動取得）
+- 月1回実行する。実行時刻は各環境の crontab で管理する
 
 ### 2.4 静的ページ生成
 - エントリポイント: `scripts/generate-daily-pages.js`
@@ -49,9 +50,9 @@
 
 ## 3. 予想ロジック（yosou-v1）
 
-`scripts/005-predict-race.js` によるスコアリング。Claude等の外部AIは不使用。
+`scripts/005-predict-race.js`（実処理は `scripts/lib/prediction/`）によるスコアリング。Claude等の外部AIは不使用。
 
-**コアファクター（4本）:**
+**コアファクター:**
 
 | 要素 | 内容 |
 |------|------|
@@ -59,15 +60,19 @@
 | 調教師スコア | trainer_ranking と前方一致 + レースクラス乗数（0.4〜1.0） |
 | 種牡馬スコア | sire_ranking と前方一致（馬場状態別、`all` にフォールバック） |
 | カスタム | 偶数馬番=馬番値加算、年齢2歳+40/3歳+30/4歳+20 |
-| 夏季馬体重補正 | 7〜9月のみ、牝馬2〜4歳+5〜+15kg/牝馬5歳以上+5〜+7kgは5%ボーナス、牝馬-7kg以下/牡馬-10kg以下は5%割引 |
+| 若駒レース補正 | 3歳以下が6割以上のレースで、種牡馬スコアと2歳種牡馬ランキングを加味 |
 
-**サテライトファクター（プラグイン型）:**
+**コアに上乗せする補正:**
 
-| ファクター | 条件 | ボーナス |
-|-----------|------|---------|
-| ImprovementFactor | 前走より着順が1以上改善 | +15点 |
+| 種類 | 内容 |
+|------|------|
+| 期間限定ボーナス | 設定ファイルの期間内のみ、血統・斤量条件に応じてコアスコアの%を加算 |
+| 馬別ルール | `horse_win_pattern_rules` の条件に一致した馬に加算 |
+| サテライト | 着順改善・重不良・距離実績・クラス上昇・上がり3F・ペース想定 |
+| 会場別サテライト | 高知・佐賀の距離別脚質 |
+| 夏季馬体重補正 | 7〜9月のみ、最終スコアに ×1.05 / ×0.95 |
 
-詳細: → `docs/PREDICTION_SCORING.md`
+詳細: → `docs/PREDICTION_SCORING.md`, `docs/HORSE_PATTERN_RULES.md`
 
 - 最高得点1頭を `best`（◎）に選出
 - 全頭スコアを `prediction.memo.items` JSON に格納
@@ -77,12 +82,12 @@
 
 ## 4. 評価・ROI集計
 
-- `prediction_eval`: race_idごとの単勝・複勝的中フラグと払戻額
-- `prediction_roi`: strategy（single/place）別の累積ROI
+- `prediction_eval`: race_idごとの単勝・複勝・馬複の的中フラグと払戻額
+- `prediction_roi`: strategy 別のレース単位ROI（102: single/place/quinella、103: ev_win/ev_place）
 - `prediction_roi_daily`: 日次ROI（ymd × strategy）
-- `prediction_roi_summary`: 指定日を終点にした期間別ROIサマリー（初期は直近30日 × strategy）
+- `prediction_roi_summary`: 指定日を終点にした期間別ROIサマリー（直近30日 × strategy）
 
-現在の評価対象: **単勝（single）・複勝（place）の2種**
+公開ページの評価対象: **単勝（single）・複勝（place）・馬複4頭ボックス（quinella、6点）の3種**
 
 ---
 
@@ -106,13 +111,8 @@
 
 ---
 
-## 7. 今後の拡張予定
+## 7. ブログ
 
-### 馬複5頭ボックス予想（次セッション）
-- `prediction.memo.items` 上位5頭で馬複ボックス10点購入を想定
-- 追加が必要なもの:
-  - `102-eval-prediction.js`: 馬複的中判定ロジック
-  - `prediction_roi` の strategy: `quinella` を追加
-  - `104-aggregate-roi-daily.js`: quinella集計
-  - `generate-daily-pages.js`: 馬複結果表示
-  - `prediction_eval`: 馬複用カラム追加（schema変更）
+- `content/blog/*.md` を `scripts/generate-blog-pages.js` で `public/blog/` へ変換する（手動実行）
+- 日次のHTML生成は、トップページに最新記事のティザーを表示するために記事一覧だけを読む
+- 詳細: → `docs/BLOG_DESIGN.md`, `docs/BLOG_REQUIREMENTS.md`

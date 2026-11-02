@@ -2,6 +2,8 @@
 
 > 運用しながら段階的に改善する。コアは壊さず、補正を積み上げる。
 
+> **履歴文書（2026-06-03 時点の計画）**: 下記の候補は VenueFactor を除き、`CorrectionFactor` クラスや `factors/` ディレクトリとは別の形（`scripts/lib/prediction/satellites/`）で実装済みです。現在の仕様は [PREDICTION_SCORING.md](PREDICTION_SCORING.md) を参照してください。
+
 ---
 
 ## 基本方針

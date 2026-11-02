@@ -58,6 +58,6 @@
 
 ## 次の候補
 
-- `generate-daily-pages.js` の SQL query と HTML template をさらに `Repository` / `Renderer` に分ける。
+- ~~`generate-daily-pages.js` の SQL query と HTML template をさらに `Repository` / `Renderer` に分ける。~~ 完了（`lib/pagegen/page-query-service.js`, `lib/pagegen/html-renderer.js`）
 - ranking scripts の DB 保存部分を `Repository` class として命名し直す。
 - 実 MySQL / HTTP を使う smoke test は、ローカルまたは CI の専用環境が用意できた段階で追加する。

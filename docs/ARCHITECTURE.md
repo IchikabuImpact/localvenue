@@ -25,8 +25,19 @@ NAR（日本地方競馬）のレース情報を毎日自動収集し、スコ�
 | `001〜005` | 朝バッチ（予想生成） | レース当日の朝 |
 | `101〜104` | 夜バッチ（結果集計） | レース終了後の夜 |
 | `generate-*` | HTML生成 | 夜バッチの最後 |
-| `fetch-*` | 月次手動 | 月1回手動実行 |
+| `fetch-*` | 月次 | `cron/monthly.sh`（調教師のみ手動） |
 | `daily-*-batch.js` | オーケストレーター | 上記をまとめて呼ぶ親スクリプト |
+
+`scripts/*.js` は引数と依存の組み立てだけを行う薄い CLI で、実処理は `scripts/lib/<領域>/` にあります（use case / repository / client / parser に分離）。
+
+| ディレクトリ | 領域 |
+|-------------|------|
+| `scripts/lib/calendar/`, `race-count/`, `race-id/`, `racing-form/` | 朝バッチの取得処理 |
+| `scripts/lib/prediction/` | スコアリング（`scoring.js`）、サテライト、馬別ルール |
+| `scripts/lib/result/`, `evaluation/`, `roi/` | 結果取得、評価、ROI集計 |
+| `scripts/lib/pagegen/`, `blog/`, `seo/` | HTML生成、ブログ、サイトマップ |
+| `scripts/lib/ranking/` | JBISランキング取得 |
+| `scripts/lib/batch/`, `shared/`, `db/`, `ops/`, `server/` | バッチ共通処理、日付/CLI、DB、運用チェック、プレビューサーバ |
 
 ---
 
@@ -119,6 +130,7 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 - **出力**: `calendar` テーブル（race_date, venucode, venue）
 - **引数**: `YYYYMMDD` | `YYYYMM` | `YYYY MM` | 省略=今月
 - **呼び出し元**: `daily-yosou-batch.js [1]`
+- **フォールバック**: keiba.go.jp が利用できない場合は `001-save-monthly-calendar-rakuten.js`（楽天競馬カレンダー）を使用
 
 #### `002-save-race-count-by-date.js`
 - **役割**: 指定日の会場一覧を `calendar` から取り出し、各会場のレース数（最終R番号）を保存
@@ -144,14 +156,15 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 
 #### `005-predict-race.js`
 - **役割**: `racing_form` + ランキング3本 + サテライトファクターからスコアリングして予想生成
-- **入力**: `racing_form`, `jockey_ranking`, `trainer_ranking`, `sire_ranking`, `race_results`
+- **入力**: `racing_form`, `race_info`, `jockey_ranking`, `trainer_ranking`, `sire_ranking`, `juvenile_sire_ranking`, `horse_win_pattern_rules`, `race_results`, `config/scoring/default.json`
 - **出力**: `prediction`（best horse_number + 全頭スコアのJSON memo）
 - **引数**: `YYYYMMDDRRBB`（必須）
+- **exit code**: `4` = 発走2分前を過ぎたためスキップ（`config.debug: true` なら締め切りを無視して上書き）
 - **モデル名**: `yosou-v1`（`MODEL_VERSION` 定数）
 - **スコアロジック詳細**: → `docs/PREDICTION_SCORING.md` 参照
 - **概要**:
-  - コア4本: 騎手・調教師（クラス乗数あり）・種牡馬（馬場状態別）・カスタム（馬番+年齢）
-  - サテライト（プラグイン）: `satellites/improvement-factor.js` → 前走着順改善 +10
+  - コア: 騎手・調教師（クラス乗数あり）・種牡馬（馬場状態別）・カスタム（馬番+年齢）・若駒レース補正
+  - 期間限定の血統/斤量ボーナス（設定ファイル）、馬別ルール（DB）、サテライト、会場別サテライト、夏季馬体重補正を加味
   - 全頭スコアを `prediction.memo.items` JSON に格納、最高得点を `best`（◎）に選出
 
 ---
@@ -166,29 +179,30 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 - **重要な exit code**:
   - `0` = 正常保存
   - `2` = 未確定（"確定" 文字列なし）→ `daily-result-batch.js` がスキップ
-- **注意**: NAR の baba_code → 楽天の8桁場コードへの変換テーブルを内部に持つ
+- **注意**: NAR の baba_code → 楽天の8桁場コードへの変換は `scripts/lib/result/rakuten-race-code.js`
 
 #### `102-eval-prediction.js`
 - **役割**: `prediction.memo.best.horse_number` を `race_payouts` と照合して的中判定・払戻計算
 - **入力**: `prediction`, `race_payouts`
-- **出力**: `prediction_eval`（的中フラグ・払戻額）, `prediction_roi`（strategy別ROI）
-- **引数**: `YYYYMMDDRRBB [--stake-win 100] [--stake-place 100]`
+- **出力**: `prediction_eval`（的中フラグ・払戻額）, `prediction_roi`（strategy: `single` / `place` / `quinella`）
+- **馬複**: スコア上位4頭のボックス（6点）。1着・2着が両方含まれれば的中
+- **引数**: `YYYYMMDDRRBB [--stake-win 100] [--stake-place 100] [--stake-quinella 100]`
 - **重要な exit code**:
   - `0` = 正常
   - `2` = 予想データなし
   - `3` = 結果データなし
 
 #### `103-eval-roi.js`
-- **役割**: `prediction_roi` を集計して ROI（回収率）を計算・更新
+- **役割**: スコアを正規化した推定確率 × 払戻が閾値以上の馬を買う EV 戦略をシミュレーション
 - **入力**: `prediction`, `race_payouts`
-- **出力**: `prediction_roi`（strategy 別: `single` / `place`）
-- **引数**: `--from YYYY-MM-DD --to YYYY-MM-DD [--model] [--stake] [--mode] [--threshold]`
-- **注意**: ソフトパワー正規化（疑似ソフトマックス）でベット比率を計算
+- **出力**: `prediction_roi`（strategy: `ev_win` / `ev_place`）
+- **引数**: `--from YYYY-MM-DD --to YYYY-MM-DD [--model] [--stake] [--mode] [--threshold] [--use-score-for-place] [--place-temp] [--place-mass]`
+- **注意**: `ev_place` は `--use-score-for-place` 指定時か memo に `p_place` がある場合のみ出力。`ev_*` は 104 の集計対象外で、公開ページの回収率には使われない
 
 #### `104-aggregate-roi-daily.js`
-- **役割**: `prediction_roi` を日次で集計して `prediction_roi_daily` を更新
+- **役割**: `prediction_roi` の `single` / `place` / `quinella` を日次で集計し、直近30日サマリーも更新
 - **入力**: `prediction_roi` テーブル
-- **出力**: `prediction_roi_daily`（ymd, strategy, roi_percent）
+- **出力**: `prediction_roi_daily`（ymd, strategy, roi_percent）, `prediction_roi_summary`（summary_ymd, period_days, strategy）
 - **引数**: `YYYYMMDD`（省略=今日）
 
 ---
@@ -205,7 +219,9 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
   - `public/daily/YYYYMMDD/`（日別フォルダ）
 - **引数**: `YYYYMMDD`（省略=今日）
 - **ファイル削除**: `config.htmlRetentionDays` 日以前のファイルを自動削除
-- **サイト名**: `けんちゃん馬券☆WEB（地方競馬）`
+- **ルート直下の更新**: `public/index.html` と `public/recovery.html` は対象日が JST の今日のときだけ上書き（過去日の再集計でトップページが変わらないようにするため）
+- **サイトマップ**: `SITE_URL` または `config.siteUrl` があれば `sitemap.xml` も更新
+- **サイト名**: `scripts/lib/site-config.js` で定義
 
 ---
 
@@ -214,26 +230,58 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 #### `daily-yosou-batch.js`
 - **役割**: 朝バッチ（001→002→003→[004+005]）を順番に実行する親スクリプト
 - **並列度**: `PARALLEL` 環境変数（デフォルト2）
+- **exit code の扱い**: 005が4→skip。004/005のその他の失敗は警告を出して次のレースへ続行
 - **引数**: `YYYYMMDD`（省略=今日）
 
 #### `daily-result-batch.js`
 - **役割**: 夜バッチ（003→[101+102]→103→104→generate）を実行する親スクリプト
-- **exit code の扱い**: 101が2→skip、102が2/3→skip（その他は例外）
+- **exit code の扱い**: 101が2→skip、102が2/3→skip。101/102のその他の失敗も警告を出して次のレースへ続行（103以降の失敗はバッチ全体を異常終了）
 - **賭け金**: `STAKE_WIN` / `STAKE_PLACE` 環境変数で上書き可（デフォルト各100円）
 - **引数**: `YYYYMMDD`（省略=今日）
 
 ---
 
-### 月次手動系
+### 月次系
 
-#### `fetch-jockey-ranking.js` / `fetch-sire-ranking.js`
-- **役割**: jbis.or.jp から騎手・種牡馬ランキングを取得して DB 保存
-- **出力**: `jockey_ranking`, `sire_ranking` テーブル
-- **実行**: バッチから除外済み → 月1回手動
+#### `fetch-jockey-ranking.js` / `fetch-juvenile-sire-ranking.js` / `fetch-sire-ranking.js` / `fetch-trainer-ranking.js`
+- **役割**: jbis.or.jp から各ランキングを取得して DB 保存
+- **出力**: `jockey_ranking`, `juvenile_sire_ranking`, `sire_ranking`, `trainer_ranking` テーブル
+- **実行**: `cron/monthly.sh` が騎手 → 2歳種牡馬 → 種牡馬（距離10種 × 馬場状態5種）の順に取得
+- **調教師**: `monthly.sh` に含まれないため手動
   ```bash
-  bash scripts/ops/monthly-fetch-jockey-ranking.sh
-  bash scripts/ops/monthly-fetch-sire-ranking.sh
+  bash scripts/ops/monthly-fetch-trainer-ranking.sh
   ```
+
+---
+
+### 運用系
+
+#### cron ラッパー（`cron/`）
+- `yosou.sh`: 朝バッチ → HTML生成 → ヘルスチェック（異常時は復旧）→ 公開
+- `result.sh`: 夜バッチ → ヘルスチェック（異常時は復旧）→ 公開
+- `monthly.sh`: `external_request_log` の掃除とランキング取得
+- `health-check.sh` / `schema-drift-check.sh`: 単体の監視。異常時は `logs/alerts.log` に記録
+- `autoupdate.sh`: 公開処理。**作業ツリーの変更をすべて** commit / push する（`public/` に限らない）
+
+#### `scripts/ops/daily-health-check.js`
+- **役割**: レース数と予想数・生成HTML数の一致、「予想なし」表示の有無、`horse_win_pattern_rules` の存在を確認
+- **exit code**: 異常があれば `1`
+
+#### `scripts/ops/recover-daily.js`
+- **役割**: 対象日の全レースの予想を上書きし、HTML生成（`--result` なら夜バッチ）のあとで再度ヘルスチェック
+- **引数**: `[--date YYYYMMDD] [--result]`
+- **注意**: 締め切りチェックを無効にして上書きするため、発走後のレースの予想も書き換わる
+
+#### `scripts/ops/schema-drift-check.js`
+- **役割**: `data/schema.sql` にあって実DBに無いテーブル・カラムを検出
+
+---
+
+### ブログ
+
+#### `generate-blog-pages.js`
+- **役割**: `content/blog/*.md` を `public/blog/` の静的HTMLへ変換（手動実行、日次バッチには含まれない）
+- **設計**: `docs/BLOG_DESIGN.md`, `docs/BLOG_REQUIREMENTS.md`
 
 ---
 
@@ -250,6 +298,9 @@ calendar ←─── 001
                             │        │
                             │   jockey_ranking ←─── fetch-jockey-ranking.js
                             │   sire_ranking   ←─── fetch-sire-ranking.js
+                            │   juvenile_sire_ranking ←─── fetch-juvenile-sire-ranking.js
+                            │   trainer_ranking ←─── fetch-trainer-ranking.js
+                            │   race_info, horse_win_pattern_rules
                             │        │
                             └──→ prediction ←─── 005
                                      │
@@ -260,6 +311,7 @@ calendar ←─── 001
                             prediction_roi  ←─── 102, 103
                                      │
                         prediction_roi_daily ←─── 104
+                        prediction_roi_summary ←─── 104
                                      │
                              [静的HTML生成] ←─── generate-daily-pages.js
 ```
@@ -282,7 +334,7 @@ YYYYMMDD RR BB
 - `BB` = NARの baba_code（2桁、例: 31=高知, 36=門別, 20=大井）
 
 ### 楽天競馬の場コード変換
-`101-save-result-db.js` 内の `RAKUTEN_BABA_CODE` ハッシュで NAR 2桁 → 楽天8桁に変換。
+`scripts/lib/result/rakuten-race-code.js` の `RAKUTEN_BABA_CODE` で NAR 2桁 → 楽天8桁に変換。
 会場の新設・廃止で複数コードを持つ場合がある（配列で候補を列挙し順番に試行）。
 
 ### public/ を git 管理する理由
@@ -299,8 +351,9 @@ YYYYMMDD RR BB
 1  = 異常終了（例外・接続エラー等）
 2  = スキップ可能な状態（101: 未確定, 102: 予想なし）
 3  = スキップ可能な状態（102: 結果なし）
+4  = スキップ可能な状態（005: 締め切り済み）
 ```
-`daily-result-batch.js` は exit 2/3 を `skip` として処理し、バッチ全体を止めない。
+`daily-result-batch.js` は exit 2/3、`daily-yosou-batch.js` は exit 4 を `skip` として処理する。レース単位の処理はそれ以外の失敗でも警告のみで続行する。
 
 ---
 
@@ -329,6 +382,9 @@ module.exports = {
     database: 'localvenue',
     port: 3306
   },
+  debug: false,                                    // true: 締め切りを無視して予想を上書き（開発用）
+  scoringConfigPath: 'config/scoring/default.json', // スコアリング補正設定
+  siteUrl: 'https://example.com',                  // sitemap.xml / RSS 用の公開URL
   htmlRetentionDays: 30
 };
 ```
@@ -338,10 +394,11 @@ module.exports = {
 ## 9. テストの実行
 
 ```bash
+npm test                 # 単体テスト（tests/unit/、DB・外部サイトへの接続は不要）
 node tests/test-db.js    # DB接続 + 全テーブル存在 + 最新データ確認
 node tests/test-http.js  # 外部5エンドポイントへの疎通確認
 ```
 
 ---
 
-*最終更新: 2026-05-24 by Claude Sonnet 4.6*
+*最終更新: 2026-11-03*

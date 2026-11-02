@@ -30,8 +30,12 @@ NAR（地方競馬全国協会）の情報を収集・蓄積し、レース予�
 | `data/` | スキーマ、シード、初期化スクリプト |
 | `docs/` | 仕様・コード表ドキュメント |
 | `scripts/` | Node.js 実行スクリプト群 |
-| `scripts/ops/` | バッチ/シェル運用スクリプト群 |
-| `public/` | Web公開用 静的ファイル出力先 |
+| `scripts/lib/` | 各スクリプトの実処理（CLIは薄く保ち、ロジックはここに置く） |
+| `scripts/ops/` | 運用スクリプト群（ヘルスチェック、復旧、ランキング手動取得など） |
+| `cron/` | cron から呼ぶラッパースクリプト |
+| `content/blog/` | ブログ記事の Markdown |
+| `tests/` | 単体テスト（`tests/unit/`）と実環境の疎通テスト |
+| `public/` | Web公開用 静的ファイル出力先（git 管理対象） |
 
 ---
 
@@ -57,16 +61,28 @@ node scripts/generate-daily-pages.js 20260523
 生成結果は `public/` と `public/daily/YYYYMMDD/` に出力され、  
 `config.htmlRetentionDays`（既定 30日）より古いファイルは自動削除されます。
 
-### 騎手・種牡馬ランキング（月1回手動）
+### ランキング取得（月次）
 ```bash
-bash scripts/ops/monthly-fetch-jockey-ranking.sh
-bash scripts/ops/monthly-fetch-sire-ranking.sh
+bash cron/monthly.sh                                # 騎手・2歳種牡馬・種牡馬（距離×馬場状態別）
+bash scripts/ops/monthly-fetch-trainer-ranking.sh   # 調教師は monthly.sh に含まれないため手動
+```
+
+### ブログ生成
+```bash
+npm run blog   # content/blog/*.md → public/blog/
+```
+
+### テスト
+```bash
+npm test   # 単体テスト（DB・外部サイトへの接続は不要）
 ```
 
 ### ローカルプレビュー
 ```bash
 npm run serve   # http://localhost:8131
 ```
+
+> ⚠️ `cron/autoupdate.sh` は作業ツリーの変更をすべて commit / push します。運用中のディレクトリで編集中のファイルは、次のバッチ完了時に公開されます。
 
 ---
 
@@ -80,8 +96,8 @@ npm run serve   # http://localhost:8131
 | `001-save-monthly-calendar.js` | `YYYYMMDD` | `calendar` | 月間開催スケジュール取得 |
 | `002-save-race-count-by-date.js` | `YYYYMMDD` | `race_count_by_date` | 各会場のレース数取得 |
 | `003-list-race-ids.js` | `YYYYMMDD` | stdout | 全レースID（12桁）をリスト出力 |
-| `004-racing-form-to-db.js` | `YYYYMMDDRRBB` | `racing_form` | 出馬表を取得・保存（Selenium使用） |
-| `005-predict-race.js` | `YYYYMMDDRRBB` | `prediction` | AI予想を計算・保存 |
+| `004-racing-form-to-db.js` | `YYYYMMDDRRBB` | `racing_form` | 出馬表を取得・保存（axios + cheerio） |
+| `005-predict-race.js` | `YYYYMMDDRRBB` | `prediction` | 予想スコアを計算・保存（締め切り後は exit 4 でスキップ） |
 
 ### 結果・集計フェーズ
 
@@ -89,9 +105,9 @@ npm run serve   # http://localhost:8131
 | :--- | :--- | :--- | :--- |
 | `daily-result-batch.js` | `[YYYYMMDD]` | — | **【メイン】** 結果収集〜HTML生成を一括実行するラッパー |
 | `101-save-result-db.js` | `YYYYMMDDRRBB` | `race_results`, `race_payouts` | 楽天競馬から結果・払戻を取得・保存 |
-| `102-eval-prediction.js` | `YYYYMMDDRRBB` | `prediction_eval` | 予想の的中有無を判定・保存 |
-| `103-eval-roi.js` | `--from` `--to` | `prediction_roi` | EV基準でROIをシミュレーション・保存 |
-| `104-aggregate-roi-daily.js` | `YYYYMMDD` | `prediction_roi_daily` | 日次ROIを集計・保存 |
+| `102-eval-prediction.js` | `YYYYMMDDRRBB` | `prediction_eval`, `prediction_roi` | 単勝・複勝・馬複4頭ボックスの的中判定とROI（`single` / `place` / `quinella`）を保存 |
+| `103-eval-roi.js` | `--from` `--to` | `prediction_roi` | EV基準のROIをシミュレーション・保存（`ev_win` / `ev_place`） |
+| `104-aggregate-roi-daily.js` | `YYYYMMDD` | `prediction_roi_daily`, `prediction_roi_summary` | `single` / `place` / `quinella` の日次ROIと直近30日サマリーを集計・保存 |
 | `generate-daily-pages.js` | `[YYYYMMDD]` | `public/` | 静的HTMLを生成 |
 
 ---
@@ -112,11 +128,11 @@ graph TD
     subgraph 結果バッチ
         E[101 結果収集] -->|race_results / payouts| DB
         DB --> F[102 予想評価]
-        F -->|prediction_eval| DB
+        F -->|prediction_eval / prediction_roi| DB
         DB --> G[103 EV-ROI]
         G -->|prediction_roi| DB
         DB --> H[104 日次集計]
-        H -->|prediction_roi_daily| DB
+        H -->|prediction_roi_daily / summary| DB
         DB --> I[generate-daily-pages]
         I -->|静的HTML| PUB[public/]
     end
@@ -126,9 +142,8 @@ graph TD
 
 ## ✅ Prerequisites（動作要件）
 
-- **Node.js v22.x (LTS)**
+- **Node.js v22.20 以上**
 - **MySQL 8.x**
-- **Google Chrome**（Selenium使用のため）
 
 ---
 

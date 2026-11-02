@@ -1,6 +1,15 @@
 # Claude Code 導入前のリファクタリング提案
 
-最終更新: 2026-05-22
+最終更新: 2026-11-03（本文は 2026-05-22 時点の提案。進捗のみ追記）
+
+## 進捗（2026-11-03 時点）
+
+| 項目 | 状態 | 残り |
+|------|------|------|
+| P1 共通ヘルパー抽出 | ほぼ完了（`scripts/lib/batch/batch-utils.js`, `scripts/lib/shared/`） | `lib/roi/daily-roi-use-case.js` に `jstTodayYmd` / `ymdToIso` の重複、`ops/recover-daily.js` に `runNode` 相当の重複 |
+| P2 スクリプト契約の明文化 | 一部 | `SCRIPT_CONTRACTS.md` は未作成。終了コードと引数は [ARCHITECTURE.md](ARCHITECTURE.md) に記載 |
+| P3 ページ生成の層分割 | 完了（`lib/pagegen/page-query-service.js`, `lib/pagegen/html-renderer.js`） | ― |
+| P4 会場コードの一元化 | 未完了 | `lib/pagegen/page-query-service.js` と `lib/calendar/venue-codes.js` に定義が重複 |
 
 ## 目的
 エージェント向けの Markdown ドキュメントを増やす前に、誤解や運用事故を減らすための「小さく効果の高い」リファクタリング候補を整理します。
