@@ -20,6 +20,18 @@
 | `public/` | 静的HTML生成先 |
 | `tests/` | 単体テスト・疎通テスト |
 
+## 呼び方
+
+チャットでは次の短い呼び方を使います。
+
+| 呼び方 | 指すもの |
+| --- | --- |
+| 馬別ルール | 1頭ごとの加点ルール。テーブル `horse_win_pattern_rules`、予想の内訳では `horsePattern`。説明は `docs/HORSE_PATTERN_RULES.md` |
+| 調教師マスター | `trainer_master`（調教師1人1行）と `trainer_alias`（出馬表の略称との対応）。作るのは `scripts/import-trainer-master.js`。ブログ・分析用で、予想には使わない |
+| 調教師ランキング | `trainer_ranking`。予想の調教師スコアに使う。取得は `scripts/fetch-trainer-ranking.js`（手動） |
+| 予想バッチ | `scripts/daily-yosou-batch.js`（cron は `cron/yosou.sh`） |
+| 結果バッチ | `scripts/daily-result-batch.js`（cron は `cron/result.sh`）。結果の取得から回収率の集計まで |
+
 ## 日次バッチ
 
 ```bash
