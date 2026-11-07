@@ -22,9 +22,10 @@ class MySqlRankingRepository {
     return rows;
   }
 
+  // score=0 の行は所属・成績だけを保存した下位の調教師なので、予想には使わない
   async findTrainerScores(year) {
     const [rows] = await this._pool.execute(
-      `SELECT trainer_name, score FROM trainer_ranking WHERE year = ?`,
+      `SELECT trainer_name, score FROM trainer_ranking WHERE year = ? AND score > 0`,
       [year]
     );
     return rows;

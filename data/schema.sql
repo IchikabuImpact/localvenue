@@ -376,7 +376,14 @@ DROP TABLE IF EXISTS `trainer_ranking`;
 CREATE TABLE `trainer_ranking` (
   `year` int NOT NULL,
   `trainer_name` varchar(255) NOT NULL,
+  `affiliation` varchar(16) DEFAULT NULL,
   `score` int NOT NULL,
+  `rank_position` int DEFAULT NULL,
+  `starts` int DEFAULT NULL,
+  `wins` int DEFAULT NULL,
+  `win_rate` decimal(4,2) DEFAULT NULL,
+  `place_rate` decimal(4,2) DEFAULT NULL,
+  `prize_man` decimal(10,1) DEFAULT NULL,
   PRIMARY KEY (`year`,`trainer_name`),
   KEY `idx_trainer_ranking_year` (`year`),
   KEY `idx_trainer_ranking_score` (`score`)

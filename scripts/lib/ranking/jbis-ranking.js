@@ -2,6 +2,7 @@
 
 const axios = require('axios');
 const cheerio = require('cheerio');
+const iconv = require('iconv-lite');
 const mysql = require('mysql2/promise');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
@@ -39,6 +40,27 @@ function buildPeopleRankingUrl({ year, division, ranking, sort = 'prize', order 
     seqno: seqno ? String(seqno) : '',
     match: 'prefix',
   });
+}
+
+// ランキングのCSVダウンロード用URL（1回で全件。調教師は csvName='leadingTrainer'）
+function buildPeopleRankingCsvUrl({ csvName, year, division, ranking, sort = 'prize', order = 'D' }) {
+  const q = new URLSearchParams({
+    sort,
+    order,
+    ranking,
+    y1: year,
+    y2: year - 2,
+    y3: year,
+    kind: '1',
+    division: String(division),
+    y_f: year,
+    y_t: year,
+    hold: '0',
+    condition: '1',
+    match: 'prefix',
+    items: '100',
+  });
+  return `https://www.jbis.or.jp/ranking/csv/${csvName}/?${q.toString()}`;
 }
 
 function buildJuvenileSireRankingUrl({ year, division = 3, ranking = 2, sort = 'ranking', order = 'A', seqno = '' }) {
@@ -108,11 +130,12 @@ function buildSireRankingUrl(distance, conditionCode = 1, now = new Date(), seqn
   });
 }
 
-async function fetchHtml(url, { axiosClient = axios, retryMax = RETRY_MAX, retryDelayMs = RETRY_DELAY_MS } = {}) {
+async function fetchHtml(url, { axiosClient = axios, retryMax = RETRY_MAX, retryDelayMs = RETRY_DELAY_MS, responseType } = {}) {
   let lastErr;
   for (let attempt = 1; attempt <= retryMax; attempt += 1) {
     try {
       const res = await axiosClient.get(url, {
+        ...(responseType ? { responseType } : {}),
         headers: {
           'User-Agent': UA,
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -134,6 +157,68 @@ async function fetchHtml(url, { axiosClient = axios, retryMax = RETRY_MAX, retry
     }
   }
   throw lastErr;
+}
+
+// JBISのCSVは Shift_JIS（CP932）で配信される
+async function fetchCsv(url, options = {}) {
+  const data = await fetchHtml(url, { ...options, responseType: 'arraybuffer' });
+  return iconv.decode(Buffer.from(data), 'CP932');
+}
+
+// "a","b,c","d""e" 形式の1行を分割する
+function splitCsvLine(line) {
+  const cells = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { cells.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  cells.push(cur);
+  return cells;
+}
+
+const toNumberOrNull = (s) => {
+  const n = Number(String(s ?? '').replace(/,/g, ''));
+  return s === '' || s == null || !Number.isFinite(n) ? null : n;
+};
+
+// リーディングトレーナーのCSVを行配列にする。調教師名は「笹野 博司(笠 松)」の形で所属が付いている
+function parseTrainerRankingCsv(text) {
+  const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const header = splitCsvLine(lines[0]);
+  const col = (name) => header.indexOf(name);
+  const idx = {
+    rank: col('順位'), name: col('調教師名'), starts: col('出走回数'), wins: col('1着'),
+    winRate: col('勝率'), placeRate: col('複勝率'), prize: col('収得賞金（万円）'),
+  };
+  if (idx.rank < 0 || idx.name < 0) throw new Error('CSVの見出しに「順位」「調教師名」がありません');
+  const rows = [];
+  for (const line of lines.slice(1)) {
+    const c = splitCsvLine(line);
+    const rank = parseInt(c[idx.rank], 10);
+    const m = String(c[idx.name] || '').trim().match(/^(.*?)\s*\(([^)]*)\)$/);
+    const trainerName = (m ? m[1] : String(c[idx.name] || '')).trim();
+    if (!Number.isFinite(rank) || !trainerName) continue;
+    rows.push({
+      rank,
+      trainerName,
+      affiliation: m ? m[2].replace(/[\s　]+/g, '') : null,
+      starts: toNumberOrNull(c[idx.starts]),
+      wins: toNumberOrNull(c[idx.wins]),
+      winRate: toNumberOrNull(c[idx.winRate]),
+      placeRate: toNumberOrNull(c[idx.placeRate]),
+      prizeMan: toNumberOrNull(c[idx.prize]),
+    });
+  }
+  return rows;
 }
 
 function uniqueSortedBy(rows, keyFn) {
@@ -256,6 +341,36 @@ async function savePeopleRanking(rows, { year, table, nameColumn, nameKey, mysql
   }
 }
 
+// 調教師ランキングを年ごとに入れ替える。予想に使うスコアは上位 scoredCount 人だけに付け、
+// それより下は所属・成績だけ保存して score=0 にする（読み込み側は score > 0 だけを使う）
+async function saveTrainerRanking(rows, { year, scoredCount = 100, mysqlClient = mysql, appConfig }) {
+  if (!rows.length) return 0;
+  const conn = await createRankingConnection(mysqlClient, appConfig);
+  try {
+    await conn.beginTransaction();
+    await conn.execute('DELETE FROM trainer_ranking WHERE year = ?', [year]);
+    const sql = `
+      INSERT INTO trainer_ranking
+        (year, trainer_name, affiliation, score, rank_position, starts, wins, win_rate, place_rate, prize_man)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      await conn.execute(sql, [
+        year, r.trainerName, r.affiliation ?? null, i < scoredCount ? scoreFromPosition(i) : 0,
+        r.rank ?? null, r.starts ?? null, r.wins ?? null, r.winRate ?? null, r.placeRate ?? null, r.prizeMan ?? null,
+      ]);
+    }
+    await conn.commit();
+    return rows.length;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    await conn.end();
+  }
+}
+
 async function saveSireRanking(rows, { distance, trackCondition = 'all', mysqlClient = mysql, appConfig }) {
   if (!rows.length) return 0;
   const conn = await createRankingConnection(mysqlClient, appConfig);
@@ -310,16 +425,21 @@ module.exports = {
   TRACK_CONDITION_MAP,
   TRACK_CONDITION_CODES,
   buildJuvenileSireRankingUrl,
+  buildPeopleRankingCsvUrl,
   buildPeopleRankingUrl,
   buildRankingUrl,
   buildSireRankingUrl,
+  fetchCsv,
   fetchHtml,
   parseHorseRanking,
   parsePeopleRanking,
   parseSireRanking,
+  parseTrainerRankingCsv,
   saveJuvenileSireRanking,
   savePeopleRanking,
   saveSireRanking,
+  saveTrainerRanking,
+  splitCsvLine,
   scoreFromRank,
   scoreFromPosition,
 };

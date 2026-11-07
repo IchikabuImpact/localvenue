@@ -105,6 +105,14 @@ tRaw = (JBIS登録あり) ? trainer_ranking.score : trainerFallback
 tScore = Math.round(tRaw × trainerClassMultiplier)
 ```
 
+`trainer_ranking` は `scripts/fetch-trainer-ranking.js` で JBIS のリーディングトレーナー（地方）の CSV から作る（手動実行。cron には入っていない）。
+
+- 全調教師（約560人）の所属（`affiliation`）・出走回数・勝利数・勝率・複勝率・収得賞金を保存する
+- 予想に使う `score` は、地方の調教師を収得賞金の順に並べた上位100人だけに付ける（1位=100 … 100位=1）。それより下と中央の調教師は `score = 0`
+- 予想側（`findTrainerScores`）は `score > 0` の行だけを読む。`score = 0` の調教師は「JBIS登録なし」と同じ扱いでフォールバックになる
+- CSV は URL の並び順の指定に関係なく勝利数の順で返るので、スクリプトの中で賞金順に並べ直している
+- 2026-11-07 に列を追加したとき、`score` は追加前の値（旧方式で取得した102人分）に戻した。次に取得スクリプトを実行すると、上記の方式でスコアが入れ替わる
+
 **クラスレベル（レース名から判定）：**
 
 | レベル | 条件 | 乗数 | フォールバック |

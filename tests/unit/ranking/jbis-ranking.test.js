@@ -56,3 +56,32 @@ test('fetch-sire-ranking parseDistanceArg validates the CLI distance', () => {
   assert.equal(parseDistanceArg('1300'), 1300);
   assert.throws(() => parseDistanceArg('bad'), /Usage: node fetch-sire-ranking/);
 });
+
+test('splitCsvLine handles quoted commas and escaped quotes', () => {
+  const { splitCsvLine } = require('../../../scripts/lib/ranking/jbis-ranking');
+  assert.deepEqual(splitCsvLine('"1","a,b","c""d",""'), ['1', 'a,b', 'c"d', '']);
+});
+
+test('parseTrainerRankingCsv splits trainer name and affiliation', () => {
+  const { parseTrainerRankingCsv } = require('../../../scripts/lib/ranking/jbis-ranking');
+  const csv = [
+    '"順位","調教師名","出走回数","重賞勝回数","1着","2着","3着","着外","勝率","連対率","複勝率","収得賞金（万円）"',
+    '"1","笹野 博司(笠 松)","644","2","163","83","80","318","0.25","0.38","0.48","15868.3"',
+    '"2","田中 淳司(北海道)","758","10","153","118","116","371","0.20","0.36","0.50","33580.8"',
+    '',
+  ].join('\r\n');
+  assert.deepEqual(parseTrainerRankingCsv(csv), [
+    { rank: 1, trainerName: '笹野 博司', affiliation: '笠松', starts: 644, wins: 163, winRate: 0.25, placeRate: 0.48, prizeMan: 15868.3 },
+    { rank: 2, trainerName: '田中 淳司', affiliation: '北海道', starts: 758, wins: 153, winRate: 0.2, placeRate: 0.5, prizeMan: 33580.8 },
+  ]);
+});
+
+test('buildPeopleRankingCsvUrl points to the JBIS csv endpoint with prize order', () => {
+  const { buildPeopleRankingCsvUrl } = require('../../../scripts/lib/ranking/jbis-ranking');
+  const url = new URL(buildPeopleRankingCsvUrl({ csvName: 'leadingTrainer', year: 2026, division: 3, ranking: '9' }));
+  assert.equal(url.pathname, '/ranking/csv/leadingTrainer/');
+  assert.equal(url.searchParams.get('sort'), 'prize');
+  assert.equal(url.searchParams.get('order'), 'D');
+  assert.equal(url.searchParams.get('division'), '3');
+  assert.equal(url.searchParams.get('y_f'), '2026');
+});
