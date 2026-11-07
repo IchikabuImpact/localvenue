@@ -292,6 +292,24 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
 
 ---
 
+### 出馬表API（LAN内専用）
+
+#### `api-server.js`
+- **役割**: 出馬表を、小さいローカルモデル（Gemma E2B、Qwen など）が読みやすい日本語の文章にして返す。LAN 内から curl で呼ぶ前提で、外には公開しない
+- **設定**: `config/api.config.js`（git 管理外。見本は `config/api.config.sample.js`）。予想・結果のバッチが使う `config/config.js` とは分けてあり、開発用DB（毎晩本番から同期）を読む
+- **起動**: `npm run api`（既定は `0.0.0.0:8132`）
+- **呼び方**:
+  ```bash
+  curl "http://<このPC>:8132/racecard"                                  # 使い方（USAGE）
+  curl "http://<このPC>:8132/racecard?date=20261108"                    # その日の開催とレース番号
+  curl "http://<このPC>:8132/racecard?date=20261108&baba=32&race=11"     # 出馬表（JSON の text に文章）
+  curl "http://<このPC>:8132/racecard?date=20261108&baba=32&race=11&format=text"  # 文章だけ
+  curl -G "http://<このPC>:8132/racecard" --data-urlencode "date=20261108" --data-urlencode "baba=佐賀" --data-urlencode "race=11"
+  ```
+- **文字コード**: `Content-Type: application/json; charset=utf-8` を明示し、日本語は `\u` に変換せず UTF-8 のまま返す。`baba` は馬場コードでも、URL エンコードした競馬場名でもよい
+- **文章の形**: 表ではなく「項目名: 値」の行で、1頭ごとに見出しを付ける。冒頭に項目の説明（斤量・脚質・上がり3F など）を入れ、値が無いときは「未発表」「データなし」と書く。近走は `race_results` から新しい順に5走。調教師は調教師マスターがあればフルネームと所属を出す
+- **コード**: `scripts/lib/api/`（`racecard-text.js` が文章の組み立て、`racecard-repository.js` が読み出し、`api-app.js` が express のアプリ）。テストは `tests/unit/api/`
+
 ### ブログ
 
 #### `generate-blog-pages.js`

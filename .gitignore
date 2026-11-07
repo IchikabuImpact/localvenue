@@ -5,6 +5,7 @@
 # ---------------- 機密情報 ----------------
 # DB接続情報が入るため除外（config.sample.js は追跡対象）
 config/config.js
+config/api.config.js
 .env
 .env.*
 

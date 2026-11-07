@@ -31,6 +31,7 @@
 | 調教師ランキング | `trainer_ranking`。予想の調教師スコアに使う。取得は `scripts/fetch-trainer-ranking.js`（手動） |
 | 予想バッチ | `scripts/daily-yosou-batch.js`（cron は `cron/yosou.sh`） |
 | 結果バッチ | `scripts/daily-result-batch.js`（cron は `cron/result.sh`）。結果の取得から回収率の集計まで |
+| 出馬表API | `scripts/api-server.js`。LAN内から curl で呼び、出馬表をローカルモデル向けの文章で返す。設定は `config/api.config.js`（開発用DB） |
 
 ## 日次バッチ
 

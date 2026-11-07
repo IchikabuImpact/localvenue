@@ -22,7 +22,8 @@
     "result": "node scripts/daily-result-batch.js",
     "result:date": "node scripts/daily-result-batch.js",
     "blog": "node scripts/generate-blog-pages.js",
-    "test:unit": "node --test tests/unit/**/*.test.js"
+    "test:unit": "node --test tests/unit/**/*.test.js",
+    "api": "node scripts/api-server.js"
   },
   "dependencies": {
     "axios": "^1.10.0",
