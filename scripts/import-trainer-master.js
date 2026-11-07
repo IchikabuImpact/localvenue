@@ -91,7 +91,8 @@ async function main() {
     else await conn.commit();
 
     const count = (m) => aliases.filter((a) => a.matchMethod === m).length;
-    const linkedStarts = aliases.reduce((s, a) => s + (byShort.get(a.shortName)?.starts || 0), 0);
+    const linkedNames = new Set([...aliases.map((a) => a.shortName), ...skip]);
+    const linkedStarts = [...linkedNames].reduce((s, n) => s + (byShort.get(n)?.starts || 0), 0);
     const totalStarts = [...byShort.values()].reduce((s, t) => s + t.starts, 0);
     console.log(`[OK] trainer_master ${masters.length}人 / 出馬表の略称 ${byShort.size}件（手動 ${skip.size}件は据え置き）`);
     console.log(`[OK] trainer_alias ${aliases.length}件: 完全一致 ${count('exact')} / 前方一致 ${count('prefix')} / 文字の順 ${count('subsequence')}`);
