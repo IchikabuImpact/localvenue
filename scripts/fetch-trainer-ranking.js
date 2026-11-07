@@ -44,10 +44,6 @@ function parse(csvText) {
   return parseTrainerRankingCsv(csvText);
 }
 
-async function save(rows, year) {
-  return saveTrainerRanking(rows, { year, scoredCount: scored });
-}
-
 async function main() {
   console.log(`[INFO] year=${theYear} division=${division} scored=${scored}`);
 
@@ -98,4 +94,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildUrl, parse, save };
+module.exports = { buildUrl, parse };
