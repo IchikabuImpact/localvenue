@@ -252,6 +252,21 @@ keiba.rakuten.co.jp ──→ 101 ──────────→│   race_re
   bash scripts/ops/monthly-fetch-trainer-ranking.sh
   ```
 
+#### `import-trainer-master.js`（調教師マスター、手動）
+- **役割**: JBIS のリーディングトレーナーCSV（`leadingTrainer.csv`、ランキングページのCSVリンクから取得）から、調教師マスターと出馬表の略称との対応を作る
+- **出力**: `trainer_master`（調教師1人1行。フルネーム・JBISの所属・所属競馬場）、`trainer_alias`（略称 → `trainer_id`）
+- **実行**: `node scripts/import-trainer-master.js <leadingTrainer.csv> [--dry-run]`。何度実行してもよい
+- **使い道**: ブログや分析で、略称（`racing_form.trainer_name`）からフルネームと所属を引く。予想・結果のバッチは使わない
+- **照合**: 略称の文字がフルネームに同じ順番で含まれるか（「佐々国」→ 佐々木 国明、「櫻田樹」→ 櫻田 浩樹）で探し、出走している競馬場と所属競馬場で絞る。JBIS の「小林」は大井の調教師（小林トレセン）、「西脇」は園田として扱う。2026-11-07 時点で略称532件中529件、出走の99.8%が結び付いた
+- **手動の修正**: 結び付かない略称は `trainer_alias` に `match_method='manual'` で入れる。manual の行は取り込み直しても消えない
+  ```sql
+  -- 例: 略称から引く
+  SELECT f.race_id, f.trainer_name, m.full_name, m.course
+    FROM racing_form f
+    JOIN trainer_alias a ON a.short_name = f.trainer_name
+    JOIN trainer_master m ON m.trainer_id = a.trainer_id;
+  ```
+
 ---
 
 ### 運用系

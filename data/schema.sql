@@ -391,6 +391,54 @@ CREATE TABLE `trainer_ranking` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `trainer_master`
+-- 調教師マスター（1人1行）。JBIS のリーディングトレーナーCSVから作る。
+-- affiliation は JBIS の表記（大井の調教師は「小林」）、course は所属競馬場（小林→大井、西脇→園田）
+--
+
+DROP TABLE IF EXISTS `trainer_master`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `trainer_master` (
+  `trainer_id` int NOT NULL AUTO_INCREMENT,
+  `full_name` varchar(64) NOT NULL,
+  `affiliation` varchar(16) NOT NULL,
+  `course` varchar(16) DEFAULT NULL,
+  `source` varchar(32) NOT NULL DEFAULT 'jbis_csv',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`trainer_id`),
+  UNIQUE KEY `uq_trainer_master_name_aff` (`full_name`,`affiliation`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `trainer_alias`
+-- 出馬表の調教師略称（racing_form.trainer_name）と trainer_master の対応。
+-- 同じ略称が別の競馬場の別人を指すことがあるので、(short_name, course) で引く
+-- match_method: exact / prefix / subsequence / manual（manual は取り込み直しても上書きしない）
+--
+
+DROP TABLE IF EXISTS `trainer_alias`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `trainer_alias` (
+  `alias_id` int NOT NULL AUTO_INCREMENT,
+  `short_name` varchar(32) NOT NULL,
+  `trainer_id` int NOT NULL,
+  `course` varchar(16) DEFAULT NULL,
+  `match_method` varchar(16) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`alias_id`),
+  UNIQUE KEY `uq_trainer_alias_short_trainer` (`short_name`,`trainer_id`),
+  KEY `idx_trainer_alias_short_course` (`short_name`,`course`),
+  KEY `idx_trainer_alias_trainer` (`trainer_id`),
+  CONSTRAINT `fk_trainer_alias_trainer` FOREIGN KEY (`trainer_id`) REFERENCES `trainer_master` (`trainer_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `external_request_log`
 -- 外部サービスへのHTTPリクエスト履歴（レート制限の監査ログ）
 -- 月次バッチ冒頭で当月より古いレコードを削除するため肥大化しない
