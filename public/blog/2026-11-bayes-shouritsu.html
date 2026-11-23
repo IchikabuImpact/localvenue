@@ -1,0 +1,548 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4戦3勝の騎手は本当に勝率75%か ― ベイズ推定で地方競馬の「本当の勝率」と「大外の有利」を計算してみた</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <meta property="og:title" content="4戦3勝の騎手は本当に勝率75%か ― ベイズ推定で地方競馬の「本当の勝率」と「大外の有利」を計算してみた">
+  <meta name="description" content="勝率をそのまま並べると、上位は数回しか乗っていないJRA騎手ばかりになります。ベイズ推定で「本当の勝率」を計算し直すと、ランキングはどう変わるのか。後半では同じ考え方で「最内と大外、どちらが勝ちやすいか」を会場ごとに判定しました。計算の手順とPythonのコードも載せています。">
+  <link rel="canonical" href="https://kenchanbaken.pinkgold.space/blog/2026-11-bayes-shouritsu.html">
+  <meta property="og:description" content="勝率をそのまま並べると、上位は数回しか乗っていないJRA騎手ばかりになります。ベイズ推定で「本当の勝率」を計算し直すと、ランキングはどう変わるのか。後半では同じ考え方で「最内と大外、どちらが勝ちやすいか」を会場ごとに判定しました。計算の手順とPythonのコードも載せています。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:url" content="https://kenchanbaken.pinkgold.space/blog/2026-11-bayes-shouritsu.html">
+  <meta property="og:type" content="article">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"4戦3勝の騎手は本当に勝率75%か ― ベイズ推定で地方競馬の「本当の勝率」と「大外の有利」を計算してみた","description":"勝率をそのまま並べると、上位は数回しか乗っていないJRA騎手ばかりになります。ベイズ推定で「本当の勝率」を計算し直すと、ランキングはどう変わるのか。後半では同じ考え方で「最内と大外、どちらが勝ちやすいか」を会場ごとに判定しました。計算の手順とPythonのコードも載せています。","datePublished":"2026-11-23","dateModified":"2026-11-23","mainEntityOfPage":{"@type":"WebPage","@id":"https://kenchanbaken.pinkgold.space/blog/2026-11-bayes-shouritsu.html"},"url":"https://kenchanbaken.pinkgold.space/blog/2026-11-bayes-shouritsu.html","author":{"@type":"Organization","name":"けんちゃん馬券☆WEB"},"publisher":{"@type":"Organization","name":"けんちゃん馬券☆WEB"}}</script>
+</head>
+<body>
+<header>
+  <div class="container">
+    <h1><a href="/index.html">けんちゃん馬券☆WEB（地方競馬）</a></h1>
+    <p class="site-subtitle"> - 恥ずかしい馬券 - 矛盾にあふれる人間の発想とロジカルなAIがぶつかり合ったものです</p>
+    <nav>
+      <a href="/index.html">予想一覧</a>
+      <a href="/blog/index.html">ブログ</a>
+      <a href="/recovery.html">回収率</a>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+<div class="breadcrumb"><a href="/blog/index.html">&lt; ブログ一覧へ戻る</a></div><article class="blog-post"><h2>4戦3勝の騎手は本当に勝率75%か ― ベイズ推定で地方競馬の「本当の勝率」と「大外の有利」を計算してみた</h2><p class="blog-card-meta">
+      <span class="blog-date">2026-11-23</span>
+      <a class="blog-taxonomy-badge" href="/blog/category/jockey-trainer.html">騎手・調教師</a>
+      <a class="blog-taxonomy-badge tag" href="/blog/tag/deep-dive.html">掘り下げ考察</a>
+    </p><div class="blog-body"><h2 id="勝率ランキングの1位は-1戦1勝">勝率ランキングの1位は「1戦1勝」</h2>
+<p>当サイトに記録してある2026年5月23日〜11月22日のレース結果（7,160レース、のべ73,940頭）から、騎手の勝率を計算して並べてみました。</p>
+<table>
+<thead>
+<tr>
+<th>順位</th>
+<th>騎手（所属）</th>
+<th>成績</th>
+<th>勝率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>加藤祥（JRA）</td>
+<td>1戦1勝</td>
+<td><strong>100.0%</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>今村聖（JRA）</td>
+<td>4戦3勝</td>
+<td>75.0%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>吉村誠（JRA）</td>
+<td>3戦2勝</td>
+<td>66.7%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>荻野極（JRA）</td>
+<td>2戦1勝</td>
+<td>50.0%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>角田大（JRA）</td>
+<td>2戦1勝</td>
+<td>50.0%</td>
+</tr>
+</tbody>
+</table>
+<p>上位10人は、<strong>全員が交流戦で数回だけ乗ったJRAの騎手</strong>でした。上手な騎手たちなのは確かですが、「1戦1勝だから勝率100%」とは誰も思わないはずです。</p>
+<p>一方、佐賀の飛田愛騎手は453戦132勝で勝率29.1%。素の勝率では13位です。</p>
+<p><strong>4戦3勝の75%と、453戦132勝の29.1%。次のレースで勝ちそうなのはどちらでしょう？</strong></p>
+<p>直感では後者ですが、それを数字で言えるようにするのが <strong>ベイズ推定</strong> です。この記事では、計算の手順も一緒に紹介します。足し算と割り算だけで、ほとんどの部分が計算できます。</p>
+<h2 id="集計条件">集計条件</h2>
+<ul>
+<li><strong>期間</strong>: 2026年5月23日〜11月22日。当サイトのデータにあるNAR(地方競馬)全場のレース結果</li>
+<li><strong>騎手</strong>: 減量の印（▲△★☆◇）は外し、同じ騎手として合算しました（326人）。期間限定騎乗などで所属が2つある騎手は、騎乗数の多い方の所属を書いています</li>
+<li><strong>勝率</strong>: 1着の回数 ÷ 騎乗回数。同着や失格は結果の記録のとおりです</li>
+<li><strong>後半の枠の比較</strong>: 8頭以上が走ったレース（6,614レース、1着が1頭に決まったもの）</li>
+</ul>
+<h2 id="ベイズ推定の考え方-最初から少し成績を持っている-とみなす">ベイズ推定の考え方：「最初から少し成績を持っている」とみなす</h2>
+<p>ベイズ推定では、データを見る前の「だいたいこのくらいだろう」という見込み（<strong>事前分布</strong>）を用意します。そこに実際の成績を足し合わせて、見込みを更新します（<strong>事後分布</strong>）。</p>
+<p>勝率のように「勝つか負けるか」の割合には、<strong>ベータ分布</strong> という形の見込みを使うのが定番です。ベータ分布は α と β の2つの数で形が決まり、次のように読み替えられます。</p>
+<blockquote>
+<p><strong>「α勝・β敗の成績を、最初から持っているとみなす」</strong></p>
+</blockquote>
+<p>この読み替えのおかげで、計算は驚くほど簡単になります。</p>
+<pre><code>ベイズで推定した勝率 = (勝ち数 + α) ÷ (騎乗数 + α + β)
+</code></pre>
+<p>これだけです。「事前分布がベータ分布、データが勝ち負け」という組み合わせだと、更新した後もベータ分布のままになります。そのため、足し算だけで済むのです（数学では「共役事前分布」と呼びます）。</p>
+<h2 id="α-と-β-は-全騎手のデータから決める">α と β は、全騎手のデータから決める</h2>
+<p>では、α と β にはいくつを入れればよいのでしょうか。ここでは、<strong>326人の騎手全員の成績から決めました</strong>。この方法は「経験ベイズ」と呼ばれます。</p>
+<p>やったことは、α と β を少しずつ変えながら「全員の成績が、いちばん起こりやすくなる組み合わせ」を探すことです（最尤法）。結果はこうなりました。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>値</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>α</td>
+<td><strong>2.1</strong></td>
+<td>最初から持っている勝ち数</td>
+</tr>
+<tr>
+<td>β</td>
+<td><strong>22.9</strong></td>
+<td>最初から持っている負け数</td>
+</tr>
+<tr>
+<td>α + β</td>
+<td>25</td>
+<td>合わせて <strong>25戦分</strong> の「仮の成績」</td>
+</tr>
+<tr>
+<td>α ÷ (α + β)</td>
+<td>8.4%</td>
+<td>典型的な騎手の勝率</td>
+</tr>
+</tbody>
+</table>
+<p>つまり「地方競馬の騎手は、だいたい <strong>25戦2.1勝（勝率8.4%）</strong> くらいから始まる」という見込みです。</p>
+<p>全騎乗をまとめた勝率は9.7%なので、8.4%は少し低めです。たくさん乗る騎手ほど勝率が高い傾向があるため、「騎手1人ずつ」で見た典型的な勝率は、全体の勝率より低くなります。</p>
+<h2 id="計算してみる-4戦3勝-vs-453戦132勝">計算してみる：4戦3勝 vs 453戦132勝</h2>
+<p>さっそく、冒頭の2人を計算してみます。</p>
+<p><strong>今村聖騎手（4戦3勝）</strong></p>
+<pre><code>(3 + 2.1) ÷ (4 + 25) = 5.1 ÷ 29 = 17.6%
+</code></pre>
+<p><strong>飛田愛騎手（453戦132勝）</strong></p>
+<pre><code>(132 + 2.1) ÷ (453 + 25) = 134.1 ÷ 478 = 28.1%
+</code></pre>
+<p>75%だった今村騎手は <strong>17.6%</strong> まで下がり、飛田騎手は29.1%から <strong>28.1%</strong> と、ほとんど変わりません。</p>
+<p>この違いは、次のように書き直すとよく分かります。</p>
+<pre><code>ベイズ推定 = 重み × 自分の勝率 + (1 − 重み) × 典型的な勝率(8.4%)
+重み = 騎乗数 ÷ (騎乗数 + 25)
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>騎手</th>
+<th>騎乗数</th>
+<th>重み（自分の成績をどれだけ信じるか）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>今村聖</td>
+<td>4</td>
+<td>4 ÷ 29 = <strong>14%</strong></td>
+</tr>
+<tr>
+<td>田山旺（JRA）</td>
+<td>22</td>
+<td>22 ÷ 47 = 47%</td>
+</tr>
+<tr>
+<td>飛田愛</td>
+<td>453</td>
+<td>453 ÷ 478 = <strong>95%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>騎乗数が25戦のとき、ちょうど半分ずつ混ぜることになります。乗った回数が少ないほど「典型的な騎手」の方へ引き寄せられ、多いほど自分の成績がそのまま残ります。これを <strong>縮小推定</strong> と呼びます。</p>
+<h2 id="ベイズで並べ直した勝率ランキング">ベイズで並べ直した勝率ランキング</h2>
+<p>326人全員を、ベイズで推定した勝率で並べ直しました。</p>
+<table>
+<thead>
+<tr>
+<th>順位</th>
+<th>騎手（所属）</th>
+<th>成績</th>
+<th>素の勝率</th>
+<th>ベイズ推定</th>
+<th>90%の範囲</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>飛田愛（佐賀）</td>
+<td>453戦132勝</td>
+<td>29.1%（13位）</td>
+<td><strong>28.1%</strong></td>
+<td>24.7〜31.5%</td>
+</tr>
+<tr>
+<td>2</td>
+<td>小牧太（園田）</td>
+<td>403戦116勝</td>
+<td>28.8%（14位）</td>
+<td><strong>27.6%</strong></td>
+<td>24.1〜31.2%</td>
+</tr>
+<tr>
+<td>3</td>
+<td>宮川実（高知）</td>
+<td>241戦64勝</td>
+<td>26.6%（17位）</td>
+<td><strong>24.8%</strong></td>
+<td>20.6〜29.3%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>吉村智（園田）</td>
+<td>556戦142勝</td>
+<td>25.5%（18位）</td>
+<td><strong>24.8%</strong></td>
+<td>21.9〜27.8%</td>
+</tr>
+<tr>
+<td>5</td>
+<td>矢野貴（大井）</td>
+<td>598戦146勝</td>
+<td>24.4%（24位）</td>
+<td><strong>23.8%</strong></td>
+<td>21.0〜26.6%</td>
+</tr>
+<tr>
+<td>6</td>
+<td>山本聡（水沢）</td>
+<td>569戦137勝</td>
+<td>24.1%（25位）</td>
+<td><strong>23.4%</strong></td>
+<td>20.6〜26.3%</td>
+</tr>
+<tr>
+<td>7</td>
+<td>永森大（高知）</td>
+<td>328戦77勝</td>
+<td>23.5%（26位）</td>
+<td><strong>22.4%</strong></td>
+<td>18.9〜26.1%</td>
+</tr>
+<tr>
+<td>8</td>
+<td>渡邊竜（笠松）</td>
+<td>601戦135勝</td>
+<td>22.5%（30位）</td>
+<td><strong>21.9%</strong></td>
+<td>19.2〜24.7%</td>
+</tr>
+<tr>
+<td>9</td>
+<td>中島龍（金沢）</td>
+<td>416戦94勝</td>
+<td>22.6%（29位）</td>
+<td><strong>21.8%</strong></td>
+<td>18.6〜25.1%</td>
+</tr>
+<tr>
+<td>10</td>
+<td>落合玄（北海道）</td>
+<td>630戦140勝</td>
+<td>22.2%（31位）</td>
+<td><strong>21.7%</strong></td>
+<td>19.1〜24.4%</td>
+</tr>
+</tbody>
+</table>
+<p>素の勝率で1位だった加藤祥騎手（1戦1勝）は、ベイズでは <strong>59位</strong>（11.9%）です。4戦3勝の今村騎手も19位になりました。上位は、各地のリーディング上位の騎手で占められています。</p>
+<p>素の勝率が20%を超えていた騎手は40人いましたが、ベイズで推定しても20%を超えたのは15人でした。残りの25人は、騎乗数が少なくて、たまたま勝ちが続いた分が割り引かれた形です。</p>
+<h3 id="90-の範囲-と-どちらが上か-の確率">「90%の範囲」と「どちらが上か」の確率</h3>
+<p>ベイズ推定の良いところは、1つの数字だけでなく「<strong>どのくらいの幅で信じられるか</strong>」も分かることです。</p>
+<p>表の「90%の範囲」は、本当の勝率が90%の確率でその間に入る、という意味です（信用区間）。今村騎手は <strong>7.5〜30.2%</strong> と幅が広く、まだよく分からないことが数字に出ています。飛田騎手は24.7〜31.5%と狭くなっています。</p>
+<p>ちなみに、事前の見込みを使わずに4戦3勝だけで計算すると、範囲は34.3〜92.4%にもなります。4戦では何も言えないのと同じです。</p>
+<p>2人の事後分布を比べると、確率も出せます。</p>
+<table>
+<thead>
+<tr>
+<th>比べる2人</th>
+<th>前の騎手の方が勝率が高い確率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>飛田愛 vs 今村聖</td>
+<td><strong>91.4%</strong></td>
+</tr>
+<tr>
+<td>小牧太 vs 飛田愛</td>
+<td>43.8%</td>
+</tr>
+<tr>
+<td>宮川実 vs 吉村智</td>
+<td>50.2%</td>
+</tr>
+</tbody>
+</table>
+<p>冒頭の問いの答えは「<strong>飛田騎手の方が、91%の確率で勝率が高い</strong>」です。一方、1位と2位の飛田騎手と小牧騎手は、ほぼ互角でした。3位・4位の宮川騎手と吉村騎手はちょうど五分五分で、この期間のデータでは順位を付けられません。</p>
+<h2 id="後半-最内と大外-勝ちやすいのはどっち">後半：最内と大外、勝ちやすいのはどっち？</h2>
+<p>同じ道具を使って、もう1つ確かめてみます。「<strong>内枠が有利</strong>」とよく言われますが、本当でしょうか。</p>
+<p>比べ方には少し注意が要ります。8枠には馬が2頭入ることが多いので、「枠ごとの勝ち数」で比べると外枠が多くなって当然です。そこで、<strong>1レースに1頭ずつしかいない「最内の馬」（いちばん小さい馬番）と「大外の馬」（いちばん大きい馬番）</strong> を比べました。出走取消があったときは、実際に走った中で一番内と一番外の馬を数えています。</p>
+<h3 id="まず全体では">まず全体では</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>レース数</th>
+<th>勝った回数</th>
+<th>勝率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>最内の馬</td>
+<td>6,614</td>
+<td>574</td>
+<td><strong>8.7%</strong></td>
+</tr>
+<tr>
+<td>大外の馬</td>
+<td>6,614</td>
+<td>750</td>
+<td><strong>11.3%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>なんと、<strong>大外の方が勝っています</strong>。12頭立てのレース（1,920レース）で馬番ごとに見ても、はっきりしていました。</p>
+<table>
+<thead>
+<tr>
+<th>馬番</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+<th>6</th>
+<th>7</th>
+<th>8</th>
+<th>9</th>
+<th>10</th>
+<th>11</th>
+<th>12</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>勝率</td>
+<td>7.9%</td>
+<td>7.9%</td>
+<td>8.3%</td>
+<td>8.8%</td>
+<td>6.7%</td>
+<td>7.8%</td>
+<td>7.8%</td>
+<td>9.6%</td>
+<td>8.4%</td>
+<td>7.9%</td>
+<td>8.2%</td>
+<td><strong>10.8%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>12頭立てなら、どの馬番も平等なら勝率は 1 ÷ 12 = 8.3% のはずです。1〜11番はだいたいその近くにいて、<strong>12番（大外）だけが飛び抜けています</strong>。</p>
+<h3 id="ベイズのa-bテスト">ベイズのA/Bテスト</h3>
+<p>「たまたまではないか」を確かめるのに、ベイズでは次のように考えます。</p>
+<ol>
+<li>最内の本当の勝率を、ベータ分布で表す。事前の見込みは「何も知らない」ことにして α = 1、β = 1（どの勝率も同じくらいありうる、という平らな形）</li>
+<li>最内の事後分布は、Beta(1 + 勝ち数, 1 + 負け数)</li>
+<li>大外も同じように作る</li>
+<li>2つの分布から「大外の勝率 &gt; 最内の勝率」となる確率を計算する</li>
+</ol>
+<p>4番目は、サイコロを振るように考えると分かりやすくなります。2つのベータ分布から乱数を10万回ずつ引いて、「大外の方が大きかった回数」の割合を数えればよいのです。</p>
+<p>全体（6,614レース）で計算すると、大外の方が勝率が高い確率は <strong>99.99%以上</strong> でした。たまたまとは考えにくい差です。12頭立ての12番と1番で比べても99.9%です。</p>
+<h3 id="会場ごとに見ると-盛岡だけが逆">会場ごとに見ると、盛岡だけが逆</h3>
+<table>
+<thead>
+<tr>
+<th>会場</th>
+<th>レース数</th>
+<th>最内の勝率</th>
+<th>大外の勝率</th>
+<th>大外の方が勝ちやすい確率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>園田</td>
+<td>830</td>
+<td>7.7%</td>
+<td><strong>13.7%</strong></td>
+<td><strong>100.0%</strong></td>
+</tr>
+<tr>
+<td>名古屋</td>
+<td>633</td>
+<td>7.0%</td>
+<td><strong>12.5%</strong></td>
+<td><strong>100.0%</strong></td>
+</tr>
+<tr>
+<td>船橋</td>
+<td>305</td>
+<td>3.9%</td>
+<td><strong>10.8%</strong></td>
+<td><strong>99.9%</strong></td>
+</tr>
+<tr>
+<td>高知</td>
+<td>490</td>
+<td>8.8%</td>
+<td><strong>13.9%</strong></td>
+<td><strong>99.4%</strong></td>
+</tr>
+<tr>
+<td>門別</td>
+<td>785</td>
+<td>8.0%</td>
+<td><strong>11.6%</strong></td>
+<td><strong>99.1%</strong></td>
+</tr>
+<tr>
+<td>大井</td>
+<td>508</td>
+<td>6.7%</td>
+<td><strong>10.0%</strong></td>
+<td><strong>97.3%</strong></td>
+</tr>
+<tr>
+<td>笠松</td>
+<td>433</td>
+<td>10.9%</td>
+<td>12.0%</td>
+<td>70.2%</td>
+</tr>
+<tr>
+<td>水沢</td>
+<td>318</td>
+<td>10.4%</td>
+<td>11.6%</td>
+<td>69.3%</td>
+</tr>
+<tr>
+<td>川崎</td>
+<td>357</td>
+<td>9.2%</td>
+<td>10.4%</td>
+<td>69.1%</td>
+</tr>
+<tr>
+<td>浦和</td>
+<td>283</td>
+<td>8.8%</td>
+<td>9.9%</td>
+<td>66.6%</td>
+</tr>
+<tr>
+<td>金沢</td>
+<td>558</td>
+<td>9.5%</td>
+<td>9.9%</td>
+<td>58.0%</td>
+</tr>
+<tr>
+<td>佐賀</td>
+<td>527</td>
+<td>9.5%</td>
+<td>9.7%</td>
+<td>54.1%</td>
+</tr>
+<tr>
+<td>盛岡</td>
+<td>587</td>
+<td><strong>12.4%</strong></td>
+<td>9.2%</td>
+<td><strong>3.7%</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>園田・名古屋・船橋・高知・門別・大井</strong> の6場は、大外の有利がはっきりしています。船橋の最内は305レースで12勝、勝率3.9%しかありません</li>
+<li><strong>笠松から佐賀</strong> までは、確率が50〜70%です。差はあるかもしれませんが、この期間のデータではまだ言い切れません</li>
+<li><strong>盛岡だけが逆</strong> で、最内の方が勝ちやすい確率が96.3%（大外の方が勝ちやすい確率は3.7%）でした。盛岡は地方では珍しい、直線が長く坂のあるコースです。ほかの会場とは別の傾向が出ているのかもしれません</li>
+</ul>
+<p>なぜ大外が有利なのかは、このデータだけでは分かりません。「砂をかぶらない」「馬群にもまれない」といった理由が考えられますが、あくまで仮説です。人気（オッズ）を考えに入れると差が小さくなる可能性もあります。</p>
+<h2 id="自分で計算してみる-python">自分で計算してみる（Python）</h2>
+<p>ここまでの計算は、Python と SciPy があれば数行でできます。Google Colab などに貼り付けて試してみてください。</p>
+<p><strong>騎手のベイズ推定と90%の範囲</strong></p>
+<pre><code class="language-python">from scipy.stats import beta
+
+alpha, b = 2.1, 22.9           # 全騎手から決めた事前分布（25戦2.1勝）
+wins, rides = 3, 4             # 今村聖騎手: 4戦3勝
+
+post = beta(wins + alpha, rides - wins + b)
+print(post.mean())             # 0.176 → 17.6%
+print(post.ppf([0.05, 0.95]))  # [0.075 0.302] → 90%の範囲 7.5〜30.2%
+</code></pre>
+<p><strong>最内と大外のA/Bテスト（船橋）</strong></p>
+<pre><code class="language-python">import numpy as np
+
+rng = np.random.default_rng(0)
+races = 305
+inner = rng.beta(1 + 12, 1 + races - 12, 100_000)  # 最内: 12勝
+outer = rng.beta(1 + 33, 1 + races - 33, 100_000)  # 大外: 33勝
+print((outer &gt; inner).mean())                      # 0.9996 → 99.9%以上
+</code></pre>
+<p>数字を入れ替えれば、気になる騎手や会場でも計算できます。</p>
+<h2 id="まとめ">まとめ</h2>
+<ul>
+<li>勝率をそのまま並べると、<strong>騎乗数の少ない騎手が上に来てしまう</strong>。上位10人は全員、数回だけ乗ったJRAの騎手だった</li>
+<li>ベイズ推定では「<strong>最初から25戦2.1勝を持っている</strong>」とみなして足すだけで、騎乗数の少なさを割り引ける。並べ直すと、1位は飛田愛騎手（28.1%）、2位は小牧太騎手（27.6%）</li>
+<li>同じ考え方で「どちらが上か」を <strong>確率</strong> で言える。飛田騎手が今村騎手より勝率が高い確率は91%</li>
+<li>最内と大外では、<strong>全体で大外の方が勝ちやすい</strong>（8.7% 対 11.3%）。園田・名古屋・船橋・高知・門別・大井ではっきりしていて、<strong>盛岡だけは逆に最内が有利</strong>だった</li>
+</ul>
+<p>「勝率○%」という数字を見たら、それが何戦の成績なのかも一緒に確かめてみてください。データが少ないときほど、ベイズ推定のように「割り引いて読む」方法が役に立ちます。</p>
+<p>※ 当サイトのデータにある期間（2026年5月下旬以降）の集計です。今後の結果を保証するものではありません。馬券の購入はご自身の判断でお願いします。</p>
+</div></article>
+</main>
+<footer>
+  <div class="container">
+    <p>&copy; けんちゃん馬券☆WEB（地方競馬） 2026</p>
+    <p>
+      <a href="/terms.html">ご利用規約</a>
+      &nbsp;|&nbsp;
+      <a href="/privacy-policy.html">プライバシーポリシー</a>
+      &nbsp;|&nbsp;
+      <a href="/contact.html">お問い合わせ</a>
+    </p>
+  </div>
+</footer>
+<script>
+(function () {
+  var topUrl = new URL('/index.html', window.location.origin).toString();
+  document.querySelectorAll('a[href="/index.html"], a[href="index.html"], a[data-top-link="1"]').forEach(function (a) {
+    a.setAttribute('href', topUrl);
+    a.setAttribute('data-top-link', '1');
+  });
+})();
+</script>
+</body>
+</html>
